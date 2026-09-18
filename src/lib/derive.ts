@@ -160,5 +160,63 @@ export function alignSteps(a: DerivedStep[], b: DerivedStep[]) {
   return rows
 }
 
+/** Pseudo-mode for "no failure tag at this step": flows into it are resolved, out of it are introduced. */
+export const TRANSFER_CLEAR = 'clear'
+
+export interface TransferMatrix {
+  /** Union of modes seen on either side (clear included only when used). */
+  modes: string[]
+  /** rows[fromMode][toMode] = aligned-step count. */
+  rows: Record<string, Record<string, number>>
+  /** Aligned steps counted (steps with ≥1 tag on either side only). */
+  steps: number
+}
+
+/**
+ * F2-8 failure-mode transfer, computed from recorded failure.tag events.
+ * Steps are aligned by step number; a side with no tag at a counted step
+ * contributes TRANSFER_CLEAR. Only steps tagged on at least one side count.
+ * Modes present on both sides pair diagonally first (persistence assumed);
+ * leftovers pair cross in listed order. Deterministic.
+ */
+export function transferModes(aEvents: HarnessEvent[], bEvents: HarnessEvent[]): TransferMatrix {
+  const collect = (evs: HarnessEvent[]) => {
+    const m = new Map<number, string[]>()
+    for (const e of evs) {
+      if (e.type !== 'failure.tag') continue
+      const arr = m.get(e.step) ?? []
+      if (!arr.includes(e.mast)) arr.push(e.mast)
+      m.set(e.step, arr)
+    }
+    return m
+  }
+  const A = collect(aEvents)
+  const B = collect(bEvents)
+  const steps = [...new Set([...A.keys(), ...B.keys()])].sort((x, y) => x - y)
+  const rows: Record<string, Record<string, number>> = {}
+  const bump = (f: string, t: string) => {
+    rows[f] ??= {}
+    rows[f][t] = (rows[f][t] ?? 0) + 1
+  }
+  for (const s of steps) {
+    const fa = [...(A.get(s) ?? [TRANSFER_CLEAR])]
+    const fb = [...(B.get(s) ?? [TRANSFER_CLEAR])]
+    for (const x of [...fa]) {
+      const j = x === TRANSFER_CLEAR ? -1 : fb.indexOf(x)
+      if (j >= 0) {
+        bump(x, x)
+        fa.splice(fa.indexOf(x), 1)
+        fb.splice(j, 1)
+      }
+    }
+    // An exhausted side counts as clear: leftover A-modes resolved, leftover B-modes introduced.
+    const faRest = fa.length > 0 ? fa : fb.length > 0 ? [TRANSFER_CLEAR] : []
+    const fbRest = fb.length > 0 ? fb : fa.length > 0 ? [TRANSFER_CLEAR] : []
+    for (const x of faRest) for (const y of fbRest) bump(x, y)
+  }
+  const modes = [...new Set([...Object.keys(rows), ...Object.values(rows).flatMap((r) => Object.keys(r))])].sort()
+  return { modes, rows, steps: steps.length }
+}
+
 export const fmtTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`)
 export const fmtMs = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}s` : `${n}ms`)

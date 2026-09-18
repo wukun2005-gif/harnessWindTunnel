@@ -10,7 +10,7 @@ import type { HarnessEvent, ScenarioMeta } from '../../../shared/events'
 import { MAST_LABEL } from '../../../shared/mast'
 import { PRESETS } from '../../../shared/presets'
 import { api } from '../../api'
-import { alignSteps, deriveRun, fmtMs, fmtTokens } from '../../lib/derive'
+import { alignSteps, deriveRun, fmtMs, fmtTokens, transferModes, TRANSFER_CLEAR } from '../../lib/derive'
 import { useApp, useTunnel, type VariantMetrics } from '../../stores'
 import { useT, useFixture, useVariantLabel } from '../../i18n'
 import { SourceBadge } from '../MRI'
@@ -435,6 +435,42 @@ function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
       {data && firstDiverge >= 0 && (
         <div className="faint" style={{ marginTop: 8 }}>{t('tunnel.diff.firstDiverge', { step: firstDiverge + 1 })}</div>
       )}
+      {data && pair && <TransferTable a={data.a} b={data.b} pair={pair} />}
+    </div>
+  )
+}
+
+/** F2-8 failure-mode transfer, computed from recorded tags (no synthetic counts). */
+function TransferTable({ a, b, pair }: { a: ReturnType<typeof deriveRun>; b: ReturnType<typeof deriveRun>; pair: [string, string] }) {
+  const t = useT()
+  const f = useFixture()
+  const m = useMemo(() => transferModes(a.events, b.events), [a, b])
+  if (m.steps === 0) return <div className="faint" style={{ marginTop: 8 }}>{t('tunnel.transfer.none')}</div>
+  const name = (k: string) => (k === TRANSFER_CLEAR ? t('tunnel.transfer.clear') : f(MAST_LABEL[k as keyof typeof MAST_LABEL] ?? k))
+  const cellBg = (from: string, to: string, c: number) => {
+    if (!c) return undefined
+    if (from === to) return undefined
+    if (to === TRANSFER_CLEAR) return 'rgba(52,211,153,.12)'
+    if (from === TRANSFER_CLEAR) return 'rgba(251,191,36,.12)'
+    return 'rgba(248,113,113,.12)'
+  }
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="faint" style={{ marginBottom: 6 }}>{t('tunnel.transfer.title')} <span className="tag">{t('tunnel.transfer.tag')}</span></div>
+      <table className="t" style={{ width: 'max-content' }}>
+        <thead><tr><th className="mono" style={{ fontSize: 11 }}>{pair[0]} → {pair[1]}</th>{m.modes.map((k) => <th key={k} className="num" style={{ fontSize: 11 }}>{name(k)}</th>)}</tr></thead>
+        <tbody>
+          {m.modes.map((from) => (
+            <tr key={from}>
+              <td className="mono" style={{ fontSize: 12, color: 'var(--red)' }}>{name(from)}</td>
+              {m.modes.map((to) => {
+                const c = m.rows[from]?.[to] ?? 0
+                return <td key={to} className="num" style={{ background: cellBg(from, to, c) }}>{c || '·'}</td>
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
