@@ -8,6 +8,8 @@ import type { HarnessConfig } from '../shared/config'
 import { parseClaudeCodeTranscript } from './importers/claudeCode'
 import { parseDshTrajectory } from './importers/dshTrajectory'
 import { exportNlah, importNlah } from './importers/nlah'
+import { hasKey, setKey } from './keyStore'
+import { VENDOR_PRESETS } from '../shared/provider'
 
 const PORT = Number(process.env['PORT'] ?? 4000)
 
@@ -125,7 +127,12 @@ const server = createServer((req, res) => {
       return json(res, 200, { name, text: readFileSync(resolve(process.cwd(), 'data', 'imports', file), 'utf8') })
     }
 
-    if (req.method === 'POST' && (p === '/api/import' || p === '/api/nlah/export' || p === '/api/nlah/import')) {
+    if (p === '/api/provider-key-status') {
+      const id = q.get('id') ?? ''
+      return json(res, 200, { hasKey: hasKey(id) })
+    }
+
+    if (req.method === 'POST' && (p === '/api/import' || p === '/api/nlah/export' || p === '/api/nlah/import' || p === '/api/provider-key' || p === '/api/provider-models')) {
       void readBody(req).then((raw) => {
         try {
           if (p === '/api/import') {
@@ -149,7 +156,21 @@ const server = createServer((req, res) => {
             return json(res, 200, exportNlah(config, task))
           }
           const { doc } = bodyJson<{ doc?: unknown }>(raw)
-          return json(res, 200, importNlah(doc))
+          if (p === '/api/nlah/import') return json(res, 200, importNlah(doc))
+          if (p === '/api/provider-key') {
+            const { id, apiKey } = bodyJson<{ id?: string; apiKey?: string }>(raw)
+            if (!id) return json(res, 400, { error: 'need provider id' })
+            const ref = setKey(id, typeof apiKey === 'string' ? apiKey : '')
+            return json(res, 200, { ok: true, ref, hasKey: hasKey(id) })
+          }
+          // Fake model listing for demo (simulated): matches a known vendor
+          // baseUrl or falls back to a custom placeholder. Real /models
+          // forwarding happens only against a user-configured live endpoint.
+          const { baseUrl } = bodyJson<{ baseUrl?: string }>(raw)
+          const norm = (baseUrl ?? '').trim().replace(/\/+$/, '')
+          if (!norm) return json(res, 400, { error: 'need baseUrl' })
+          const preset = VENDOR_PRESETS.find((v) => v.baseUrl.replace(/\/+$/, '') === norm)
+          return json(res, 200, { models: preset ? preset.models : ['custom-model'], simulated: true })
         } catch (err) {
           return json(res, 400, { error: String((err as Error).message ?? err) })
         }

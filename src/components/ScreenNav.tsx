@@ -5,6 +5,7 @@ const SCREENS = [
   { route: '/tunnel', labelKey: 'nav.tunnel', num: '02' },
   { route: '/evolution', labelKey: 'nav.forge', num: '03' },
   { route: '/demo', labelKey: 'nav.demo', num: '04' },
+  { route: '/settings', labelKey: 'nav.settings', num: '05' },
 ] as const
 
 export function ScreenNav({ current }: { current: string }) {

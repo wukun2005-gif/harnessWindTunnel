@@ -5,6 +5,7 @@ import MRI from './screens/MRI'
 import WindTunnel from './screens/WindTunnel'
 import Forge from './screens/Forge'
 import Demo from './screens/Demo'
+import Settings from './screens/Settings'
 
 function useHashRoute(): string {
   const normalize = (h: string) => {
@@ -74,6 +75,8 @@ export default function App() {
         <Forge />
       ) : route === '/demo' ? (
         <Demo />
+      ) : route === '/settings' ? (
+        <Settings />
       ) : (
         <Home online={online} />
       )}

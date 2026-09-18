@@ -71,4 +71,10 @@ export const api = {
     jpost<unknown>('/api/nlah/export', { config, task }),
   nlahImport: (doc: unknown) =>
     jpost<{ config: HarnessConfig; task: string }>('/api/nlah/import', { doc }),
+  providerKey: (id: string, apiKey: string) =>
+    jpost<{ ok: boolean; ref: string; hasKey: boolean }>('/api/provider-key', { id, apiKey }),
+  providerKeyStatus: (id: string) =>
+    jget<{ hasKey: boolean }>(`/api/provider-key-status?id=${encodeURIComponent(id)}`),
+  providerModels: (baseUrl: string) =>
+    jpost<{ models: string[]; simulated: boolean }>('/api/provider-models', { baseUrl }),
 }
