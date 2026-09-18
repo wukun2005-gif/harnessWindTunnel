@@ -27,20 +27,20 @@ export const MODE_ALIAS: Record<string, Mode> = {
 
 // Screens: one motherboard, three projections (PRD §4 F1-F3, §F5/F6 mirror).
 // Domain mirrors must reuse these names, never invent parallel ones:
-//   legal Screen-1 = Autopsy Incident Station (a projection of MRI)
-//   legal Screen-3 = Compliance Forge (a projection of Forge)
-//   security Screen-1 = Kill-Chain Attack Flow (a projection of MRI)
+//   legal Screen-1 = Case Review (a projection of insight)
+//   legal Screen-3 = Compliance Evolution (a projection of evolution)
+//   security Screen-1 = Kill-Chain Attack Flow (a projection of insight)
 //   security Screen-2 = Controls Ablation (a projection of Wind Tunnel)
-//   security Screen-3 = Policy Synthesis (a projection of Forge)
+//   security Screen-3 = Policy Synthesis (a projection of evolution)
 export const SCREENS = ['mri', 'tunnel', 'forge'] as const
 export type Screen = (typeof SCREENS)[number]
 export const SCREEN_LABEL: Record<Screen, string> = {
-  mri: 'Harness MRI',
+  mri: 'Run Insight',
   tunnel: 'Wind Tunnel',
-  forge: 'Evolution Forge',
+  forge: 'Evolution',
 }
 export const SCREEN_PROJECTION: Record<string, string> = {
-  Autopsy: 'mri',
+  'Case Review': 'mri',
   'Kill-Chain': 'mri',
   'Controls Ablation': 'tunnel',
   'Audit Staircase': 'tunnel',

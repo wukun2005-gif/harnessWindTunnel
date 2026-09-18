@@ -1073,7 +1073,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 
 <h2>信息架构与分层架构</h2>
 <p>产品由「一个导览 + 三屏 + 两层底座」构成：顶部 Demo 导览负责一键演示与论文预设入口；三屏分别承担<b>运行透视 → 实验（Wind Tunnel）→ 演化</b>的闭环；下层是「数据 / 事件契约层」与「运行 / 回放层（双轨 + 沙箱快照分叉）」。</p>
-<p class="v11"><b>一套三屏母版、三套风洞模式：</b>顶部提供「通用 / 法律 / 安全」模式切换，三套风洞是同一三屏框架在不同问题轴上的投影——<b>通用风洞</b>问「哪个模块让任务做得更好」，<b>法律领域风洞（F5）</b>把三屏换成领域语言（事故尸检台 Autopsy / 领域风洞 / 合规演化），<b>安全红队舱（F6）</b>换成安全语言（攻击火线 Kill-Chain / 控制件消融台 / 策略合成）。切换模式只更换「模块板变量集、题库 / 攻击库、领域指标与终态产物」，三屏主逻辑、事件契约、回放器完全复用，不为垂直包另起一套视图。<span class="v11-tag">v1.1 新增</span></p>
+<p class="v11"><b>一套三屏母版、三套风洞模式：</b>顶部提供「通用 / 法律 / 安全」模式切换，三套风洞是同一三屏框架在不同问题轴上的投影——<b>通用风洞</b>问「哪个模块让任务做得更好」，<b>法律领域风洞（F5）</b>把三屏换成领域语言（案件复盘 Case Review / 领域风洞 / 合规演化），<b>安全红队舱（F6）</b>换成安全语言（攻击火线 Kill-Chain / 控制件消融台 / 策略合成）。切换模式只更换「模块板变量集、题库 / 攻击库、领域指标与终态产物」，三屏主逻辑、事件契约、回放器完全复用，不为垂直包另起一套视图。<span class="v11-tag">v1.1 新增</span></p>
 <div class="arch">
  <div class="arch-layer"><div class="al-t">交互层 · Demo 导览 + 三屏</div>
   <div class="arch-cells">
@@ -1279,9 +1279,9 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <div class="fr-kv"><b>交互：</b>在通用 20 模块之外叠加一层「领域模块」开关，每个显式标注【硬强制 · wrapper】或【软引导 · prompt】：① 权威库 MCP 直连（中国路线：产出前压缩可引用空间）② 引用忠实度审计（美国路线：产出后逐句核验）③ 期限 / 数字对账器 ④ 管辖 / 时效过滤 ⑤ 争点闭合放行门（Release Gate）⑥ 风险分级升级门 ⑦ 哈希审计链；另含领域知识层（知识即数据、不写进 prompt）。</div>
 <div class="ac"><span class="act">AC：</span>① 七个领域开关可独立 / 组合切换并生成扩展配置指纹；② 硬强制门与软引导视觉可区分（复用 F2-1 enforced 标记）；③ 中美两路线可一键单选对照；④ 每个开关附证据 tooltip（审计链 0%→87.8%→100%、Parthenon +13.8/+10.2/+7.4 到 82.0/89.9/90.2，arXiv:2606.04602）并标 arXiv / 来源。</div></div>
 
-<div class="fr"><div class="fr-head"><span class="fr-id">F5-2</span><span class="fr-name">屏一 Autopsy 事故尸检台（镜像运行透视）</span><span class="pill p0">P0</span></div>
-<div class="fr-kv"><b>交互：</b>载入一份埋雷案卷让裸模型产出法律备忘录，trace 被拆成<b>原子断言</b>逐条标色：红＝判例不存在 / 不可达（citation_unreachable，直接重演 Mata v. Avianca 的 6 个假判例）、无据数字、期限算错（未扣节假日）、管辖错位、漏争点、把「法律信息」写成「法律意见」（越界）；末尾出「尸检报告」并对照会触碰 ABA Formal Opinion 512 的哪几条义务（Rule 1.1 / 1.6 / 3.3 / 5.3）。</div>
-<div class="ac"><span class="act">AC：</span>① 断言标签集合对齐 L-MARS 五类（supported / partially_supported / unsupported / citation_unreachable / no_citation，arXiv:2509.00761）与阶段失败表（arXiv:2606.19812）；② Mata 案卷可稳定复现 6 个假判例被标红；③ 尸检报告末尾列出命中的 ABA 512 义务条目；④ 干净对照案卷不被误标（证明 harness 不误杀正常产出）。</div></div>
+<div class="fr"><div class="fr-head"><span class="fr-id">F5-2</span><span class="fr-name">屏一 案件复盘（镜像运行透视）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>载入一份埋雷案卷让裸模型产出法律备忘录，trace 被拆成<b>原子断言</b>逐条标色：红＝判例不存在 / 不可达（citation_unreachable，直接重演 Mata v. Avianca 的 6 个假判例）、无据数字、期限算错（未扣节假日）、管辖错位、漏争点、把「法律信息」写成「法律意见」（越界）；末尾出「复盘报告」并对照会触碰 ABA Formal Opinion 512 的哪几条义务（Rule 1.1 / 1.6 / 3.3 / 5.3）。</div>
+<div class="ac"><span class="act">AC：</span>① 断言标签集合对齐 L-MARS 五类（supported / partially_supported / unsupported / citation_unreachable / no_citation，arXiv:2509.00761）与阶段失败表（arXiv:2606.19812）；② Mata 案卷可稳定复现 6 个假判例被标红；③ 复盘报告末尾列出命中的 ABA 512 义务条目；④ 干净对照案卷不被误标（证明 harness 不误杀正常产出）。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F5-3</span><span class="fr-name">屏二 领域风洞：审计阶梯亲手复现（核心 aha）</span><span class="pill p0">P0</span></div>
 <div class="fr-kv"><b>交互：</b>固定模型与案卷集，逐步拨开关，右侧实时画「假引用率 / 无据断言率 / 严格全通过率」三条曲线：Bare Baseline 跑（别名裸跑） → 只在 prompt 写「请引用真实判例」（软引导，假引用只降一部分且不稳，对应审计链 87.8%）→ 再扳上确定性「引用存在性校验门」（硬强制，假引用当场清零，对应 wrapper 100%）。一键复现 Parthenon、L-MARS（商业法律 AI 仍 17–33% 幻觉引用、严格引用 F1 0.131→0.254）论文数字。</div>
@@ -1462,7 +1462,7 @@ data/redteam/*                              攻击用例库、安全七控件定
 <h1>9 里程碑与排期（三周出可演示 V1.1）</h1>
 <div class="table-wrap"><table><colgroup><col style="width:12%"><col style="width:48%"><col style="width:40%"></colgroup><thead><tr><th>周</th><th>交付内容</th><th>完成定义 DoD（验收）</th></tr></thead><tbody>
 <tr class="v11"><td><b>W1</b></td><td>地基 + 屏一运行透视 + 在线配置：事件 schema 与确定性回放器；屏一运行透视（分层栈、五层 shaper、时间轴、介入标记、失败标签 / critical step）；<b>F4-6 照搬 docStudio 的 Provider 设置</b>（预设 + Custom、拉模型 / 验证 / 持久化，在线档可真跑）；<b>F4-5 真实轨迹解析器</b>（Claude transcript / dsh / NLAH）骨架</td><td>断网可回放任一 fixture；运行透视六分层 token 与 estTokens 自洽、五层 shaper 按序点火；可添加一个 Custom 兼容端点并被在线档选用、刷新仍在、key 不入日志；一份真实 transcript 可导入并在运行透视播放；typecheck 通过</td></tr>
-<tr class="v11"><td><b>W2</b></td><td>通用风洞核心 + 适配画像 + 法律包：屏二模块板、3 个论文预设、模型×harness 矩阵、配对消融、可靠性下尾、<b>F2-11 固定 harness 变 model 适配画像</b>、轨迹 diff、转移矩阵 / Pareto；法律包 F5-1~F5-3（领域模块板、Autopsy 尸检台、审计阶梯亲手复现）+ 3–5 份埋雷案卷与 1 份干净对照；<b>周末出第一版演示视频（通用 + 法律）</b></td><td>20 模块可拨且指纹 / diff 正确、配对严格只差一个字段；F2-11 锁定后 configDiff=0、唯一变量为 model，适配指标可复算并能读出「对 A 合拍 / 对 B 不合拍」；法律裸→软引导→硬强制三态曲线与报告数字一致、Mata 6 假判例被标红；check:paper 通过</td></tr>
+<tr class="v11"><td><b>W2</b></td><td>通用风洞核心 + 适配画像 + 法律包：屏二模块板、3 个论文预设、模型×harness 矩阵、配对消融、可靠性下尾、<b>F2-11 固定 harness 变 model 适配画像</b>、轨迹 diff、转移矩阵 / Pareto；法律包 F5-1~F5-3（领域模块板、案件复盘、审计阶梯亲手复现）+ 3–5 份埋雷案卷与 1 份干净对照；<b>周末出第一版演示视频（通用 + 法律）</b></td><td>20 模块可拨且指纹 / diff 正确、配对严格只差一个字段；F2-11 锁定后 configDiff=0、唯一变量为 model，适配指标可复算并能读出「对 A 合拍 / 对 B 不合拍」；法律裸→软引导→硬强制三态曲线与报告数字一致、Mata 6 假判例被标红；check:paper 通过</td></tr>
 <tr class="v11"><td><b>W3</b></td><td>演化 + 安全包 + 收口：屏三演化（聚类归因、改动卡、三数据集证伪、人控三态 + 自治度滑块、版本树 + 证据包、Autoplay，补 harness.mutation）；安全包 F6-1~F6-3（攻击火线、安全七控件三维 Pareto、策略人批导出）+ F6-4 闭源降级与攻击库；F5-4 合规牌照卡；三模式 12 步一键串讲演示</td><td>改动卡应用后合法、救回 / 回归同显且回归自动建回滚点、每代必停批准门；安全 ASR × 效用 × 人工三维 Pareto 可复现、策略可导出 OPA / 权限 / 三态 / 凭证；通用 / 法律 / 安全三模式均可完整演示；shot.py 桌面 + 移动双视口、浅深主题通过</td></tr>
 <tr class="v11"><td><b>Stretch（延后，不在 v1.1）</b></td><td>真实沙箱快照分叉对接 microVM；金融 / 医疗领域包；在线档从最小 harness 扩到完整 agent；F2-10 舞台对照增强；对接真实权威库 MCP 生产 API、生产级自适应攻击生成器</td><td>—（v1.1 验收不依赖这些项）</td></tr>
 </tbody></table></div>
@@ -1517,7 +1517,7 @@ data/redteam/*                              攻击用例库、安全七控件定
 <h3>法律 / 安全两包：v1.1 已交付什么、后续深化什么（详见调研报告第 8、9 章）</h3>
 <div class="grid2">
 <div class="minicard"><h4>法律包（F5）</h4><ul>
-<li><b>v1.1 已含（离线）：</b>领域模块板（硬强制 / 软引导标注）、Autopsy 原子断言标色、审计阶梯 0%→87.8%→100% 亲手复现、合规牌照卡；3–5 份埋雷案卷 + 干净对照</li>
+<li><b>v1.1 已含（离线）：</b>领域模块板（硬强制 / 软引导标注）、案件复盘（原子断言标色）、审计阶梯 0%→87.8%→100% 亲手复现、合规牌照卡；3–5 份埋雷案卷 + 干净对照</li>
 <li><b>后续深化：</b>接真实权威库 MCP（中国路线：北大法宝 / 威科 / 通义法睿 / iCourt）与产出后引用忠实度审计（美国路线：Harvey / Lexis+ / Westlaw）；Parthenon 式反泄漏学习环真实跑通；覆盖更多案由与监管映射</li>
 <li>关键基准：L-MARS 商业法律 AI 17–33% 幻觉引用、严格引用 F1 0.131→0.254；Mata v. Avianca 6 个假判例罚 $5000、ABA Opinion 512 禁止盲信</li>
 </ul></div>
