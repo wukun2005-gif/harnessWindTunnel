@@ -179,7 +179,7 @@ body.no-hl .v11-tag{display:none}
 <tr><td>运行时自带开关</td><td>Claude Code / Codex 的权限模式、沙箱、hook；dsh Creator</td><td>给了可拨的旋钮、运行时可自改插件树</td><td>不告诉你「旋钮在你的任务上该停在哪」；Creator 无离线 eval、无版本谱系</td></tr>
 <tr><td>云托管 harness</td><td>OpenAI Agents API、Anthropic / Google Managed Agents</td><td>把整套 harness 做成服务、整体包走运维</td><td>黑盒化、只给通用均值；不回答哪个模块在帮倒忙、换模型 / 版本会怎样</td></tr>
 </tbody></table></div>
-<div class="callout c-accent"><p><span class="ct">本产品独占的六格能力</span>① 按 harness 模块归因 trace；② 五层上下文 shaper 显形 + 位置热力；③ 固定任务切换 harness 做交互式受控消融；④ 同任务双 harness 逐步轨迹 diff（反事实回放）；⑤ 从失败生成带证据 / 预测 / 可证伪的改动提议；⑥ 人控批准 + 版本谱系 + 回滚（核心交互）。</p></div>
+<div class="callout c-accent"><p><span class="ct">本产品独占的六格能力</span>① 按 harness 模块归因 trace；② 五层上下文 shaper 显形；③ 固定任务切换 harness 做交互式受控消融；④ 同任务双 harness 逐步轨迹 diff（反事实回放）；⑤ 从失败生成带证据 / 预测 / 可证伪的改动提议；⑥ 人控批准 + 版本谱系 + 回滚（核心交互）。</p></div>
 
 <h2>1.4 价值主张：对谁有什么用</h2>
 <div class="grid3">
@@ -1176,10 +1176,6 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <div class="fr-kv"><b>交互：</b>右侧把当步请求按来源分 6 层渲染：System / 记忆 / Skills 元数据 / 工具 Schema / 历史 / 工具结果；每层一条 token 条，标注由哪个组件注入（sourceComponent），可展开看 preview。</div>
 <div class="ac"><span class="act">AC：</span>① 六层与 CONTEXT_LAYERS 一致、token 条长度按 tokens 比例；② 每层显示注入组件名；③ 切换 step 时分层栈随之变化，且六层 token 之和与该步 estTokens 对得上（容许四舍五入误差并标注口径）。</div></div>
 
-<div class="fr"><div class="fr-head"><span class="fr-id">F1-4</span><span class="fr-name">Lost-in-the-Middle 位置热力</span><span class="pill p1">P1</span></div>
-<div class="fr-kv"><b>交互：</b>在分层栈 / 历史层上叠加 U 形位置热力（首尾召回高、中段低，arXiv:2307.03172），随上下文增长可视化中段「被忽略区」扩大。</div>
-<div class="ac"><span class="act">AC：</span>① 热力为 U 形示意并明确标注「示意，非本任务实测召回」；② 位置随 positionIndex 正确映射，不与 token 条冲突遮挡。</div></div>
-
 <div class="fr"><div class="fr-head"><span class="fr-id">F1-5</span><span class="fr-name">五层上下文 Shaper 点火动画</span><span class="pill p0">P0</span></div>
 <div class="fr-kv"><b>交互：</b>上下文逼近上限时，按「先便宜后昂贵」顺序播放五个 shaper 依次点火：① Budget → ② Snip → ③ Microcompact → ④ Context Collapse → ⑤ Auto-compact，每个显示释放多少 token、触发原因。</div>
 <div class="ac"><span class="act">AC：</span>① 点火顺序严格 1→5（源自 Claude Code 五层压缩，arXiv:2604.14228）；② 每次点火显示 freedTokens 且累计释放量与前后 estTokens 差额自洽；③ 第 2–4 步演示中五层依次点火清晰可见。</div></div>
@@ -1252,7 +1248,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F3-4</span><span class="fr-name">人控三态与自治度滑块</span><span class="pill p0">P0</span></div>
 <div class="fr-kv"><b>交互：</b>对每张改动卡给「拒绝 / 修改 / 批准」三态；提供自治度滑块（源自 Karpathy：自治度是滑块而非开关），从「步步批准」到「仅高风险拦截」；任何档位下，提交进版本树都必须经过人的批准动作。</div>
-<div class="ac"><span class="act">AC：</span>① 三态都有真实处理（拒绝不入树、修改可编辑 diff、批准才 commit），无僵尸按钮；② 自治度滑块改变默认卡点数量但不取消最终批准；③ Autoplay 连续演化时每一代仍停在批准门前（不黑盒放行）。</div></div>
+<div class="ac"><span class="act">AC：</span>① 三态都有真实处理（拒绝不入树、修改可编辑 diff、批准才 commit）；② 自治度滑块改变默认卡点数量但不取消最终批准；③ Autoplay 连续演化时每一代仍停在批准门前（不黑盒放行）。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F3-5</span><span class="fr-name">Harness 版本树与证据包</span><span class="pill p0">P0</span></div>
 <div class="fr-kv"><b>交互：</b>被批准的改动成为版本树一个 commit，节点带 Evidence Pack（失败簇、预测、gate/scorecard 结果、救回 / 回归、来源）；支持分支、查看任意两版本 diff、一键回滚到任一祖先。</div>
@@ -1268,11 +1264,10 @@ MAST Sensor 检测失败 → 打上 failure.tag
 
 <h2>F4 · 全局与工程质量需求</h2>
 <div class="table-wrap"><table><colgroup><col style="width:14%"><col style="width:18%"><col style="width:68%"></colgroup><thead><tr><th>编号</th><th>优先级</th><th>需求与验收</th></tr></thead><tbody>
-<tr><td>F4-1 主题与适配</td><td><span class="pill p1">P1</span></td><td>浅 / 深主题切换并记忆（localStorage）、桌面 1440 与移动 390 均可用、打印样式隐藏顶栏与目录。AC：两主题下文字与图表对比度足够、无横向溢出；移动端多栏自动堆叠为单栏。</td></tr>
 <tr class="v11"><td>F4-2 结果导出 <span class="v11-tag">v1.1 改</span></td><td><span class="pill p1">P1</span></td><td>导出实验结果（配置 + 指标 + 证据包）为 JSON / 可读报告。AC：导出文件可重新导入还原同一实验视图；导出包不含任何 apiKey。</td></tr>
 <tr class="v11"><td>F4-5 真实轨迹导入与 NLAH 互操作（原 Stretch 转正）<span class="v11-tag">v1.1 转正</span></td><td><span class="pill p0">P0</span></td><td>导入<b>真实 Claude Code transcript（JSONL）</b>与 <b>dsh Trajectory</b>，解析归一化到同一 16 类事件 schema（15 运行时 + harness.mutation）后可在运行透视中查看、纳入风洞对照；支持 <b>NLAH 格式双向导入导出</b>（把一份 HarnessConfig + 任务导出为 NLAH harness 供 Claude Code / Codex / dsh 使用，也可导入 NLAH harness 复现）。AC：① 各内置至少一份真实样例，解析后 model.request / tool.* 等关键字段齐全，无法识别字段标 unknown 而非静默丢弃；② 导入轨迹可在 F1 完整播放并打失败标签；③ NLAH 导出可被重新导入、配置往返一致（round-trip）；④ 外部数据一律标 imported / live 来源，不与 fixture 混标。</td></tr>
 <tr class="v11"><td>F4-6 在线模型 Provider 设置（UI / 逻辑 / 持久化照搬 docStudio）<span class="v11-tag">v1.1 新增</span></td><td><span class="pill p0">P0</span></td><td>在线档<b>不绑定 OpenAI</b>，由用户自配任意 LLM。设置页整体复用现成 docStudio 工程（client Settings 的 llm 页、shared provider 类型、server keyStore / registry）：① 厂商预设卡片（Kimi / GLM / MiniMax / MiMo / DeepSeek / Gemini / Qwen / Bedrock / OpenRouter / OpenCode / 火山 / 百炼，预填 baseUrl 与 keyPlaceholder）+ 一个 <b>Custom（OpenAI Compatible）</b>自定义端点（baseUrl 用户自填，可接任意兼容 API / 自建网关 / 聚合平台）；② 每卡片含 apiKey（password）、可编辑 baseUrl（保存去尾斜杠）、「拉取模型列表」（/models）、模型多选、默认模型、模型 fallback 链与总开关、启用开关、已配置 / 需配置徽标，卡片可排序、折叠态记忆；③ 「验证 Key / 验证模型」连通性测试；④ 持久化照搬——ProviderConnection 列表经服务端设置接口存储（docStudio 为 user_settings 表 + keyStore 内存缓存），apiKey 以引用 apiKeyRef 持有，运行时按所选 baseUrl 走 OpenAI 兼容协议。AC：① Custom 填任意兼容 baseUrl + key + model 后可保存并被在线档选用；② 拉模型 / 设默认 / fallback 顺序可用，刷新后配置仍在；③ apiKey 不进入任何 HarnessEvent、控制台日志、导出包与 model.request；④ 不内置任何厂商 key、不写死单一端点；未配置时在线档不可选并引导到本页。</td></tr>
-<tr><td>F4-3 状态诚实性</td><td><span class="pill p0">P0</span></td><td>所有可点元素必有真实行为（无僵尸按钮）；加载 / 空 / 错误态齐备；回放器指纹不命中时显式提示回退到最近分支而非静默替换。AC：逐屏巡检无死按钮；离线断网下无报错白屏。</td></tr>
+<tr><td>F4-3 状态诚实性</td><td><span class="pill p0">P0</span></td><td>加载 / 空 / 错误态齐备；回放器指纹不命中时显式提示回退到最近分支而非静默替换。AC：离线断网下无报错白屏。</td></tr>
 <tr><td>F4-4 不触真危险动作</td><td><span class="pill p0">P0</span></td><td>Demo 内一切「执行 / 外发 / 花钱 / 改文件」均为 fixture 模拟或只读，不在用户真实系统执行副作用。AC：离线档无任何真实写盘 / 网络外呼（除用户主动配置的在线模型请求）。</td></tr>
 </tbody></table></div>
 
@@ -1324,7 +1319,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <p>遵循 DeepSeek Harness 的 <b>「Model-visible means logged」</b>：凡到达模型的内容都必须能从 append-only 事件流完整重建，模型历史只是事件流的投影，不允许旁路输入；语义对齐 dsh Trajectory / OpenHands EventLog / OpenTelemetry GenAI。事件 schema 用 zod 定义、前后端共用（shared/events.ts），事件包络统一含 <code>id / ts / runId / scenarioId / author</code>，其中 <code>author</code> 声明作者（<code>harness</code>=被测 Harness 运行时产生，<code>narrator</code>=叙述者事后标注，详见 2.2.5 节事件作者）。v1.1 落地以下 15 运行时类 + harness.mutation（共 16 类，v1.1.1 已补齐）：</p>
 <div class="table-wrap"><table><colgroup><col style="width:23%"><col style="width:54%"><col style="width:23%"></colgroup><thead><tr><th>事件类型</th><th>关键字段</th><th>主要服务于</th></tr></thead><tbody>
 <tr><td><code>run.started</code></td><td>model、task</td><td>运行元信息</td></tr>
-<tr><td><code>model.request</code></td><td>step、blocks[](6 层 context block：layer/sourceComponent/tokens/positionIndex)、estTokens</td><td>运行透视分层栈 / 位置热力</td></tr>
+<tr><td><code>model.request</code></td><td>step、blocks[](6 层 context block：layer/sourceComponent/tokens/positionIndex)、estTokens</td><td>运行透视分层栈</td></tr>
 <tr><td><code>model.response</code></td><td>step、thought、stopReason</td><td>主泳道</td></tr>
 <tr><td><code>tool.call / tool.result</code></td><td>step、tool、argsSummary / tokens、summary</td><td>主泳道、工具边界</td></tr>
 <tr><td><code>shaper.fire</code></td><td>step、order(1–5)、shaper、freedTokens、note</td><td>五层压缩点火</td></tr>
@@ -1403,7 +1398,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <tr><td>确定性 / 可复现</td><td>离线档同一「场景 × 配置指纹」每次回放结果完全一致；指标由数据现算、可复算；论文预设数字与报告一致</td><td>连跑两次结果 diff 为空；check:paper 脚本通过（scripts/check-paper-numbers.ts）</td></tr>
 <tr><td>离线优先 / 零成本</td><td>默认不依赖网络与 API Key 即可完整演示；fixture 数据随工程本地加载，不引用会过期的外链资源</td><td>断网冷启动完整走通 12 步演示</td></tr>
 <tr><td>性能</td><td>轨迹步进 / 切换配置的反馈在 100ms 级（离线为本地数据计算）；三屏切换无白屏；ECharts 图表随数据增量更新不卡顿</td><td>最大 fixture（十代、多配置）下交互流畅、无长任务阻塞主线程</td></tr>
-<tr><td>响应式 / 可访问</td><td>桌面 1440 与移动 390 均可读可操作，多栏在窄屏堆叠；浅 / 深主题；图表不只靠颜色区分（辅以形状 / 标签）；可打印</td><td>shot.py 桌面 + 移动双视口截图核对；键盘可操作主导航</td></tr>
+<tr><td>响应式 / 可访问</td><td>桌面端可读可操作；图表不只靠颜色区分（辅以形状 / 标签）</td><td>shot.py 桌面视口截图核对；键盘可操作主导航</td></tr>
 <tr><td>演示安全</td><td>离线档无真实副作用（不写用户文件、不外发、不花钱）；在线档请求仅发往用户自配 endpoint，密钥只存本地、不进事件流与日志（对齐沙箱 Credential Vault 原则）</td><td>代码审计无离线外呼；密钥字段不进入 model.request / 日志</td></tr>
 <tr><td>类型安全 / 可维护</td><td>前后端共用 zod 事件与配置 schema，TS strict 通过；新增场景 / 预设为数据驱动（加 JSON 即可），不改三屏主逻辑</td><td><code>npm run typecheck</code> 零错误；新增一个 fixture 场景无需改组件</td></tr>
 <tr><td>诚实标注</td><td>论文复现 / 示意 fixture / 在线实测三类来源处处可辨；不把 mock 标成实测；闭源档位不过度承诺可消融范围</td><td>逐屏巡检来源徽标；无「实测」字样出现在 fixture 数据上</td></tr>

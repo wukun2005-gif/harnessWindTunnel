@@ -193,8 +193,8 @@ const en: Dict = {
   'demo.step2.title': 'Report writing hits context limit: 5-stage Shaper fires in order',
   'demo.step2.desc': 'A report-writing run with interview transcripts near the context ceiling: the 5-stage Shaper (compression pipeline) fires from cheap to expensive — budget→snip→microcompact→collapse→autoCompact — freeing tokens at each stage.',
   'demo.step2.memory': 'Visualizing previously invisible compression pipelines',
-  'demo.step3.title': 'Inspect Tool Result for Component Source & U-Shape Position',
-  'demo.step3.desc': 'Model-Visible Stack: each context block is tagged with injecting component, token count, and location in the U-shape attention curve.',
+  'demo.step3.title': 'Inspect Tool Result for Component Source',
+  'demo.step3.desc': 'Model-Visible Stack: each context block is tagged with injecting component and token count.',
   'demo.step3.memory': 'Model-visible means logged',
   'demo.step4.title': 'Verifier Sensor Rejects Premature Victory',
   'demo.step4.desc': 'Competitor research scenario: model attempts early completion with only 2 sources; groundedness verifier rejects and enforces checking the 3rd competitor.',
@@ -316,7 +316,6 @@ const en: Dict = {
   'mri.annotations': 'Failure Annotations · labels only, not interventions',
   'mri.click.step': 'Play or click a step to view details',
   'mri.stack.title2': 'Model-Visible Stack',
-  'mri.stack.heat.desc': '▲ Positional Attention Heatmap: high attention at edges, low in middle',
   'mri.shaper.title': '5-Stage Shaper Cascade',
   'mri.shaper.tag': '· Cheapest to most expensive',
   'mri.shaper.desc0': 'Single msg spillover → file ref',
@@ -325,7 +324,6 @@ const en: Dict = {
   'mri.shaper.desc3': 'Read-only folding projection',
   'mri.shaper.desc4': 'Semantic summarization fallback',
   'mri.shaper.empty': 'Compaction pipeline has not been triggered at current playhead',
-  'mri.shaper.heat.tip': 'Lost in the middle (simulated): positional attention follows U-shape',
 
   // Forge screen — extra
   'forge.samples': 'Samples',
@@ -499,8 +497,8 @@ const zh: Dict = {
   'demo.step2.title': '上下文快满时：5 级压缩管线依次触发',
   'demo.step2.desc': '以报告写作任务为例：访谈记录把上下文撑满，5 级压缩器（Shaper）从便宜到昂贵依次触发，每级释放一部分空间。',
   'demo.step2.memory': '可视化此前不可见的压缩管线',
-  'demo.step3.title': '检查工具结果的组件来源与 U 形位置',
-  'demo.step3.desc': 'Model-Visible Stack: 每个上下文块标注注入组件、token 数量和 U 形注意力曲线中的位置。',
+  'demo.step3.title': '检查工具结果的组件来源',
+  'demo.step3.desc': 'Model-Visible Stack: 每个上下文块标注注入组件和 token 数量。',
   'demo.step3.memory': 'Model-visible means logged',
   'demo.step4.title': '验证器传感器拒绝过早胜利',
   'demo.step4.desc': '竞品调研场景: 模型尝试仅用 2 个来源提前完成; 归因验证器拒绝并强制检查第 3 个竞品。',
@@ -622,7 +620,6 @@ const zh: Dict = {
   'mri.annotations': '失败标注 · 仅标注，非干预',
   'mri.click.step': '播放或点击某一步查看详情',
   'mri.stack.title2': 'Model-Visible 上下文堆栈',
-  'mri.stack.heat.desc': '▲ 位置注意力热力图：边缘高注意、中间低注意',
   'mri.shaper.title': '5 级 Shaper 级联',
   'mri.shaper.tag': '· 从最廉价到最昂贵',
   'mri.shaper.desc0': '单条消息溢出 → 文件引用',
@@ -631,7 +628,6 @@ const zh: Dict = {
   'mri.shaper.desc3': '只读折叠投影',
   'mri.shaper.desc4': '语义摘要兜底',
   'mri.shaper.empty': '当前播放头尚未触发压缩管线',
-  'mri.shaper.heat.tip': '中间丢失（模拟）：位置注意力呈 U 形',
 
   // Forge screen — extra
   'forge.samples': '样本',
@@ -789,7 +785,7 @@ const fixtureEn: Dict = {
   'History was not trimmed; continue reading the last 3 interviews': 'History was not trimmed; continue reading the last 3 interviews',
   'Sections 1–2 drafted': 'Sections 1–2 drafted',
   'Writing the risk section: section 2 figures contradict earlier text': 'Writing the risk section: section 2 figures contradict earlier text',
-  'Late sections conflict with mid-run definitions; U-shaped attention lowers middle recall': 'Late sections conflict with mid-run definitions; U-shaped attention lowers middle recall',
+  'Late sections conflict with mid-run definitions; middle-section recall drops': 'Late sections conflict with mid-run definitions; middle-section recall drops',
   // ─── writing-q3-report/nocomp ───
   'First list the source documents': 'First list the source documents',
   '24 files': '24 files',
@@ -1014,7 +1010,7 @@ const fixtureZh: Dict = {
   'History was not trimmed; continue reading the last 3 interviews': '历史未修剪；继续阅读最后 3 份访谈',
   'Sections 1–2 drafted': '第 1–2 节已起草',
   'Writing the risk section: section 2 figures contradict earlier text': '撰写风险部分：第 2 节数据与前文矛盾',
-  'Late sections conflict with mid-run definitions; U-shaped attention lowers middle recall': '后段章节与中途定义冲突；U 形注意力降低中间段回忆',
+  'Late sections conflict with mid-run definitions; middle-section recall drops': '后段章节与中途定义冲突；中间段回忆下降',
   // ─── writing-q3-report/nocomp ───
   'First list the source documents': '首先列出源文档',
   '24 files': '24 个文件',

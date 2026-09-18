@@ -10,6 +10,7 @@ import {
   type HarnessEvent, type MetricsEntry, type ScenarioMeta, type SourceRef,
 } from '../shared/events'
 import type { MastTag } from '../shared/mast'
+import { hashSeed, mulberry32 } from '../shared/reliability'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const OUT = resolve(ROOT, 'data')
@@ -124,7 +125,23 @@ interface Scenario {
   diffPairs: [string, string][]
 }
 
-const fx = (successRate: number, tokens: number, latencyP50: number, failureModes: Partial<Record<MastTag, number>> = {}): MetricsEntry => ({ successRate, tokens, latencyP50, failureModes, source: S('fixture', 'Illustrative data') })
+const RUNS_N = 8
+/**
+ * Deterministic per-run fixture readings backing F2-6 lower-tail stats.
+ * Mean tracks the headline rate (sd ≈ 2pp); same inputs → same runs, so every
+ * downstream stat is recalculable with no extra model calls.
+ */
+function runsFor(rate: number, key: string, n = RUNS_N): number[] {
+  const rand = mulberry32(hashSeed(key))
+  const out: number[] = []
+  for (let i = 0; i < n; i++) {
+    const z = (rand() + rand() + rand() - 1.5) * 4
+    out.push(Math.max(0, Math.min(100, Math.round((rate + z) * 10) / 10)))
+  }
+  return out
+}
+
+const fx = (successRate: number, tokens: number, latencyP50: number, failureModes: Partial<Record<MastTag, number>> = {}): MetricsEntry => ({ successRate, tokens, latencyP50, failureModes, runs: runsFor(successRate, `${successRate}|${tokens}|${latencyP50}|${Object.keys(failureModes).sort().join(',')}`), source: S('fixture', 'Illustrative data') })
 
 const MODEL = 'gpt-5.4-xhigh (fixed model, illustrative)'
 
@@ -168,7 +185,7 @@ const scenarios: Scenario[] = [
           rec.tool('fs.write', 'report/section-1-2.md', 900, 'Sections 1–2 drafted')
           rec.req(ctx({ history: 9800, toolResult: { source: 'fs.read(outline.md)', tokens: 300, preview: 'The outline is buried deep in earlier context; positional attention degrades' } }), 'Writing the risk section: section 2 figures contradict earlier text')
           rec.tag('context-loss', 0.81, 'The outline written earlier is unreachable mid-window; only its position-degraded preview remains')
-          rec.tag('long-horizon-decay', 0.86, 'Late sections conflict with mid-run definitions; U-shaped attention lowers middle recall')
+          rec.tag('long-horizon-decay', 0.86, 'Late sections conflict with mid-run definitions; middle-section recall drops')
           rec.finish({ success: false, tokens: 196_000, latencyP50: 205_000, failureModes: { 'long-horizon-decay': 1, 'context-loss': 1 } })
         },
       },

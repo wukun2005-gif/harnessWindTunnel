@@ -260,18 +260,6 @@ function TimelinePlayer() {
   )
 }
 
-/** U-shaped positional attention heat (Lost in the middle, simulated): lower attention in the middle */
-function uHeat(pos: number, n: number): number {
-  if (n <= 1) return 1
-  const x = pos / (n - 1)
-  const u = 1 - 0.72 * (1 - Math.abs(2 * x - 1) ** 1.6)
-  return u
-}
-function heatColor(v: number): string {
-  // v in (0,1], higher is greener (higher attention), lower is redder
-  const hue = v * 120
-  return `hsl(${hue}, 65%, 42%)`
-}
 
 function ContextInspector() {
   const { run, playhead } = useRun()
