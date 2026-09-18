@@ -10,6 +10,7 @@ import type { HarnessEvent, ScenarioMeta } from '../../../shared/events'
 import { MAST_LABEL } from '../../../shared/mast'
 import { PRESETS } from '../../../shared/presets'
 import { api } from '../../api'
+import { buildTunnelExport, downloadJson, parseTunnelImport } from '../../lib/pack'
 import { alignSteps, deriveRun, fmtMs, fmtTokens, transferModes, TRANSFER_CLEAR } from '../../lib/derive'
 import { useApp, useTunnel, type VariantMetrics } from '../../stores'
 import { useT, useFixture, useVariantLabel } from '../../i18n'
@@ -101,6 +102,28 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
   const f = useFixture()
   const T = useTunnel()
   const { select } = useApp()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+  const onExport = () => {
+    downloadJson(
+      `tunnel-${T.scenarioId || 'variants'}.json`,
+      buildTunnelExport(T.scenarioId, T.variants, T.lockedKey, T.variants.map((v) => v.key)),
+    )
+  }
+  const onImportFile = async (file: File) => {
+    setImportError(null)
+    try {
+      const parsed = parseTunnelImport(JSON.parse(await file.text()))
+      if (!parsed) {
+        setImportError(t('tunnel.import.error'))
+        return
+      }
+      if (parsed.scenarioId !== T.scenarioId) select(parsed.scenarioId)
+      T.restoreAll(parsed.scenarioId, parsed.variants, parsed.lockedIndex)
+    } catch {
+      setImportError(t('tunnel.import.error'))
+    }
+  }
   const rows = T.variants.map((v) => ({ v, m: T.metrics[v.key] }))
   // F2-2 locked baseline (falls back to the first row when nothing is locked).
   const lockedKey = T.lockedKey ?? rows[0]?.v.key
@@ -148,7 +171,12 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
         {PRESETS.filter((p) => p.id === 'nlah-ablation' || p.id === 'harness-r1-regress' || p.id === 'minimal-rich-pairs').map((p) => (
           <button key={p.id} className="primary" style={{ padding: '2px 10px', fontSize: 12 }} title={p.tagline} onClick={() => { select(p.scenarioId); T.loadPresetVariants(p.scenarioId, p.variants) }}>▶ {p.title}</button>
         ))}
+        <span style={{ flex: 1 }} />
+        <button style={{ padding: '2px 10px', fontSize: 12 }} onClick={onExport} disabled={rows.length === 0}>{t('tunnel.export')}</button>
+        <button style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => fileRef.current?.click()}>{t('tunnel.import')}</button>
+        <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onImportFile(f); e.target.value = '' }} />
       </div>
+      {importError && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 6 }}>{importError}</div>}
       {rows.length === 0 ? (
         <div className="faint">{t('tunnel.readings.empty.hint')}</div>
       ) : (

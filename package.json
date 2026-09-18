@@ -9,7 +9,7 @@
     "dev:web": "vite",
     "gen:fixtures": "tsx scripts/gen-fixture.ts",
     "check:paper": "tsx scripts/check-paper-numbers.ts",
-    "test": "tsx --test scripts/i18n.test.ts scripts/reliability.test.ts scripts/adaptation.test.ts scripts/transfer.test.ts scripts/minimal-rich.test.ts scripts/forge-surface.test.ts",
+    "test": "tsx --test scripts/i18n.test.ts scripts/reliability.test.ts scripts/adaptation.test.ts scripts/transfer.test.ts scripts/minimal-rich.test.ts scripts/forge-surface.test.ts scripts/export.test.ts",
     "build": "vite build",
     "typecheck": "tsc --noEmit"
   },

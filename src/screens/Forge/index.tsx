@@ -4,6 +4,7 @@ import { useApp, useForge } from '../../stores'
 import type { ForgeGen } from '../../api'
 import { SourceBadge } from '../MRI'
 import { useT, useFixture } from '../../i18n'
+import { downloadJson } from '../../lib/pack'
 import { ScreenNav } from '../../components/ScreenNav'
 
 export default function Forge() {
@@ -184,6 +185,12 @@ export default function Forge() {
                 <dt>{t('forge.verdict')}</dt><dd>{F.decisions[packOf.gen] ?? (packOf.gen < F.currentGen ? packOf.verdict : t('forge.pending'))}</dd>
               </dl>
               <div style={{ marginTop: 8 }}>{forge.source.map((s, i) => <div key={i} style={{ marginTop: 4 }}><SourceBadge source={s as never} /></div>)}</div>
+              <div style={{ marginTop: 8 }}>
+                <button
+                  style={{ padding: '2px 10px', fontSize: 12 }}
+                  onClick={() => downloadJson(`evidence-gen${packOf.gen}.json`, { ...packOf, scenarioId: forge.scenarioId, exportedAt: new Date().toISOString() })}
+                >{t('forge.evidence.export')}</button>
+              </div>
             </div>
           )}
         </div>

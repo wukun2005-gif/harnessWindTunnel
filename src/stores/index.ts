@@ -112,6 +112,7 @@ interface TunnelState {
   clearVariants: () => void
   resetBoard: () => void
   loadPresetVariants: (scenarioId: string, list: PresetVariant[]) => void
+  restoreAll: (scenarioId: string, list: { label: string; config: HarnessConfig; note?: string }[], lockedIndex: number | null) => void
   fetchMetrics: () => Promise<void>
 }
 const COLORS = ['#22d3ee', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#60a5fa']
@@ -155,6 +156,11 @@ export const useTunnel = create<TunnelState>((set, get) => ({
     // effect wipe freshly added variants when switching scenarios.
     const vs: Variant[] = list.map((v, i) => ({ key: `v${++vseq}`, label: v.label, config: v.config, branchId: v.branchId, note: v.note, color: COLORS[i % COLORS.length] }))
     set({ scenarioId, variants: vs, metrics: {}, fetching: null, lockedKey: null })
+    void get().fetchMetrics()
+  },
+  restoreAll(scenarioId, list, lockedIndex) {
+    const vs: Variant[] = list.map((v, i) => ({ key: `v${++vseq}`, label: v.label, config: v.config, note: v.note, color: COLORS[i % COLORS.length] }))
+    set({ scenarioId, variants: vs, metrics: {}, fetching: null, lockedKey: lockedIndex !== null ? (vs[lockedIndex]?.key ?? null) : null })
     void get().fetchMetrics()
   },
   async fetchMetrics() {
