@@ -226,6 +226,7 @@
     "mri.branch.fivelayer": "五层压缩",
     "mri.branch.budget": "预算压缩",
     "mri.branch.nocomp": "基准",
+    "mri.branch.compress": "激进压缩",
     "mri.branch.base": "基准",
     "mri.branch.tuned": "调优",
     "mri.branch.selfevo": "自演化",
