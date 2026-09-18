@@ -142,6 +142,16 @@ const server = createServer((req, res) => {
       }
     }
 
+    if (p === '/api/redteam') {
+      try {
+        const attacks = JSON.parse(readFileSync(resolve(process.cwd(), 'data', 'redteam', 'attacks.json'), 'utf8'))
+        const controls = JSON.parse(readFileSync(resolve(process.cwd(), 'data', 'redteam', 'controls.json'), 'utf8'))
+        return json(res, 200, { attacks: attacks.cases, controls })
+      } catch {
+        return json(res, 404, { error: 'no redteam bundle' })
+      }
+    }
+
     if (req.method === 'POST' && (p === '/api/import' || p === '/api/nlah/export' || p === '/api/nlah/import' || p === '/api/provider-key' || p === '/api/provider-models')) {
       void readBody(req).then((raw) => {
         try {

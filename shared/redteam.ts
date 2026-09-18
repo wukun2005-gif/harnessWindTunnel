@@ -58,3 +58,52 @@ export type ApassRoute = (typeof APASS_ROUTER)[number]
 
 export const HONESTY_NOTE =
   'Tested ≠ absolutely secure. Policy still needs runtime monitoring and case reflux.'
+
+// ---------- F6 fixture shapes ----------
+
+export type KillStatus = 'blocked' | 'breached'
+
+export interface KillStage {
+  stage: KillChainStage
+  status: KillStatus
+  note: string
+}
+
+export interface AttackCase {
+  id: string
+  title: string
+  tactic: string
+  /** Classification source, e.g. OWASP Agentic Top10 / AgentDojo / AgentRedBench. */
+  mapping: string
+  stages: KillStage[]
+  /** Tools / data reachable at the deepest breach (blast radius). */
+  blastRadius: string[]
+}
+
+export interface ControlPoint {
+  id: string
+  label: string
+  controls: SecurityControl[]
+  /** Attack success rate %, lower is better. */
+  asr: number
+  /** Task utility %, higher is better. */
+  utility: number
+  /** Human interruptions / delay index 0–100, lower is better. */
+  friction: number
+}
+
+export interface ControlStory {
+  id: string
+  text: string
+  point: string
+}
+
+export interface RedteamBundle {
+  attacks: AttackCase[]
+  controls: {
+    points: ControlPoint[]
+    stories: ControlStory[]
+    references: { name: string; value: string; citation: string }[]
+    source: { kind: string; label: string; citation?: string }[]
+  }
+}

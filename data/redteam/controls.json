@@ -1,0 +1,28 @@
+{
+  "note": "Illustrative control-ablation readings for the F6-2 demo. Paper reference numbers are cited, not measured.",
+  "points": [
+    { "id": "bare", "label": "Bare (no controls)", "controls": [], "asr": 87.5, "utility": 91.0, "friction": 0 },
+    { "id": "input-only", "label": "Input filter only", "controls": ["input-isolation"], "asr": 71.0, "utility": 88.5, "friction": 2 },
+    { "id": "gateway", "label": "+ Tool boundary gateway", "controls": ["input-isolation", "tool-boundary-gateway"], "asr": 34.0, "utility": 84.0, "friction": 6 },
+    { "id": "leastpriv-dlp", "label": "+ Least privilege + Egress DLP", "controls": ["input-isolation", "tool-boundary-gateway", "least-privilege-creds", "egress-dlp"], "asr": 6.5, "utility": 82.5, "friction": 9 },
+    { "id": "sandbox", "label": "+ Execution sandbox", "controls": ["input-isolation", "tool-boundary-gateway", "least-privilege-creds", "exec-sandbox", "egress-dlp"], "asr": 4.1, "utility": 81.0, "friction": 11 },
+    { "id": "gated", "label": "+ Human approval gate", "controls": ["input-isolation", "tool-boundary-gateway", "least-privilege-creds", "exec-sandbox", "human-approval-gate", "egress-dlp"], "asr": 2.1, "utility": 69.8, "friction": 38 },
+    { "id": "confirm-all", "label": "Confirm every step", "controls": ["input-isolation", "tool-boundary-gateway", "least-privilege-creds", "exec-sandbox", "human-approval-gate", "egress-dlp"], "asr": 1.8, "utility": 52.0, "friction": 100 },
+    { "id": "full", "label": "Full seven + kill-switch", "controls": ["input-isolation", "tool-boundary-gateway", "least-privilege-creds", "exec-sandbox", "human-approval-gate", "egress-dlp", "outofband-killswitch"], "asr": 2.3, "utility": 69.2, "friction": 41 }
+  ],
+  "stories": [
+    { "id": "adaptive-bypass", "text": "Input filter alone is bypassed by adaptive rephrase (AutoDojo): ASR stays at 71%.", "point": "input-only" },
+    { "id": "zero-radius", "text": "Least privilege + egress DLP contain the blast radius to mail.read even when injection succeeds: ASR 6.5%.", "point": "leastpriv-dlp" },
+    { "id": "fatigue", "text": "Confirming every step triggers approval fatigue: friction hits 100 while utility falls to 52%.", "point": "confirm-all" },
+    { "id": "sandbox-relief", "text": "The sandbox absorbs routine checks: friction drops from 38 to 11 at comparable ASR (Anthropic −84% direction).", "point": "sandbox" }
+  ],
+  "references": [
+    { "name": "ToolPrivBench over-privilege rate", "value": "OPUR 64.9%", "citation": "ToolPrivBench" },
+    { "name": "Task Shield", "value": "ASR 2.07% at 69.79% utility", "citation": "Task Shield" },
+    { "name": "Constitutional Classifiers", "value": "over-refusal +0.38%", "citation": "Constitutional Classifiers" }
+  ],
+  "source": [
+    { "kind": "fixture", "label": "Illustrative ablation (F6-2 demo)" },
+    { "kind": "paper-reproduction", "label": "Paper reference numbers", "citation": "ToolPrivBench; Task Shield; Constitutional Classifiers; AutoDojo; Anthropic sandbox note" }
+  ]
+}

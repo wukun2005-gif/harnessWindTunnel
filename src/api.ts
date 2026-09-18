@@ -3,6 +3,7 @@ import type { MetricsEntry, ReplayMeta, ScenarioMeta } from '../shared/events'
 import { PRESETS, type Preset } from '../shared/presets'
 import type { AdaptationDoc } from '../shared/reliability'
 import type { LegalBundle } from '../shared/legal'
+import type { RedteamBundle } from '../shared/redteam'
 
 async function jget<T>(url: string): Promise<T> {
   const r = await fetch(url)
@@ -79,4 +80,5 @@ export const api = {
   providerModels: (baseUrl: string) =>
     jpost<{ models: string[]; simulated: boolean }>('/api/provider-models', { baseUrl }),
   legal: () => jget<LegalBundle>('/api/legal'),
+  redteam: () => jget<RedteamBundle>('/api/redteam'),
 }

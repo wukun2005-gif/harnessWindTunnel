@@ -7,6 +7,9 @@ import Demo from '../src/screens/Demo'
 import Forge from '../src/screens/Forge'
 import MRI from '../src/screens/MRI'
 import WindTunnel from '../src/screens/WindTunnel'
+import Settings from '../src/screens/Settings'
+import Legal from '../src/screens/Legal'
+import Security from '../src/screens/Security'
 import { useApp, useDemo, useForge, useRun, useTunnel } from '../src/stores'
 import { useI18n } from '../src/i18n'
 import type { ForgeData } from '../src/api'
@@ -51,6 +54,9 @@ test('English component output: all demo steps, Forge generations, and scenario 
       variants: [{ key: 'test', label: '配置 1', config: useTunnel.getInitialState().config, color: '#fff' }],
     })
     check(WindTunnel)
+    check(Settings)
+    check(Legal)
+    check(Security)
     for (let step = 0; step < 12; step++) {
       Object.assign(useDemo.getInitialState(), { step })
       check(Demo)
@@ -60,7 +66,7 @@ test('English component output: all demo steps, Forge generations, and scenario 
       check(Forge)
     }
     const recordedBranches = Object.values(metas).reduce((n, meta) => n + meta.branches.filter((b) => b.file).length, 0)
-    assert.equal(renders, recordedBranches + 12 + forge.gens.length + 1)
+    assert.equal(renders, recordedBranches + 12 + forge.gens.length + 1 + 3)
     console.log(`Checked ${renders} English component renders`)
   } finally {
     restore.forEach((reset) => reset())

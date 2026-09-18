@@ -144,6 +144,21 @@ export function kendallTau(a: number[], b: number[]): number | null {
   return denom === 0 ? null : (conc - disc) / denom
 }
 
+/**
+ * Pareto frontier for "lower is better on every axis" objectives.
+ * Returns the subset no other candidate beats-or-equals on all axes while
+ * strictly beating on at least one. Generic across F2-9 / F6-2 uses.
+ */
+export function paretoFrontier<T>(items: T[], axes: ((x: T) => number)[]): T[] {
+  return items.filter((a) =>
+    !items.some((b) =>
+      b !== a &&
+      axes.every((f) => f(b) <= f(a)) &&
+      axes.some((f) => f(b) < f(a)),
+    ),
+  )
+}
+
 // ---------- F2-4 / F2-11 cross-model fixture ----------
 
 import type { HarnessConfig } from './config'

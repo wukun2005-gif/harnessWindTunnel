@@ -7,6 +7,7 @@ import Forge from './screens/Forge'
 import Demo from './screens/Demo'
 import Settings from './screens/Settings'
 import Legal from './screens/Legal'
+import Security from './screens/Security'
 
 function useHashRoute(): string {
   const normalize = (h: string) => {
@@ -29,6 +30,7 @@ const TITLES: Record<string, string> = {
   '/evolution': 'Evolution',
   '/demo': 'Demo Tour',
   '/legal': 'Legal',
+  '/security': 'Security',
 }
 
 export default function App() {
@@ -81,6 +83,8 @@ export default function App() {
         <Settings />
       ) : route === '/legal' ? (
         <Legal />
+      ) : route === '/security' ? (
+        <Security />
       ) : (
         <Home online={online} />
       )}
