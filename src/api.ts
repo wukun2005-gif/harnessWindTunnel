@@ -2,6 +2,7 @@ import type { HarnessConfig } from '../shared/config'
 import type { MetricsEntry, ReplayMeta, ScenarioMeta } from '../shared/events'
 import { PRESETS, type Preset } from '../shared/presets'
 import type { AdaptationDoc } from '../shared/reliability'
+import type { LegalBundle } from '../shared/legal'
 
 async function jget<T>(url: string): Promise<T> {
   const r = await fetch(url)
@@ -77,4 +78,5 @@ export const api = {
     jget<{ hasKey: boolean }>(`/api/provider-key-status?id=${encodeURIComponent(id)}`),
   providerModels: (baseUrl: string) =>
     jpost<{ models: string[]; simulated: boolean }>('/api/provider-models', { baseUrl }),
+  legal: () => jget<LegalBundle>('/api/legal'),
 }

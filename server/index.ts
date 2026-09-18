@@ -132,6 +132,16 @@ const server = createServer((req, res) => {
       return json(res, 200, { hasKey: hasKey(id) })
     }
 
+    if (p === '/api/legal') {
+      try {
+        const dossiers = JSON.parse(readFileSync(resolve(process.cwd(), 'data', 'domain', 'legal', 'dossiers.json'), 'utf8'))
+        const staircase = JSON.parse(readFileSync(resolve(process.cwd(), 'data', 'domain', 'legal', 'staircase.json'), 'utf8'))
+        return json(res, 200, { dossiers: dossiers.dossiers, staircase })
+      } catch {
+        return json(res, 404, { error: 'no legal bundle' })
+      }
+    }
+
     if (req.method === 'POST' && (p === '/api/import' || p === '/api/nlah/export' || p === '/api/nlah/import' || p === '/api/provider-key' || p === '/api/provider-models')) {
       void readBody(req).then((raw) => {
         try {

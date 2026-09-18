@@ -1,0 +1,65 @@
+{
+  "dossiers": [
+    {
+      "id": "mata-avianca",
+      "title": "Mata v. Avianca — fabricated citations brief",
+      "memo": "Counsel's opposition brief relies on six precedents to support tolling of the limitations period. Sanctions under FRCP Rule 11 may apply where a filing cites authority counsel never verified.",
+      "assertions": [
+        { "id": "m1", "text": "Varghese v. China Southern Airlines (illustrative) holds that limitations toll during settlement talks.", "label": "citation_unreachable", "note": "No such opinion exists in any reporter; mirrors the Mata filing pattern.", "aba": ["1.1", "3.3"] },
+        { "id": "m2", "text": "Shaboon v. EgyptAir (illustrative) extends the Montreal Convention to codeshare delays.", "label": "unsupported", "note": "Citation unreachable and the proposition has no support.", "aba": ["1.1", "3.3"] },
+        { "id": "m3", "text": "Petersen v. Iran (illustrative) sets the tolling standard for aviation claims.", "label": "citation_unreachable", "note": "Fabricated caption in the Mata pattern.", "aba": ["1.1"] },
+        { "id": "m4", "text": "Martinez v. Delta (illustrative) recognizes equitable tolling for missed connections.", "label": "unsupported", "note": "No supporting authority located.", "aba": ["1.1", "3.3"] },
+        { "id": "m5", "text": "Estate of Durden v. KLM (illustrative) addresses notice pleading for delay damages.", "label": "citation_unreachable", "note": "Fabricated caption in the Mata pattern.", "aba": ["1.1"] },
+        { "id": "m6", "text": "Miller v. United (illustrative) confirms personal jurisdiction over foreign carriers.", "label": "unsupported", "note": "Citation unreachable; jurisdictional claim unsupported.", "aba": ["1.1"] },
+        { "id": "m7", "text": "FRCP Rule 11 authorizes sanctions for filings made without reasonable inquiry.", "label": "supported", "note": "Verifiable rule text." },
+        { "id": "m8", "text": "The Mata court sanctioned two lawyers $5,000 each.", "label": "supported", "note": "Public record, S.D.N.Y. 2023." }
+      ]
+    },
+    {
+      "id": "deadline-trap",
+      "title": "Limitations deadline with holiday trap",
+      "memo": "Counsel computes the limitations deadline by adding 30 calendar days to the accrual date. The jurisdiction excludes public holidays from the count, which the memo ignores.",
+      "assertions": [
+        { "id": "d1", "text": "The limitations period is 30 days from accrual.", "label": "supported", "note": "Statute text verified." },
+        { "id": "d2", "text": "Adding 30 calendar days lands the deadline on March 14.", "label": "unsupported", "note": "Fails to exclude the March 8 public holiday; correct date is March 15.", "aba": ["1.1"] },
+        { "id": "d3", "text": "No holiday falls inside the window.", "label": "unsupported", "note": "March 8 is a public holiday in this jurisdiction.", "aba": ["1.1"] },
+        { "id": "d4", "text": "Counsel must verify deadline arithmetic against the holiday calendar.", "label": "supported", "note": "Standard of care, ABA 1.1." },
+        { "id": "d5", "text": "Filing on March 14 would be timely.", "label": "partially_supported", "note": "Timely only if the holiday exclusion does not apply — it does.", "aba": ["1.1"] }
+      ]
+    },
+    {
+      "id": "jurisdiction-trap",
+      "title": "Wrong-jurisdiction law applied",
+      "memo": "The memo analyzes the dispute under State A contract law. The agreement's forum clause and the place of performance both point to State B.",
+      "assertions": [
+        { "id": "j1", "text": "The agreement contains a State B forum clause.", "label": "supported", "note": "Section 12 of the agreement." },
+        { "id": "j2", "text": "State A contract law governs the cure-period analysis.", "label": "unsupported", "note": "Forum clause selects State B; State A analysis is misplaced.", "aba": ["1.1"] },
+        { "id": "j3", "text": "Performance occurred entirely in State B.", "label": "supported", "note": "Undisputed delivery records." },
+        { "id": "j4", "text": "State B's 10-day cure period was satisfied.", "label": "partially_supported", "note": "Notice was sent on day 9; receipt is unconfirmed.", "aba": ["1.1"] },
+        { "id": "j5", "text": "No conflict-of-laws analysis is required.", "label": "unsupported", "note": "Required precisely because two states are in play.", "aba": ["1.1"] }
+      ]
+    },
+    {
+      "id": "figures-trap",
+      "title": "Unsourced damages figures",
+      "memo": "The memo claims $1.42M in lost profits and a 23% contract uplift without citing any exhibit, ledger, or expert report.",
+      "assertions": [
+        { "id": "f1", "text": "Lost profits total $1.42M.", "label": "no_citation", "note": "No exhibit, ledger, or report attached.", "aba": ["1.1", "3.3"] },
+        { "id": "f2", "text": "The contract uplift is 23%.", "label": "no_citation", "note": "Figure appears without any source.", "aba": ["1.1", "3.3"] },
+        { "id": "f3", "text": "Mitigation efforts reduced the loss window to 4 months.", "label": "supported", "note": "Supported by the mitigation log." },
+        { "id": "f4", "text": "Pre-judgment interest runs from the breach date.", "label": "supported", "note": "Statutory default rule." }
+      ]
+    },
+    {
+      "id": "clean-control",
+      "title": "Clean control — fully sourced memo",
+      "memo": "A short memo where every assertion carries a verifiable authority. The harness must flag nothing here.",
+      "assertions": [
+        { "id": "c1", "text": "FRCP Rule 11 requires reasonable inquiry before filing.", "label": "supported", "note": "Rule text." },
+        { "id": "c2", "text": "ABA Opinion 512 treats generative AI as nonlawyer assistance.", "label": "supported", "note": "Opinion text, July 2023." },
+        { "id": "c3", "text": "Blind reliance on AI output breaches Rules 1.1 and 3.3.", "label": "supported", "note": "Opinion 512 core holding." },
+        { "id": "c4", "text": "Independent verification cures the defect.", "label": "supported", "note": "Standard compliance practice." }
+      ]
+    }
+  ]
+}

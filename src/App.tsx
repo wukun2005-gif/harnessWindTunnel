@@ -6,6 +6,7 @@ import WindTunnel from './screens/WindTunnel'
 import Forge from './screens/Forge'
 import Demo from './screens/Demo'
 import Settings from './screens/Settings'
+import Legal from './screens/Legal'
 
 function useHashRoute(): string {
   const normalize = (h: string) => {
@@ -27,6 +28,7 @@ const TITLES: Record<string, string> = {
   '/tunnel': 'Wind Tunnel',
   '/evolution': 'Evolution',
   '/demo': 'Demo Tour',
+  '/legal': 'Legal',
 }
 
 export default function App() {
@@ -77,6 +79,8 @@ export default function App() {
         <Demo />
       ) : route === '/settings' ? (
         <Settings />
+      ) : route === '/legal' ? (
+        <Legal />
       ) : (
         <Home online={online} />
       )}

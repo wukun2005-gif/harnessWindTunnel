@@ -57,3 +57,56 @@ export const LEGAL_ASSERTION_ALIAS: Record<string, LegalAssertion> = {
   citation_unreachable: 'citation_unreachable',
   'Citation Unreachable': 'citation_unreachable',
 }
+
+// ABA Formal Opinion 512 duties + China filing note (F5-4 license card).
+export interface AbaDuty {
+  rule: string
+  en: string
+  zh: string
+  /** Legal controls that must all be enabled for this duty to read "covered". */
+  gates: LegalControl[]
+}
+export const ABA_DUTIES: AbaDuty[] = [
+  { rule: '1.1', en: 'Competence', zh: '胜任', gates: ['citation-audit', 'deadline-ledger', 'jurisdiction-filter'] },
+  { rule: '1.6', en: 'Confidentiality', zh: '保密', gates: ['hash-audit-chain', 'risk-escalation-gate'] },
+  { rule: '1.4', en: 'Communication', zh: '沟通', gates: ['issue-close-gate', 'risk-escalation-gate'] },
+  { rule: '3.3', en: 'Candor to the tribunal', zh: '对法庭坦诚', gates: ['citation-audit', 'issue-close-gate'] },
+  { rule: '5.1/5.3', en: 'Supervision', zh: '监督', gates: ['risk-escalation-gate', 'hash-audit-chain'] },
+  { rule: '1.5', en: 'Fees', zh: '收费', gates: ['deadline-ledger', 'hash-audit-chain'] },
+]
+export const CN_FILING_NOTE = {
+  en: 'China filing: generative-AI service filing + algorithm registration apply to the deployed service, not to this demo.',
+  zh: '中国备案：生成式 AI 服务备案与算法登记针对上线服务，不针对本演示。',
+}
+
+// ---------- F5 fixture shapes (labels reuse the 5-class L-MARS set above) ----------
+
+export interface DossierAssertion {
+  id: string
+  text: string
+  label: LegalAssertion
+  note: string
+  aba?: string[]
+}
+
+export interface Dossier {
+  id: string
+  title: string
+  memo: string
+  assertions: DossierAssertion[]
+}
+
+export interface StaircaseState {
+  fakeCiteRate: number
+  ungroundedRate: number
+  strictPassRate: number
+}
+
+export interface LegalBundle {
+  dossiers: Dossier[]
+  staircase: {
+    states: { bare: StaircaseState; 'soft-cn': StaircaseState; 'soft-us': StaircaseState; hard: StaircaseState }
+    references: { name: string; value: string; citation: string }[]
+    source: { kind: string; label: string; citation?: string }[]
+  }
+}

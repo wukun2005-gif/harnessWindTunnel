@@ -1,0 +1,19 @@
+{
+  "note": "Illustrative staircase readings for the F5-3 hands-on replication. Paper reference numbers are cited, not measured.",
+  "states": {
+    "bare": { "fakeCiteRate": 31.0, "ungroundedRate": 28.0, "strictPassRate": 12.5 },
+    "soft-cn": { "fakeCiteRate": 8.1, "ungroundedRate": 7.4, "strictPassRate": 58.0 },
+    "soft-us": { "fakeCiteRate": 12.2, "ungroundedRate": 9.5, "strictPassRate": 47.0 },
+    "hard": { "fakeCiteRate": 0.0, "ungroundedRate": 0.0, "strictPassRate": 94.0 }
+  },
+  "references": [
+    { "name": "Audit staircase", "value": "0% → 87.8% → 100%", "citation": "VeritasBench (harness-research-v0.5 §8.4)" },
+    { "name": "Commercial legal AI hallucinated citations", "value": "17–33%", "citation": "L-MARS, arXiv:2509.00761" },
+    { "name": "Strict citation F1", "value": "0.131 → 0.254", "citation": "L-MARS, arXiv:2509.00761" },
+    { "name": "Parthenon harness gain", "value": "+13.8 / +10.2 / +7.4 → 82.0 / 89.9 / 90.2", "citation": "Parthenon Law, arXiv:2606.04602" }
+  ],
+  "source": [
+    { "kind": "fixture", "label": "Illustrative staircase (F5-3 demo)" },
+    { "kind": "paper-reproduction", "label": "Paper reference numbers", "citation": "L-MARS arXiv:2509.00761; Parthenon arXiv:2606.04602; VeritasBench" }
+  ]
+}
