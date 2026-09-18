@@ -57,7 +57,7 @@ export default function Forge() {
           )}
         </div>
       </div>
-      <ScreenNav current="/forge" />
+      <ScreenNav current="/evolution" />
 
       <div className="grid-forge">
         {/* Left: Failure clusters + generation timeline */}

@@ -9,7 +9,7 @@ import Demo from './screens/Demo'
 function useHashRoute(): string {
   const normalize = (h: string) => {
     const r = (h.replace(/^#/, '') || '/').split('?')[0]
-    return r === '/mri' ? '/insight' : r // legacy route retired with the MRI name
+    return r === '/mri' ? '/insight' : r === '/forge' ? '/evolution' : r // legacy routes retired with the MRI/Forge names
   }
   const [hash, setHash] = useState(() => normalize(window.location.hash))
   useEffect(() => {
@@ -24,7 +24,7 @@ const TITLES: Record<string, string> = {
   '/': 'Overview',
   '/insight': 'Run Insight',
   '/tunnel': 'Wind Tunnel',
-  '/forge': 'Evolution Forge',
+  '/evolution': 'Evolution',
   '/demo': 'Demo Tour',
 }
 
@@ -70,7 +70,7 @@ export default function App() {
         <MRI />
       ) : route === '/tunnel' ? (
         <WindTunnel />
-      ) : route === '/forge' ? (
+      ) : route === '/evolution' ? (
         <Forge />
       ) : route === '/demo' ? (
         <Demo />
@@ -101,7 +101,7 @@ function Home({ online }: { online: boolean }) {
             <h4>{t('home.screen2.title')}</h4>
             <p>{t('home.screen2.desc')}</p>
           </a>
-          <a className="panel screen-card" href="#/forge">
+          <a className="panel screen-card" href="#/evolution">
             <span className="no2">SCREEN 03</span>
             <h4>{t('home.screen3.title')}</h4>
             <p>{t('home.screen3.desc')}</p>

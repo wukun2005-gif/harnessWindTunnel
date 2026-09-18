@@ -42,7 +42,7 @@ function enterTunnel() {
 
 function enterForge() {
   useForge.getState().reset()
-  location.hash = '#/forge'
+  location.hash = '#/evolution'
 }
 
 export default function Demo() {

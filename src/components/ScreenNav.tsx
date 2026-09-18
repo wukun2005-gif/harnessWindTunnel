@@ -3,7 +3,7 @@ import { useT } from '../i18n'
 const SCREENS = [
   { route: '/insight', labelKey: 'nav.mri', num: '01' },
   { route: '/tunnel', labelKey: 'nav.tunnel', num: '02' },
-  { route: '/forge', labelKey: 'nav.forge', num: '03' },
+  { route: '/evolution', labelKey: 'nav.forge', num: '03' },
   { route: '/demo', labelKey: 'nav.demo', num: '04' },
 ] as const
 
