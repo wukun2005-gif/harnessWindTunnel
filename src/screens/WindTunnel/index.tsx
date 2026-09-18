@@ -145,7 +145,7 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
       <h3>{t('tunnel.readings.title')} <span className="tag">{t('tunnel.readings.tag')}</span>{T.fetching && <span className="faint">{t('tunnel.readings.fetching')}</span>}</h3>
       <div style={{ display: 'flex', gap: 8, margin: '6px 0 10px', alignItems: 'center', flexWrap: 'wrap' }}>
         <span className="faint">{t('tunnel.readings.quickload')}</span>
-        {PRESETS.filter((p) => p.id === 'nlah-ablation' || p.id === 'harness-r1-regress').map((p) => (
+        {PRESETS.filter((p) => p.id === 'nlah-ablation' || p.id === 'harness-r1-regress' || p.id === 'minimal-rich-pairs').map((p) => (
           <button key={p.id} className="primary" style={{ padding: '2px 10px', fontSize: 12 }} title={p.tagline} onClick={() => { select(p.scenarioId); T.loadPresetVariants(p.scenarioId, p.variants) }}>▶ {p.title}</button>
         ))}
       </div>

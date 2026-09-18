@@ -18,7 +18,7 @@ export interface Preset {
   reading: string
 }
 
-// Four paper reproduction presets. Baseline numbers are script fixtures; delta figures cite literature.
+// Three paper-reproduction presets plus one fixture pair preset (F2-10). Baseline numbers are script fixtures; delta figures cite literature.
 export const PRESETS: Preset[] = [
   {
     id: 'nlah-ablation',
@@ -61,6 +61,22 @@ export const PRESETS: Preset[] = [
     variants: [
       { label: 'Baseline Batch', config: cfg({ toolset: 'standard', observability: 'trace', eval: 'golden-set' }), branchId: 'r1-batch', note: '41.6%' },
       { label: 'Naive Self-Patch', config: cfg({ toolset: 'standard', observability: 'trace', sensors: 'verifier+critic', loopControl: 'reflexion' }), branchId: 'r1-naive', note: '35.4% (-6.2pp)' },
+    ],
+  },
+  {
+    id: 'minimal-rich-pairs',
+    title: 'Minimal vs Rich Pairs',
+    tagline: 'Three single-variable pairs: tool surface, prompt length, compression reset',
+    scenarioId: 'workflow-crm-export',
+    source: { kind: 'fixture', label: 'Illustrative pairs (directions: Pi / Earendil, Ralph Loop, Databricks note)', citation: 'harness-research-v0.5 §4.5' },
+    reading: 'Rich is not always better: 18+ tools paralyze (−3.5pp), long prompts stay near-neutral (+1.4pp), sustained compression beats per-round reset (+4.6pp).',
+    variants: [
+      { label: 'Minimal 4-tool (tool pair base)', config: cfg(), branchId: 'base', note: '44.4%' },
+      { label: 'Rich 18+ tools', config: cfg({ toolset: 'extended' }), branchId: 'tools-rich', note: 'Δ −3.5pp → 40.9% · decision paralysis' },
+      { label: 'Short prompt (prompt pair base)', config: cfg(), branchId: 'base', note: '44.4%' },
+      { label: 'Long system prompt', config: cfg({ guides: 'style-rules' }), branchId: 'prompt-long', note: 'Δ +1.4pp → 45.8% · near-neutral' },
+      { label: 'Per-round reset (compression pair base)', config: cfg(), branchId: 'base', note: '44.4%' },
+      { label: 'Sustained five-layer', config: cfg({ compression: 'five-layer' }), branchId: 'sustain', note: 'Δ +4.6pp → 49.0% · Ralph Loop direction' },
     ],
   },
 ]

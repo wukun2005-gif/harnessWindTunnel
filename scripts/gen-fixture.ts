@@ -363,6 +363,19 @@ const scenarios: Scenario[] = [
         branchId: 'multicand', config: cfg({ sensors: 'verifier+critic', subAgents: 'context-isolated' }),
         metrics: { ...fx(47.2, 118_000, 176_000, { 'weak-grounding': 1, 'reasoning-action-mismatch': 1 }), source: S('fixture', 'Δ +2.8pp illustrative (NLAH v2: Multi-Candidate small OSWorld gain, −1.6pp on SWE)') },
       },
+      // F2-10 minimal-vs-rich pairs (metrics-only: exact readings, no trajectory).
+      {
+        branchId: 'tools-rich', config: cfg({ toolset: 'extended' }),
+        metrics: { ...fx(40.9, 142_000, 198_000, { 'task-derailment': 1 }), source: S('fixture', 'Δ −3.5pp illustrative: 18+ tools → decision paralysis (Pi / Earendil direction, harness-research-v0.5 §4.5)') },
+      },
+      {
+        branchId: 'prompt-long', config: cfg({ guides: 'style-rules' }),
+        metrics: { ...fx(45.8, 94_000, 141_000), source: S('fixture', 'Δ +1.4pp illustrative: long system prompt, near-neutral (pair for F2-10)') },
+      },
+      {
+        branchId: 'sustain', config: cfg({ compression: 'five-layer' }),
+        metrics: { ...fx(49.0, 102_000, 149_000), source: S('fixture', 'Δ +4.6pp illustrative: sustained five-layer compression vs per-round reset (Ralph Loop direction, G. Huntley 2025-07; Databricks cost note)') },
+      },
       {
         branchId: 'tuned', config: cfg({ filesystem: 'file-backed-state', hooks: 'lifecycle', sensors: 'verifier', permissions: 'ask-write', humanInLoop: 'approval-gates' }),
         metrics: { ...fx(56.2, 96_000, 136_000), source: S('fixture', 'Illustrative: filestate locks scope → verifier passes first try → hooks guard mail.send; all components from MRI demo') },

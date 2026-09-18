@@ -1222,7 +1222,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <div class="fr-kv"><b>交互：</b>把各配置画成「成功率 / 质量 × token / 时延成本」散点，标出互不支配的 Pareto 前沿与候选点（最省成本达标、最稳但偏重等）；演化也在此前沿上做进化 + 交叉。</div>
 <div class="ac"><span class="act">AC：</span>① 散点坐标来自真实读数；② 被支配点与前沿点视觉区分；③ 前沿计算确定、可复算（同数据结果一致）。</div></div>
 
-<div class="fr"><div class="fr-head"><span class="fr-id">F2-10</span><span class="fr-name">极简 vs 丰富对照变量对（舞台效果）</span><span class="pill p2">P2</span></div>
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-10</span><span class="fr-name">极简 vs 丰富对照变量对</span><span class="pill p1">P1</span></div>
 <div class="fr-kv"><b>交互：</b>预置几组最直观的可消融对照：极简 4 工具 vs 18+ 工具（Pi vs Claude Code，工具过多 decision paralysis）、系统提示长短、每轮上下文清零（Ralph Loop）vs 持续压缩；同模型同任务量 success × cost × context。</div>
 <div class="ac"><span class="act">AC：</span>① 每对对照只变目标变量；② 同时给质量、成本、每轮上下文三项；③ 标注 Pi/Earendil、Ralph Loop（G. Huntley, 2025-07）与 Databricks「成本差 2×、上下文少 3×」的来源。</div></div>
 
@@ -1464,7 +1464,7 @@ data/redteam/*                              攻击用例库、安全七控件定
 <tr class="v11"><td><b>W1</b></td><td>地基 + 屏一运行透视 + 在线配置：事件 schema 与确定性回放器；屏一运行透视（分层栈、五层 shaper、时间轴、介入标记、失败标签 / critical step）；<b>F4-6 照搬 docStudio 的 Provider 设置</b>（预设 + Custom、拉模型 / 验证 / 持久化，在线档可真跑）；<b>F4-5 真实轨迹解析器</b>（Claude transcript / dsh / NLAH）骨架</td><td>断网可回放任一 fixture；运行透视六分层 token 与 estTokens 自洽、五层 shaper 按序点火；可添加一个 Custom 兼容端点并被在线档选用、刷新仍在、key 不入日志；一份真实 transcript 可导入并在运行透视播放；typecheck 通过</td></tr>
 <tr class="v11"><td><b>W2</b></td><td>通用风洞核心 + 适配画像 + 法律包：屏二模块板、3 个论文预设、模型×harness 矩阵、配对消融、可靠性下尾、<b>F2-11 固定 harness 变 model 适配画像</b>、轨迹 diff、转移矩阵 / Pareto；法律包 F5-1~F5-3（领域模块板、案件复盘、审计阶梯亲手复现）+ 3–5 份埋雷案卷与 1 份干净对照；<b>周末出第一版演示视频（通用 + 法律）</b></td><td>20 模块可拨且指纹 / diff 正确、配对严格只差一个字段；F2-11 锁定后 configDiff=0、唯一变量为 model，适配指标可复算并能读出「对 A 合拍 / 对 B 不合拍」；法律裸→软引导→硬强制三态曲线与报告数字一致、Mata 6 假判例被标红；check:paper 通过</td></tr>
 <tr class="v11"><td><b>W3</b></td><td>演化 + 安全包 + 收口：屏三演化（聚类归因、改动卡、三数据集证伪、人控三态 + 自治度滑块、版本树 + 证据包、Autoplay，补 harness.mutation）；安全包 F6-1~F6-3（攻击火线、安全七控件三维 Pareto、策略人批导出）+ F6-4 闭源降级与攻击库；F5-4 合规牌照卡；三模式 12 步一键串讲演示</td><td>改动卡应用后合法、救回 / 回归同显且回归自动建回滚点、每代必停批准门；安全 ASR × 效用 × 人工三维 Pareto 可复现、策略可导出 OPA / 权限 / 三态 / 凭证；通用 / 法律 / 安全三模式均可完整演示；shot.py 桌面 + 移动双视口、浅深主题通过</td></tr>
-<tr class="v11"><td><b>Stretch（延后，不在 v1.1）</b></td><td>真实沙箱快照分叉对接 microVM；金融 / 医疗领域包；在线档从最小 harness 扩到完整 agent；F2-10 舞台对照增强；对接真实权威库 MCP 生产 API、生产级自适应攻击生成器</td><td>—（v1.1 验收不依赖这些项）</td></tr>
+<tr class="v11"><td><b>Stretch（延后，不在 v1.1）</b></td><td>真实沙箱快照分叉对接 microVM；金融 / 医疗领域包；在线档从最小 harness 扩到完整 agent；对接真实权威库 MCP 生产 API、生产级自适应攻击生成器</td><td>—（v1.1 验收不依赖这些项）</td></tr>
 </tbody></table></div>
 <div class="callout c-gray v11"><p><span class="ct">里程碑顺序的理由</span>先运行透视（让人「看见」）→ 再风洞（核心差异化，W2 末即可独立成片对外讲）→ 最后演化（闭环价值观）。法律包与风洞同构、随 W2 落地（审计阶梯正是受控消融的领域版），安全包随 W3 的人控闭环落地（策略合成正是人批演化的安全版）。即使 W3 延期，W2 末「通用透视 + 受控消融 + 法律审计阶梯」已是完整、可演示、能立住论点的产品。<span class="v11-tag">v1.1 改</span></p></div>
 <h1>10 成功度量</h1>

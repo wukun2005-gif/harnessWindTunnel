@@ -155,6 +155,87 @@
       "file": ""
     },
     {
+      "branchId": "tools-rich",
+      "fingerprint": "d8bf2290",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "extended",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": ""
+    },
+    {
+      "branchId": "prompt-long",
+      "fingerprint": "13f317ff",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "style-rules",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": ""
+    },
+    {
+      "branchId": "sustain",
+      "fingerprint": "14a7cd9f",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "five-layer",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": ""
+    },
+    {
       "branchId": "tuned",
       "fingerprint": "56d19367",
       "config": {
@@ -294,6 +375,68 @@
       "source": {
         "kind": "fixture",
         "label": "Δ +2.8pp illustrative (NLAH v2: Multi-Candidate small OSWorld gain, −1.6pp on SWE)"
+      }
+    },
+    "d8bf2290": {
+      "successRate": 40.9,
+      "tokens": 142000,
+      "latencyP50": 198000,
+      "failureModes": {
+        "task-derailment": 1
+      },
+      "runs": [
+        38.8,
+        41,
+        41.9,
+        44.9,
+        41.9,
+        37.2,
+        39.9,
+        40.8
+      ],
+      "source": {
+        "kind": "fixture",
+        "label": "Δ −3.5pp illustrative: 18+ tools → decision paralysis (Pi / Earendil direction, harness-research-v0.5 §4.5)"
+      }
+    },
+    "13f317ff": {
+      "successRate": 45.8,
+      "tokens": 94000,
+      "latencyP50": 141000,
+      "failureModes": {},
+      "runs": [
+        45.4,
+        45.8,
+        43.4,
+        46.7,
+        42.8,
+        46,
+        43.1,
+        44.5
+      ],
+      "source": {
+        "kind": "fixture",
+        "label": "Δ +1.4pp illustrative: long system prompt, near-neutral (pair for F2-10)"
+      }
+    },
+    "14a7cd9f": {
+      "successRate": 49,
+      "tokens": 102000,
+      "latencyP50": 149000,
+      "failureModes": {},
+      "runs": [
+        47.6,
+        48.4,
+        50.8,
+        47,
+        49.9,
+        48.3,
+        47.9,
+        50.6
+      ],
+      "source": {
+        "kind": "fixture",
+        "label": "Δ +4.6pp illustrative: sustained five-layer compression vs per-round reset (Ralph Loop direction, G. Huntley 2025-07; Databricks cost note)"
       }
     },
     "56d19367": {
