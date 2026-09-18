@@ -1,77 +1,76 @@
-# HarnessWindTunnel
+# HarnessWindTunnel 缰绳风洞
 
-Wind-tunnel testing for AI agent harnesses: fix the model and the task, then experiment on everything around the model.
+给 AI Agent 脚手架做风洞实验：固定模型与任务，对 20 个 harness 模块做受控消融与反事实对比，经人的批准做可回滚演化。
 
-**Agent = Model + Harness.** Frontier models have converged; whether a task gets done reliably now depends on the execution scaffold around the model — loop, tools, memory, context compression, verifiers, permission gates. Existing tools either replay a single trace (LangSmith-style) or evolve harnesses as black-box research code. Nothing gives developers a **wind tunnel**: controlled experiments that show what each harness module contributes, plus human-approved, rollback-safe evolution.
+**Agent = 模型 + 脚手架。** 模型能力已经趋同，任务能不能可靠做完，取决于模型之外的执行脚手架——循环、工具、记忆、上下文压缩、校验器、权限门。现有工具要么只回放单次轨迹，要么是黑盒自动改脚手架的研究代码。这里是一台**风洞**：用受控实验证清每个模块的边际作用，再把失败炼成一条经过验证、人批准、可回滚的配置改动。
 
-## The 2-minute story
+## 两分钟看懂
 
-Same model, same task, two harnesses: **34% vs 77%**. The gap is not the model. Take the 12-step guided demo tour (`▶ 一键演示` / `#/demo`) and watch a failure become a verified, human-approved config change.
+同模型、同任务、两套脚手架：**34% 对 77%**。差距不在模型。点进 12 步一键演示（`#/demo`），看一次失败是怎么变成一条配置改动的。
 
-Three screens, one loop:
+三屏一闭环：
 
-1. **Run Insight** (`#/insight`) — see what the model saw at each step: layered context stack, five-stage compression pipeline firing cheap-to-expensive, verifier verdicts, failure tags.
-2. **Wind Tunnel** (`#/tunnel`) — flip any of 20 harness modules, compare configs side by side (success rate, Δ vs baseline, tokens, latency, failure-mode transfer), and diff two trajectories step by step to the first divergence.
-3. **Evolution Forge** (`#/forge`) — cluster failures, propose a change card with a predicted interval, falsify it in the wind tunnel, require human approval, commit to a version tree with instant rollback.
+1. **运行透视**（`#/insight`）——模型每一步看到了什么：分层上下文栈、五级压缩管线、校验器裁决、失败标签。
+2. **风洞**（`#/tunnel`）——拨 20 个模块的开关，多配置并排对比（成功率、相对基线 Δ、token、时延、失败迁移），双轨迹逐步对齐到第一个分叉点。
+3. **演化炉**（`#/forge`）——失败聚类、改动卡（带预测区间）、风洞证伪、人批准、版本树提交、一键回滚。
 
-Core finding the demo is built around: **more parts ≠ better performance.** Adding a verifier drops a cross-app workflow by 8.4pp; writing scope to a file first gains 5.5pp. You can only see that with controlled ablation, never from a single trace.
+核心结论：**零件多不等于好**。加个验证器，跨应用任务掉 8.4 个点；先把范围写进文件，涨 5.5 个点。不做受控消融永远看不见。
 
-## Quickstart
+## 跑起来
 
 ```bash
 npm install
-npm run dev        # fixture server :4000 + web :5173
+npm run dev        # 数据服务 :4000 + 页面 :5173
 ```
 
-Open http://localhost:5173/#/demo for the guided tour. No keys, no network needed — the default offline track replays deterministic fixtures.
+打开 http://localhost:5173/#/demo 进演示。不用 Key、不用联网——默认离线档，回放确定性 fixtures。
 
-| Script | What it does |
+| 命令 | 干什么 |
 |---|---|
-| `npm run dev` | server + web together |
-| `npm run build` / `typecheck` | production build / `tsc --noEmit` |
-| `npm test` | i18n + fixture-content tests |
-| `npm run check:paper` | asserts preset readings match cited paper deltas (26 checks) |
-| `npm run gen:fixtures` | regenerates `data/` from `scripts/gen-fixture.ts` (hand-editing JSONL is forbidden) |
+| `npm run dev` | 数据服务＋页面一起起 |
+| `npm run build` / `typecheck` | 打包 / 类型检查 |
+| `npm test` | 文案＋数据测试 |
+| `npm run check:paper` | 26 项断言：预设读数与引用论文一致 |
+| `npm run gen:fixtures` | 从 `scripts/gen-fixture.ts` 重新生成 `data/`（禁止手改 JSONL） |
 
-## Honest data labeling
+## 数据诚实标注
 
-Every number, trajectory, and metric carries a source badge, and the UI never mixes them:
+每个数字、每条轨迹都带来源徽标，三类绝不混标：
 
-- `fixture` — illustrative scripted data for a stable demo
-- `paper-reproduction` — direction and deltas cite the paper below; baselines are illustrative
-- `live` — runs against a user-configured model provider
+- `fixture`——演示用的剧本数据，保证稳定可复现
+- `paper-reproduction`——方向与 Δ 引自论文，基线为示意
+- `live`——连你自己配的模型跑出来的
 
-One-click paper presets (wind-tunnel empty state): **NLAH** controlled ablation (arXiv:2603.25723), **AHE** ten-generation climb 69.7% → 77.0% (arXiv:2604.25850), **Harness-R1** counter-example 41.6% → 35.4% (arXiv:2608.02276).
+一键论文预设（风洞空状态载入）：**NLAH** 受控消融（arXiv:2603.25723）、**AHE** 十代爬升 69.7%→77.0%（arXiv:2604.25850）、**Harness-R1** 反例 41.6%→35.4%（arXiv:2608.02276）。
 
-## Failure taxonomy
+## 失败标签
 
-12 first-class failure tags + `other`, aligned to MAST (arXiv:2503.13657, 14 modes FM-1.1–FM-3.3) where applicable and extended from task-family analysis where not. Six close over the designed scenario traps; six close the paper-review gaps (step repetition, reasoning-action mismatch, unaware-of-stopping, task derailment, fail-to-clarify, context loss). `other` holds the four remaining multi-agent-only modes. Mapping table and per-mode prevalence review: PRD §2.5.
+12 个一等标签＋`other`，对齐 MAST（arXiv:2503.13657，FM-1.1～FM-3.3）并按任务族补齐，映射表与逐条复查见 PRD §2.5。
 
-## Layout
+## 目录
 
 ```
-shared/        # 20-field harness config DSL, events schema, failure taxonomy, paper presets
-src/screens/   # Demo tour, Run Insight, Wind Tunnel, Evolution Forge
-src/stores/    # zustand stores (run replay, tunnel variants, forge generations)
-server/        # fixture server (:4000) — replay + metrics APIs
-scripts/       # fixture generator, paper-number checks, i18n tests
-data/          # generated fixtures (scenarios × branches + forge curve) — do not hand-edit
-HarnessWindTunnel-PRD-v1.1.html   # product requirements (Chinese)
-harness-research-v0.5.html        # research report behind the PRD (Chinese)
+shared/        # 20 字段配置 DSL、事件结构、失败标签、论文预设
+src/screens/   # 一键演示、运行透视、风洞、演化炉
+src/stores/    # 回放、对照、演化三份状态
+server/        # 数据服务（:4000）：回放＋读数接口
+scripts/       # 数据生成、论文对数、文案测试
+data/          # 生成的数据（场景×分支＋演化曲线），勿手改
+HarnessWindTunnel-PRD-v1.1.html   # 产品需求文档
+harness-research-v0.5.html        # 背后的调研报告
 ```
 
-## References
+## 引用
 
-- MAST: Why Do Multi-Agent LLM Systems Fail? (arXiv:2503.13657) — failure taxonomy, κ=0.88
-- NLAH: Natural-Language Agent Harnesses (arXiv:2603.25723) — per-module ablation
-- AHE: Agentic Harness Engineering (arXiv:2604.25850) — 10-generation evolution
-- Harness-R1 (arXiv:2608.02276) — naive self-modification regresses; wind-tunnel falsification + human gates
-- AutoHarness (arXiv:2603.03329), Airbnb PRISM (arXiv:2609.05736), L-MARS (arXiv:2509.00761)
+- MAST：Why Do Multi-Agent LLM Systems Fail?（arXiv:2503.13657）
+- NLAH：Natural-Language Agent Harnesses（arXiv:2603.25723）
+- AHE：Agentic Harness Engineering（arXiv:2604.25850）
+- Harness-R1（arXiv:2608.02276）、AutoHarness（arXiv:2603.03329）、Airbnb PRISM（arXiv:2609.05736）、L-MARS（arXiv:2509.00761）
 
-## Status & values
+## 原则
 
-Offline-first demo MVP. Non-negotiables: wind-tunnel falsification before any claim, human approval before any commit, instant rollback always. No real side effects in the offline track — sends, writes, and payments are simulated.
+离线档默认零副作用（外发、写盘、花钱全是模拟）。铁律：先风洞证伪再下结论，改动必须人批准，永远可回滚。
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — 见 [LICENSE](LICENSE)。

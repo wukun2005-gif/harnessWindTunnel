@@ -4,3 +4,4 @@ dist/
 .DS_Store
 coverage/
 *.local
+dev-plan-v0.2.md
