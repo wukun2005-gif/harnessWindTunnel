@@ -191,7 +191,7 @@ body.no-hl .v11-tag{display:none}
 <h2>1.5 目标与非目标</h2>
 <div class="grid2">
 <div class="minicard" style="border-color:var(--p2)"><h4 style="color:var(--p2)">v1.1 目标（In Scope）</h4><ul>
-<li>三屏闭环：运行透视、Wind Tunnel 受控消融、Evolution Forge 人控自演化，外加一键演示导览</li>
+<li>三屏闭环：运行透视、Wind Tunnel 受控消融、演化（人控自演化），外加一键演示导览</li>
 <li>四类通用知识任务族（写文档 / 数据分析 / 信息调研 / 跨应用工作流）各 1–2 个 golden 场景 + 1 个 coding 对照场景</li>
 <li>离线 fixture 确定性回放为默认（零成本、100% 可复现），可选在线真模型双轨</li>
 <li>20 字段 harness 配置 DSL、模型×harness 二维矩阵、配对消融与可靠性下尾指标族、双配置轨迹 diff</li>
@@ -498,7 +498,7 @@ body.no-hl .v11-tag{display:none}
 <p>这是本产品的关键区分点：<strong>wrappers ENFORCE / prompts REQUEST</strong>。大多数 Agent 框架只提供概率性引导（prompt engineering），本产品的硬价值在于确定性强制门。</p>
 
 <h3>2.2.5 模块动态模型：模块→事件映射</h3>
-<p>20 个模块是<strong>静态配置</strong>（拨开关时改什么），事件是<strong>运行时行为</strong>（执行过程中产生什么）。每个模块在运行时产生特定类型的事件，这些事件构成 Append-only 事件流，是运行透视、风洞消融、Forge 归因的数据根基。</p>
+<p>20 个模块是<strong>静态配置</strong>（拨开关时改什么），事件是<strong>运行时行为</strong>（执行过程中产生什么）。每个模块在运行时产生特定类型的事件，这些事件构成 Append-only 事件流，是运行透视、风洞消融、演化归因的数据根基。</p>
 <table>
 <thead><tr><th>分组</th><th>#</th><th>模块</th><th>运行时产生的事件</th><th>事件说明</th></tr></thead>
 <tbody>
@@ -533,7 +533,7 @@ body.no-hl .v11-tag{display:none}
   │   └─ agent.join (step M)         ← ⑤ SubAgent 结束
   ├─ failure.tag (step N)            ← 叙述者事后标注（author=narrator，见下）
   └─ run.finished                    ← 运行结束</code></pre>
-<p>这个事件流是<strong>确定性的、可回放的</strong>：给定同一组事件，运行透视、风洞对比、Forge 归因的每一步都可精确重建。这正是"风洞"方法论的物理基础——实验数据不是黑盒日志，而是结构化的、可审计的事件序列。</p>
+<p>这个事件流是<strong>确定性的、可回放的</strong>：给定同一组事件，运行透视、风洞对比、演化归因的每一步都可精确重建。这正是"风洞"方法论的物理基础——实验数据不是黑盒日志，而是结构化的、可审计的事件序列。</p>
 <p><strong>事件作者（author）：</strong>每个事件带 <code>author</code> 字段，取值为 <code>harness</code>（被测 Harness 在运行时产生）或 <code>narrator</code>（叙述者事后标注）。离线 fixture 模式下，只有 <code>failure.tag</code> 的作者是 narrator（由剧本在犯错步骤后手工贴标，其余事件作者均为 harness——裸 baseline 分支也有 failure.tag 恰好证明了这一点）。<strong>评估 Harness 行为（消融读数、干预计数）时只认 <code>author=harness</code> 的事件</strong>；运行透视把 narrator 事件单列在"失败标注"区，不计入"Harness 干预"。Live 模式下以事件自带的 author 为准：Harness 自身的传感器也可能产生 <code>failure.tag</code>（此时 author=harness），与叙述者标注严格区分。</p>
 
 <h2>2.3 Hook 生命周期模型（~24 种事件类型 × matcher ≈ 30 常用组合）</h2>
@@ -787,7 +787,7 @@ Agent 执行任务
     ↓ 产生
 MAST Sensor 检测失败 → 打上 failure.tag
     ↓ 聚类
-Forge 失败聚类 → 生成改动卡</code></pre>
+演化失败聚类 → 生成改动卡</code></pre>
 
 <h3>2.5.4 原论文 14 类复查（按占比降序）</h3>
 <p>图例：<span class="pill p2">已覆盖</span> 自家有对应一等标签　<span class="pill p0">未覆盖</span> 睡在 <code>other</code> 里（仅剩 4 行，均为多智能体协作特有且低占比）</p>
@@ -1072,15 +1072,15 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <h1>4 产品方案总览</h1>
 
 <h2>信息架构与分层架构</h2>
-<p>产品由「一个导览 + 三屏 + 两层底座」构成：顶部 Demo 导览负责一键演示与论文预设入口；三屏分别承担<b>运行透视 → 实验（Wind Tunnel）→ 演化（Evolution Forge）</b>的闭环；下层是「数据 / 事件契约层」与「运行 / 回放层（双轨 + 沙箱快照分叉）」。</p>
-<p class="v11"><b>一套三屏母版、三套风洞模式：</b>顶部提供「通用 / 法律 / 安全」模式切换，三套风洞是同一三屏框架在不同问题轴上的投影——<b>通用风洞</b>问「哪个模块让任务做得更好」，<b>法律领域风洞（F5）</b>把三屏换成领域语言（事故尸检台 Autopsy / 领域风洞 / 合规演化炉 Compliance Forge），<b>安全红队舱（F6）</b>换成安全语言（攻击火线 Kill-Chain / 控制件消融台 / 策略合成）。切换模式只更换「模块板变量集、题库 / 攻击库、领域指标与终态产物」，三屏主逻辑、事件契约、回放器完全复用，不为垂直包另起一套视图。<span class="v11-tag">v1.1 新增</span></p>
+<p>产品由「一个导览 + 三屏 + 两层底座」构成：顶部 Demo 导览负责一键演示与论文预设入口；三屏分别承担<b>运行透视 → 实验（Wind Tunnel）→ 演化</b>的闭环；下层是「数据 / 事件契约层」与「运行 / 回放层（双轨 + 沙箱快照分叉）」。</p>
+<p class="v11"><b>一套三屏母版、三套风洞模式：</b>顶部提供「通用 / 法律 / 安全」模式切换，三套风洞是同一三屏框架在不同问题轴上的投影——<b>通用风洞</b>问「哪个模块让任务做得更好」，<b>法律领域风洞（F5）</b>把三屏换成领域语言（事故尸检台 Autopsy / 领域风洞 / 合规演化），<b>安全红队舱（F6）</b>换成安全语言（攻击火线 Kill-Chain / 控制件消融台 / 策略合成）。切换模式只更换「模块板变量集、题库 / 攻击库、领域指标与终态产物」，三屏主逻辑、事件契约、回放器完全复用，不为垂直包另起一套视图。<span class="v11-tag">v1.1 新增</span></p>
 <div class="arch">
  <div class="arch-layer"><div class="al-t">交互层 · Demo 导览 + 三屏</div>
   <div class="arch-cells">
    <div class="arch-cell v11"><b>Demo 导览</b>12 步 golden path / 预设入口 / 通用·法律·安全三模式切换 / 双轨切换 / 来源标注</div>
    <div class="arch-cell"><b>屏一 运行透视</b>轨迹播放 · 模型可见栈 · shaper 点火 · 失败标记</div>
    <div class="arch-cell"><b>屏二 Wind Tunnel</b>模块板 · 模型×harness 矩阵 · 配对消融 · 轨迹 diff · Pareto</div>
-   <div class="arch-cell"><b>屏三 Evolution Forge</b>失败聚类 · 改动卡 · 风洞证伪 · 人控批准 · 版本树</div>
+   <div class="arch-cell"><b>屏三 演化</b>失败聚类 · 改动卡 · 风洞证伪 · 人控批准 · 版本树</div>
   </div></div>
  <div class="arrow-down">▼ 读 / 写</div>
  <div class="arch-layer"><div class="al-t">数据 / 事件契约层（append-only，model-visible means logged）</div>
@@ -1098,7 +1098,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
    <div class="arch-cell"><b>沙箱快照分叉</b>snapshot / clone / rollback / pause 保证「除 harness 外一切相同」</div>
   </div></div>
 </div>
-<p class="legend-note">三屏是同一条数据流的三个视图而非三个孤立页面：运行透视产出的 trace 是 Wind Tunnel 的实验素材，Wind Tunnel 的失败对比是 Forge 的改动依据，Forge 批准的新配置又回到 Wind Tunnel 回归、并可在运行透视重新查看。</p>
+<p class="legend-note">三屏是同一条数据流的三个视图而非三个孤立页面：运行透视产出的 trace 是 Wind Tunnel 的实验素材，Wind Tunnel 的失败对比是演化的改动依据，演化批准的新配置又回到 Wind Tunnel 回归、并可在运行透视重新查看。</p>
 
 <h2>核心概念模型</h2>
 <div class="table-wrap"><table><colgroup><col style="width:19%"><col style="width:43%"><col style="width:38%"></colgroup><thead><tr><th>实体</th><th>定义</th><th>关键关系 / 工程对应</th></tr></thead><tbody>
@@ -1108,7 +1108,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <tr><td>Run（一次运行）</td><td>某模型 + 某配置在某场景上的一次完整执行，产出一条 append-only trace 与一组指标</td><td>离线为预录分支回放，在线为真实执行</td></tr>
 <tr><td>Branch（配置分支）</td><td>同一场景下、某个 HarnessConfig 指纹对应的预录 / 实跑轨迹分支与指标</td><td>反事实对比 = 同场景两个 Branch 逐步对齐</td></tr>
 <tr><td>Trace（轨迹）</td><td>由 16 类事件构成的有序事件流（15 运行时 + harness.mutation），可完整重建「模型每步看到什么」</td><td>对齐 dsh Trajectory / OpenHands EventLog / OTel GenAI</td></tr>
-<tr><td>Mutation（Harness 改动）</td><td>Forge 产出的一次配置变更：定位改动点、自然语言说明 + 确定性 diff、预测收益、证伪结果</td><td>经人批准后成为版本树一个 commit</td></tr>
+<tr><td>Mutation（Harness 改动）</td><td>演化产出的一次配置变更：定位改动点、自然语言说明 + 确定性 diff、预测收益、证伪结果</td><td>经人批准后成为版本树一个 commit</td></tr>
 <tr><td>Version Tree（版本谱系）</td><td>harness 配置的 commit 树，每节点带 Evidence Pack，可分支、可回滚</td><td>核心交互；对应 EvoUndo「出现回归即建回滚点」</td></tr>
 </tbody></table></div>
 
@@ -1149,7 +1149,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <tr><td>1</td><td>开场</td><td>同模型同任务、两个 harness 终局 34% 对 77%——抛出「差距不在模型？」</td></tr>
 <tr><td>2–4</td><td>运行透视</td><td>报告写作任务上下文将满、五层压缩器（Shaper）依次点火；点开工具结果看来源组件与 U 形位置；verifier（验证器）驳回一次 premature victory（过早胜利）</td></tr>
 <tr><td>5–8</td><td>风洞</td><td>直觉失灵：只加验证器（Verifier，完工前按规则自动拦一道，通不过打回重做）反而掉8.4个点；先把范围写进文件再干活（File-backed State，关键范围以文件为准）涨5.5个点，隔离子Agent×评审挑选（论文打包名 Multi-Candidate＝⑤＋⑬两个开关一起开）掉3.1个点；双配置轨迹分叉 diff（发邮件决策处首次分开）；失败模式转移矩阵。注：数字为示意，方向引自 NLAH Table 3 跨应用任务列（论文原名 OSWorld）</td></tr>
-<tr><td>9–12</td><td>Forge</td><td>失败簇归因 Premature Victory → 改动卡预测 +3~6pp → 风洞证伪（救回 4、回归 1，自动建回滚点）→ 人批准、版本树长出 commit → Autoplay 十代爬升收尾</td></tr>
+<tr><td>9–12</td><td>演化</td><td>失败簇归因 Premature Victory → 改动卡预测 +3~6pp → 风洞证伪（救回 4、回归 1，自动建回滚点）→ 人批准、版本树长出 commit → Autoplay 十代爬升收尾</td></tr>
 </tbody></table></div>
 <div class="ac"><span class="act">AC：</span>① 不点任何其他按钮，一键播放可在约 2 分钟内完整走完 12 步且每步停留可读；② 每步画面与脚本表一一对应、记忆点（数字 / 分叉 / 回滚点）在屏上可见；③ 离线、无网络、无 Key 下可完整播放；④ 支持暂停后手动操作、再回到自动节奏。【现状：src/screens/Demo 骨架已建】</div></div>
 
@@ -1223,7 +1223,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <div class="ac"><span class="act">AC：</span>① 矩阵由两配置 run.finished.failureModes 与逐步 failure.tag 汇总；② 能读出「某模块消除了 A 类失败却引入 B 类」的转移；③ 单元格数值可下钻到对应轨迹步。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F2-9</span><span class="fr-name">质量—成本 Pareto 前沿</span><span class="pill p1">P1</span></div>
-<div class="fr-kv"><b>交互：</b>把各配置画成「成功率 / 质量 × token / 时延成本」散点，标出互不支配的 Pareto 前沿与候选点（最省成本达标、最稳但偏重等）；Forge 演化也在此前沿上做进化 + 交叉。</div>
+<div class="fr-kv"><b>交互：</b>把各配置画成「成功率 / 质量 × token / 时延成本」散点，标出互不支配的 Pareto 前沿与候选点（最省成本达标、最稳但偏重等）；演化也在此前沿上做进化 + 交叉。</div>
 <div class="ac"><span class="act">AC：</span>① 散点坐标来自真实读数；② 被支配点与前沿点视觉区分；③ 前沿计算确定、可复算（同数据结果一致）。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F2-10</span><span class="fr-name">极简 vs 丰富对照变量对（舞台效果）</span><span class="pill p2">P2</span></div>
@@ -1235,7 +1235,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <div class="fr-kv"><b>依据：</b>AutoHarness 证明模型排名随 harness 反转（arXiv:2603.03329）；HarnessDev 跨 executor 成绩崩塌 69.3→33.0；Harness Sensitivity is Non-Monotone（arXiv:2605.26731，432 次 run、6 模型 × 4 能力档 × 3 严格度）证明同一 harness 对不同模型的增益非单调——「一套Harness配所有模型」并不成立，必须显式测适配。指标定义见 5.3。</div>
 <div class="ac"><span class="act">AC：</span>① 锁定后用 configDiff 校验 harness 指纹全程不变（差异字段数=0）、任务集 / seed / 评分器相同，<b>唯一变量是 model</b>；② 输出每模型得分、Model-Conditional Lift、跨模型 Spread 与合拍分级，数值由数据现算可复算；③ 内置一组演示数据可读出「同一 harness 对模型 A 正增益、对模型 B 负增益（不合拍）」，且与 F2-4 矩阵同源转置、数字一致不打架；④ 下尾沿用 WorstLift / RR₀，候选测试充分时以 WorstLift 为主口径（不默认用含「赌」成分的 RelLift₉₅）。</div></div>
 
-<h2>F3 · 屏三 Evolution Forge 人控自演化</h2>
+<h2>F3 · 屏三 演化（人控自演化）</h2>
 <p>回答「怎么让每一次失败都变成一条永久规则」。<b>价值观铁律：风洞证伪 + 人控批准 + 可回滚，不做黑盒全自动。</b></p>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F3-1</span><span class="fr-name">失败聚类与归因</span><span class="pill p0">P0</span></div>
@@ -1263,7 +1263,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <div class="ac"><span class="act">AC：</span>① 十代曲线与预设数据一致、非单调（含被拦回归，爬升不是直线）；② 每代仍需批准动作才推进；③ 可并排对比「有风洞 / 人控」与「naive 自改」两条曲线的不同结局。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F3-7</span><span class="fr-name">PRISM 编辑面路由预设</span><span class="pill p1">P1</span></div>
-<div class="fr-kv"><b>交互：</b>作为 Forge 的一种可复现算法预设：失败聚类后把每类修复路由到三个编辑面——改 prompt（Guide）/ 改工具边界中间件（确定性守卫）/ 两者联合，并在 Pareto 前沿做进化 + 交叉；对照 BH 爬山、GEPA、MIPROv2。</div>
+<div class="fr-kv"><b>交互：</b>作为演化的一种可复现算法预设：失败聚类后把每类修复路由到三个编辑面——改 prompt（Guide）/ 改工具边界中间件（确定性守卫）/ 两者联合，并在 Pareto 前沿做进化 + 交叉；对照 BH 爬山、GEPA、MIPROv2。</div>
 <div class="ac"><span class="act">AC：</span>① 三个编辑面可选且「工具边界中间件」对应 B 档 IO 拦截（3.3）；② 消融可验证「失败面路由」与「编辑模式约束」是唯二一拆就掉点的模块（Airbnb 消融结论）；③ 标注 arXiv:2609.05736。</div></div>
 
 <h2>F4 · 全局与工程质量需求</h2>
@@ -1292,7 +1292,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <div class="fr-kv"><b>交互：</b>固定模型与案卷集，逐步拨开关，右侧实时画「假引用率 / 无据断言率 / 严格全通过率」三条曲线：Bare Baseline 跑（别名裸跑） → 只在 prompt 写「请引用真实判例」（软引导，假引用只降一部分且不稳，对应审计链 87.8%）→ 再扳上确定性「引用存在性校验门」（硬强制，假引用当场清零，对应 wrapper 100%）。一键复现 Parthenon、L-MARS（商业法律 AI 仍 17–33% 幻觉引用、严格引用 F1 0.131→0.254）论文数字。</div>
 <div class="ac"><span class="act">AC：</span>① 三态（裸 / 软引导 / 硬强制）切换时三条曲线随之变化且数字与报告一致、标来源；② 能亲手得到「软引导压不到零、硬门一扳归零」的对比；③ 中国 MCP 直连与美国产出后审计两种路线结果可对照；④ 论文复现数字标「脚本复现」、案卷示意标「示意」，不混为实测。</div></div>
 
-<div class="fr"><div class="fr-head"><span class="fr-id">F5-4</span><span class="fr-name">屏三 Compliance Forge 合规演化炉 + 合规牌照卡</span><span class="pill p1">P1</span></div>
+<div class="fr"><div class="fr-head"><span class="fr-id">F5-4</span><span class="fr-name">屏三 合规演化 + 合规牌照卡</span><span class="pill p1">P1</span></div>
 <div class="fr-kv"><b>交互：</b>把失败在人批准下转成<b>与具体案件无关</b>的程序 / 工具 / 知识沉淀（「凡时效抗辩必查假日历」「凡判例必验存在性」），起草 / 评分 / 改规则三角色信息隔离，防背答案、防客户数据泄漏（Parthenon 反泄漏学习环）；终态输出一张「Agent 合规牌照卡」，把技术指标翻译成监管语言（映射 ABA 512 六义务与中国生成式 AI 服务备案要求）。</div>
 <div class="ac"><span class="act">AC：</span>① 每条沉淀规则经人批准才入版本树、且不含具体案件当事人信息；② 牌照卡列出各硬门是否启用、对应义务与残留风险；③ 复用 F3 版本树 / 证据包，不另写演化逻辑。</div></div>
 </section>
@@ -1309,7 +1309,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <div class="fr-kv"><b>交互：</b>左侧「安全七控件（Security Controls）」逐个 / 组合开关：① 输入来源隔离 ② 工具边界网关 ③ 最小权限与短时凭证 ④ 执行沙箱 ⑤ 人控审批门（EXECUTE/ASK/REFUSE 三态）⑥ 出站 DLP ⑦ 独立带外熔断与存证；固定模型任务用自适应攻击（而非固定用例，AutoDojo 证明静态红队高估防御）持续加压；右侧三条随动曲线——攻击成功率 ASR、任务成功率 / 过拦过拒率、人工打断次数与延迟，最终在 <b>ASR↓ × 任务效用 × 人工负担↑</b> 三维画 Pareto 前沿并标候选点；下尾沿用 WorstLift / RR₀ / RelLift₉₅（第 6 章），防「平均安全、某次被打穿」。</div>
 <div class="ac"><span class="act">AC：</span>① 七开关可消融、配置指纹可追溯；② 三维 Pareto 由数据现算、可复现，能读出「最省人工仍达标」与「最稳但偏重」候选；③ 复现两个反直觉点：只开输入过滤被自适应攻击绕过、再开「最小权限 + 出站 DLP」后即便注入成功爆炸半径归零；「步步确认」打断率 100% 触发批准疲劳，而沙箱可把权限弹窗降约 84%（Anthropic）；④ 关键数字带来源：ToolPrivBench OPUR 64.9%、Task Shield ASR 2.07% 同时保 69.79% 效用、Constitutional Classifiers 过拒 +0.38%。</div></div>
 
-<div class="fr"><div class="fr-head"><span class="fr-id">F6-3</span><span class="fr-name">面板 C 策略合成与人控批准导出（镜像 Forge）</span><span class="pill p1">P1</span></div>
+<div class="fr"><div class="fr-head"><span class="fr-id">F6-3</span><span class="fr-name">面板 C 策略合成与人控批准导出（镜像演化）</span><span class="pill p1">P1</span></div>
 <div class="fr-kv"><b>交互：</b>在 Pareto 选定一点后生成「最小权限 + 必要护栏 + 最省人工卡点」策略（哪几个工具收窄到什么 scope、哪些不可逆动作必须 ASK、哪些目的地默认 REFUSE、带外熔断阈值、预算 / 商户白名单 / 单笔上限）；人逐条批准 / 改写 / 可回滚后，一键导出为运行时策略：OPA Rego、Claude 权限配置、APASS 式三态路由表、Okta 短时凭证范围、x402 / Agent Wallet 式钱包策略。</div>
 <div class="ac"><span class="act">AC：</span>① 导出策略与所选 Pareto 点一一对应、字段齐全；② 每条策略经人批准才可导出（无自动下发）；③ 经济约束（预算上限 / 白名单 / 单笔阈值 / 超额人审）可表达（对齐 Cloudflare Agent Wallet、APASS / AgentPayGuard）；④ 标注 APASS 接入规模为「厂商一方披露」。</div></div>
 
@@ -1337,7 +1337,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 <tr><td><code>failure.tag</code></td><td>mast 标签、confidence、note（author=narrator：剧本叙述者事后标注，不计入 Harness 行为评估）</td><td>失败聚类 / 转移矩阵</td></tr>
 <tr><td><code>run.finished</code></td><td>success、tokens、latencyP50、failureModes</td><td>对照读数</td></tr>
 </tbody></table></div>
-<div class="callout c-gray"><p><span class="ct">待补事件</span>调研报告数据契约还要求 <code>harness.mutation</code>（一次Harness 改动的提出 / 证伪 / 批准 / 回滚），已在 v1.1.1 补齐（shared/events.ts），W3 Forge 直接消费，以支撑版本树与证据包的 append-only 留痕。</p></div>
+<div class="callout c-gray"><p><span class="ct">待补事件</span>调研报告数据契约还要求 <code>harness.mutation</code>（一次Harness 改动的提出 / 证伪 / 批准 / 回滚），已在 v1.1.1 补齐（shared/events.ts），W3 演化直接消费，以支撑版本树与证据包的 append-only 留痕。</p></div>
 
 <h2>HarnessConfig：20 字段配置 DSL</h2>
 <p>harness 被建模为一个 20 字段、可序列化、可哈希、可 diff 的值（对齐 HarnessX「harness 是一等值 H=(M,C)」与 Prime Agent 的 H=(ρ,G,K,M)）。四组分类与 20 个标准模块一一对应（shared/config.ts）：</p>
@@ -1440,7 +1440,7 @@ data/redteam/*                              攻击用例库、安全七控件定
 <div class="step"><b>选定 模型×场景×配置</b>配置指纹 fingerprint</div>
 <div class="step"><b>Replayer 选分支</b>命中预录分支 / 回退最近分支并提示</div>
 <div class="step"><b>append-only 事件流</b>zod 校验后入 store</div>
-<div class="step"><b>三屏同一数据投影</b>运行透视取逐步、风洞取汇总、Forge 取失败簇</div>
+<div class="step"><b>三屏同一数据投影</b>运行透视取逐步、风洞取汇总、演化取失败簇</div>
 <div class="step"><b>改动→证伪→批准</b>新配置回灌风洞、commit 入版本树</div>
 </div>
 <p class="legend-note">三屏共享同一份事件流，只是投影方式不同，避免各屏各算一套、数字互相打架（呼应报告「状态只设一个权威来源」）。</p>
@@ -1468,19 +1468,19 @@ data/redteam/*                              攻击用例库、安全七控件定
 <div class="table-wrap"><table><colgroup><col style="width:12%"><col style="width:48%"><col style="width:40%"></colgroup><thead><tr><th>周</th><th>交付内容</th><th>完成定义 DoD（验收）</th></tr></thead><tbody>
 <tr class="v11"><td><b>W1</b></td><td>地基 + 屏一运行透视 + 在线配置：事件 schema 与确定性回放器；屏一运行透视（分层栈、五层 shaper、时间轴、介入标记、失败标签 / critical step）；<b>F4-6 照搬 docStudio 的 Provider 设置</b>（预设 + Custom、拉模型 / 验证 / 持久化，在线档可真跑）；<b>F4-5 真实轨迹解析器</b>（Claude transcript / dsh / NLAH）骨架</td><td>断网可回放任一 fixture；运行透视六分层 token 与 estTokens 自洽、五层 shaper 按序点火；可添加一个 Custom 兼容端点并被在线档选用、刷新仍在、key 不入日志；一份真实 transcript 可导入并在运行透视播放；typecheck 通过</td></tr>
 <tr class="v11"><td><b>W2</b></td><td>通用风洞核心 + 适配画像 + 法律包：屏二模块板、3 个论文预设、模型×harness 矩阵、配对消融、可靠性下尾、<b>F2-11 固定 harness 变 model 适配画像</b>、轨迹 diff、转移矩阵 / Pareto；法律包 F5-1~F5-3（领域模块板、Autopsy 尸检台、审计阶梯亲手复现）+ 3–5 份埋雷案卷与 1 份干净对照；<b>周末出第一版演示视频（通用 + 法律）</b></td><td>20 模块可拨且指纹 / diff 正确、配对严格只差一个字段；F2-11 锁定后 configDiff=0、唯一变量为 model，适配指标可复算并能读出「对 A 合拍 / 对 B 不合拍」；法律裸→软引导→硬强制三态曲线与报告数字一致、Mata 6 假判例被标红；check:paper 通过</td></tr>
-<tr class="v11"><td><b>W3</b></td><td>Forge + 安全包 + 收口：屏三 Forge（聚类归因、改动卡、三数据集证伪、人控三态 + 自治度滑块、版本树 + 证据包、Autoplay，补 harness.mutation）；安全包 F6-1~F6-3（攻击火线、安全七控件三维 Pareto、策略人批导出）+ F6-4 闭源降级与攻击库；F5-4 合规牌照卡；三模式 12 步一键串讲演示</td><td>改动卡应用后合法、救回 / 回归同显且回归自动建回滚点、每代必停批准门；安全 ASR × 效用 × 人工三维 Pareto 可复现、策略可导出 OPA / 权限 / 三态 / 凭证；通用 / 法律 / 安全三模式均可完整演示；shot.py 桌面 + 移动双视口、浅深主题通过</td></tr>
+<tr class="v11"><td><b>W3</b></td><td>演化 + 安全包 + 收口：屏三演化（聚类归因、改动卡、三数据集证伪、人控三态 + 自治度滑块、版本树 + 证据包、Autoplay，补 harness.mutation）；安全包 F6-1~F6-3（攻击火线、安全七控件三维 Pareto、策略人批导出）+ F6-4 闭源降级与攻击库；F5-4 合规牌照卡；三模式 12 步一键串讲演示</td><td>改动卡应用后合法、救回 / 回归同显且回归自动建回滚点、每代必停批准门；安全 ASR × 效用 × 人工三维 Pareto 可复现、策略可导出 OPA / 权限 / 三态 / 凭证；通用 / 法律 / 安全三模式均可完整演示；shot.py 桌面 + 移动双视口、浅深主题通过</td></tr>
 <tr class="v11"><td><b>Stretch（延后，不在 v1.1）</b></td><td>真实沙箱快照分叉对接 microVM；金融 / 医疗领域包；在线档从最小 harness 扩到完整 agent；F2-10 舞台对照增强；对接真实权威库 MCP 生产 API、生产级自适应攻击生成器</td><td>—（v1.1 验收不依赖这些项）</td></tr>
 </tbody></table></div>
-<div class="callout c-gray v11"><p><span class="ct">里程碑顺序的理由</span>先运行透视（让人「看见」）→ 再风洞（核心差异化，W2 末即可独立成片对外讲）→ 最后 Forge（闭环价值观）。法律包与风洞同构、随 W2 落地（审计阶梯正是受控消融的领域版），安全包随 W3 的人控闭环落地（策略合成正是人批演化的安全版）。即使 W3 延期，W2 末「通用透视 + 受控消融 + 法律审计阶梯」已是完整、可演示、能立住论点的产品。<span class="v11-tag">v1.1 改</span></p></div>
+<div class="callout c-gray v11"><p><span class="ct">里程碑顺序的理由</span>先运行透视（让人「看见」）→ 再风洞（核心差异化，W2 末即可独立成片对外讲）→ 最后演化（闭环价值观）。法律包与风洞同构、随 W2 落地（审计阶梯正是受控消融的领域版），安全包随 W3 的人控闭环落地（策略合成正是人批演化的安全版）。即使 W3 延期，W2 末「通用透视 + 受控消融 + 法律审计阶梯」已是完整、可演示、能立住论点的产品。<span class="v11-tag">v1.1 改</span></p></div>
 <h1>10 成功度量</h1>
 <h2>北极星指标</h2>
-<div class="callout c-accent"><p><span class="ct">North Star</span><b>用户能在一次会话内，定位至少一个「反直觉的 harness 模块作用」，并产出一条经过风洞验证、本人批准的配置改动。</b>这同时验证了「看得见（运行透视）→ 测得准（风洞）→ 改得对（Forge）」的完整闭环，而不只是点了几个页面。</p></div>
+<div class="callout c-accent"><p><span class="ct">North Star</span><b>用户能在一次会话内，定位至少一个「反直觉的 harness 模块作用」，并产出一条经过风洞验证、本人批准的配置改动。</b>这同时验证了「看得见（运行透视）→ 测得准（风洞）→ 改得对（演化）」的完整闭环，而不只是点了几个页面。</p></div>
 <h2>演示成功判定与质量护栏</h2>
 <div class="table-wrap"><table><colgroup><col style="width:24%"><col style="width:44%"><col style="width:32%"></colgroup><thead><tr><th>类别</th><th>指标 / 判定</th><th>目标</th></tr></thead><tbody>
 <tr><td>演示流畅度</td><td>12 步一键演示无人工干预走完；34% 对 77% 钩子、分叉 diff、回滚点三个记忆点被观众复述</td><td>约 2 分钟；关键记忆点命中率高</td></tr>
 <tr><td>确定性护栏</td><td>离线档同一指纹重复回放结果一致率</td><td>100%</td></tr>
 <tr><td>诚实护栏</td><td>所有数字 / 轨迹带来源标注的覆盖率；负增益（模块掉分、回归）不隐藏</td><td>100% 覆盖；负增益必现</td></tr>
-<tr><td>闭环有效性</td><td>Forge 产出的改动在 scorecard 集上「救回数 − 回归数」为正、且经人批准</td><td>演示路径稳定为正（救回 4 / 回归 1）</td></tr>
+<tr><td>闭环有效性</td><td>演化产出的改动在 scorecard 集上「救回数 − 回归数」为正、且经人批准</td><td>演示路径稳定为正（救回 4 / 回归 1）</td></tr>
 </tbody></table></div>
 <h2>反指标（明确不追求）</h2>
 <ul>

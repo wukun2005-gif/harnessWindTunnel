@@ -22,10 +22,10 @@ export const DEMO_STEPS: DemoStepDef[] = [
   { screen: 'Wind Tunnel', titleKey: 'demo.step6.title', descKey: 'demo.step6.desc', memoryKey: 'demo.step6.memory' },
   { screen: 'Wind Tunnel', titleKey: 'demo.step7.title', descKey: 'demo.step7.desc', memoryKey: 'demo.step7.memory' },
   { screen: 'Wind Tunnel', titleKey: 'demo.step8.title', descKey: 'demo.step8.desc', memoryKey: 'demo.step8.memory' },
-  { screen: 'Forge', titleKey: 'demo.step9.title', descKey: 'demo.step9.desc', memoryKey: 'demo.step9.memory' },
-  { screen: 'Forge', titleKey: 'demo.step10.title', descKey: 'demo.step10.desc', memoryKey: 'demo.step10.memory' },
-  { screen: 'Forge', titleKey: 'demo.step11.title', descKey: 'demo.step11.desc', memoryKey: 'demo.step11.memory' },
-  { screen: 'Forge', titleKey: 'demo.step12.title', descKey: 'demo.step12.desc', memoryKey: 'demo.step12.memory' },
+  { screen: 'Evolution', titleKey: 'demo.step9.title', descKey: 'demo.step9.desc', memoryKey: 'demo.step9.memory' },
+  { screen: 'Evolution', titleKey: 'demo.step10.title', descKey: 'demo.step10.desc', memoryKey: 'demo.step10.memory' },
+  { screen: 'Evolution', titleKey: 'demo.step11.title', descKey: 'demo.step11.desc', memoryKey: 'demo.step11.memory' },
+  { screen: 'Evolution', titleKey: 'demo.step12.title', descKey: 'demo.step12.desc', memoryKey: 'demo.step12.memory' },
 ]
 
 function enterMRI(scenarioId: string, branchId: string) {
