@@ -1,0 +1,21 @@
+{
+  "runId": "dsh-demo-1",
+  "task": "Export churned customers from CRM and notify the CSM",
+  "steps": [
+    {
+      "thought": "First pull this quarter's churned-customer list",
+      "tool": "crm.query",
+      "args": "churned this quarter",
+      "observation": "412 churned records in total"
+    },
+    {
+      "thought": "Build the summary table before notifying anyone",
+      "tool": "xlsx.generate",
+      "args": "churn-summary.xlsx",
+      "observation": "Summary table complete"
+    },
+    {
+      "thought": "Scope is confirmed against the file; ready to notify the CSM"
+    }
+  ]
+}

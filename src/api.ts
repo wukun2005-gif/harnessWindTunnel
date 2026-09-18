@@ -9,6 +9,18 @@ async function jget<T>(url: string): Promise<T> {
   return r.json() as Promise<T>
 }
 
+async function jpost<T>(url: string, body: unknown): Promise<T> {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  if (!r.ok) {
+    let detail = `${r.status}`
+    try {
+      detail = (await r.json() as { error?: string }).error ?? detail
+    } catch { /* keep status */ }
+    throw new Error(detail)
+  }
+  return r.json() as Promise<T>
+}
+
 export interface ScenarioSummary {
   scenarioId: string
   family: string
@@ -51,4 +63,12 @@ export const api = {
   forge: () => jget<ForgeData>('/api/forge'),
   adaptation: (scenarioId: string) =>
     jget<AdaptationDoc>(`/api/adaptation?scenario=${encodeURIComponent(scenarioId)}`),
+  importEvents: (format: 'claude' | 'dsh', text: string) =>
+    jpost<{ events: unknown[]; skipped: number }>('/api/import', { format, text }),
+  importSample: (name: 'claude' | 'dsh') =>
+    jget<{ name: string; text: string }>(`/api/import-sample?name=${name}`),
+  nlahExport: (config: HarnessConfig, task: string) =>
+    jpost<unknown>('/api/nlah/export', { config, task }),
+  nlahImport: (doc: unknown) =>
+    jpost<{ config: HarnessConfig; task: string }>('/api/nlah/import', { doc }),
 }

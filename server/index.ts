@@ -5,8 +5,11 @@ import { resolve } from 'node:path'
 import { getMetrics, getScenario, hasData, listScenarios, metricsForConfig, resolveReplay } from './replayer'
 import { PRESETS } from '../shared/presets'
 import type { HarnessConfig } from '../shared/config'
+import { parseClaudeCodeTranscript } from './importers/claudeCode'
+import { parseDshTrajectory } from './importers/dshTrajectory'
+import { exportNlah, importNlah } from './importers/nlah'
 
-const PORT = 4000
+const PORT = Number(process.env['PORT'] ?? 4000)
 
 function json(res: import('node:http').ServerResponse, code: number, body: unknown) {
   const s = JSON.stringify(body)
@@ -17,6 +20,26 @@ function json(res: import('node:http').ServerResponse, code: number, body: unkno
 function parseConfig(raw: string | null): HarnessConfig | undefined {
   if (!raw) return undefined
   return JSON.parse(raw) as HarnessConfig
+}
+
+function readBody(req: import('node:http').IncomingMessage, limit = 1_000_000): Promise<string> {
+  return new Promise((resolveBody, reject) => {
+    let n = 0
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => {
+      n += c.length
+      if (n > limit) {
+        reject(new Error('body too large'))
+        req.destroy()
+      } else chunks.push(c)
+    })
+    req.on('end', () => resolveBody(Buffer.concat(chunks).toString('utf8')))
+    req.on('error', reject)
+  })
+}
+
+function bodyJson<T>(raw: string): T {
+  return JSON.parse(raw) as T
 }
 
 const server = createServer((req, res) => {
@@ -93,6 +116,49 @@ const server = createServer((req, res) => {
 
     if (p === '/api/forge') {
       return json(res, 200, JSON.parse(readFileSync(resolve(process.cwd(), 'data', 'forge', 'generations.json'), 'utf8')))
+    }
+
+    if (p === '/api/import-sample') {
+      const name = q.get('name')
+      const file = name === 'claude' ? 'claude-sample.jsonl' : name === 'dsh' ? 'dsh-sample.json' : null
+      if (!file) return json(res, 400, { error: 'unknown sample (want claude|dsh)' })
+      return json(res, 200, { name, text: readFileSync(resolve(process.cwd(), 'data', 'imports', file), 'utf8') })
+    }
+
+    if (req.method === 'POST' && (p === '/api/import' || p === '/api/nlah/export' || p === '/api/nlah/import')) {
+      void readBody(req).then((raw) => {
+        try {
+          if (p === '/api/import') {
+            const { format, text } = bodyJson<{ format?: string; text?: string }>(raw)
+            if (typeof text !== 'string' || !text.trim()) return json(res, 400, { error: 'missing text' })
+            if (format === 'claude') return json(res, 200, parseClaudeCodeTranscript(text))
+            if (format === 'dsh') {
+              let doc: unknown
+              try {
+                doc = JSON.parse(text)
+              } catch {
+                return json(res, 400, { error: 'dsh text must be JSON' })
+              }
+              return json(res, 200, parseDshTrajectory(doc))
+            }
+            return json(res, 400, { error: 'unknown format (want claude|dsh)' })
+          }
+          if (p === '/api/nlah/export') {
+            const { config, task } = bodyJson<{ config?: HarnessConfig; task?: string }>(raw)
+            if (!config || typeof task !== 'string') return json(res, 400, { error: 'need config + task' })
+            return json(res, 200, exportNlah(config, task))
+          }
+          const { doc } = bodyJson<{ doc?: unknown }>(raw)
+          return json(res, 200, importNlah(doc))
+        } catch (err) {
+          return json(res, 400, { error: String((err as Error).message ?? err) })
+        }
+      }).catch((err) => {
+        try {
+          return json(res, 400, { error: String((err as Error).message ?? err) })
+        } catch { /* socket already gone */ }
+      })
+      return
     }
 
     return json(res, 404, { error: `no route: ${p}` })

@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BASE_CONFIG, COMPONENT_META, CONFIG_FIELDS } from '../../../shared/config'
 import { LAYER_LABEL, SHAPER_LABEL, type HarnessEvent, type SourceRef } from '../../../shared/events'
 import { MAST_HINT, MAST_LABEL, type MastTag } from '../../../shared/mast'
 import { useApp, useRun, useTunnel } from '../../stores'
+import { api } from '../../api'
 import { useT, useFixture } from '../../i18n'
 import { fmtTokens } from '../../lib/derive'
 import { ScreenNav } from '../../components/ScreenNav'
 
 export function SourceBadge({ source }: { source: SourceRef }) {
-  const cls = source.kind === 'paper-reproduction' ? 'src-paper' : source.kind === 'live' ? 'src-live' : 'src-fixture'
+  const cls = source.kind === 'paper-reproduction' ? 'src-paper' : source.kind === 'live' ? 'src-live' : source.kind === 'imported' ? 'src-imported' : 'src-fixture'
   return <span className={`src-badge ${cls}`} title={source.citation ?? ''}>{source.label}</span>
 }
 
@@ -72,6 +73,7 @@ export default function MRI() {
               ))}
             </div>
           </div>
+          <ImportPanel />
           {runMeta && (() => {
             const curBranch = meta?.branches.find((b) => b.branchId === (runMeta.branchId ?? branch)) ?? meta?.branches.find((b) => b.branchId === branch)
             const activeFields = curBranch ? CONFIG_FIELDS.filter((f) => curBranch.config[f] !== BASE_CONFIG[f]) : []
@@ -130,6 +132,75 @@ export default function MRI() {
           title={rightOpen ? 'Collapse right panel' : 'Expand right panel'}
         >{rightOpen ? '▶' : '◀'}</button>
       </div>
+    </div>
+  )
+}
+
+/** F4-5 transcript import: file or built-in sample → normalized events → MRI replay. */
+function ImportPanel() {
+  const t = useT()
+  const { loadImported } = useRun()
+  const [format, setFormat] = useState<'claude' | 'dsh'>('claude')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const send = async (fmt: 'claude' | 'dsh', text: string, label: string) => {
+    setBusy(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const r = await api.importEvents(fmt, text)
+      loadImported(r.events as HarnessEvent[], label)
+      setInfo(t('mri.import.ok', { events: r.events.length, skipped: r.skipped }))
+    } catch (e) {
+      setError(t('mri.import.error', { error: e instanceof Error ? e.message : String(e) }))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const onFile = async (file: File) => {
+    try {
+      await send(format, await file.text(), file.name)
+    } catch (e) {
+      setError(t('mri.import.error', { error: e instanceof Error ? e.message : String(e) }))
+    }
+  }
+  const onSample = async (name: 'claude' | 'dsh') => {
+    setBusy(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const s = await api.importSample(name)
+      await send(name, s.text, `sample:${name}`)
+    } catch (e) {
+      setError(t('mri.import.error', { error: e instanceof Error ? e.message : String(e) }))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h3>{t('mri.import.title')} <span className="tag">{t('mri.import.tag')}</span></h3>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+        <select value={format} onChange={(e) => setFormat(e.target.value as 'claude' | 'dsh')} style={{ flex: 1 }}>
+          <option value="claude">{t('mri.import.claude')}</option>
+          <option value="dsh">{t('mri.import.dsh')}</option>
+        </select>
+        <button disabled={busy} onClick={() => fileRef.current?.click()}>{t('mri.import.file')}</button>
+        <input ref={fileRef} type="file" accept=".jsonl,.json,.txt" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = '' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {(['claude', 'dsh'] as const).map((n) => (
+          <button key={n} disabled={busy} style={{ flex: 1, padding: '2px 8px', fontSize: 12 }} onClick={() => void onSample(n)}>
+            {t('mri.import.sample', { name: n })}
+          </button>
+        ))}
+      </div>
+      {busy && <div className="faint" style={{ marginTop: 6 }}>{t('common.loading')}</div>}
+      {info && <div style={{ color: 'var(--green)', fontSize: 12, marginTop: 6 }}>{info}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>{error}</div>}
     </div>
   )
 }

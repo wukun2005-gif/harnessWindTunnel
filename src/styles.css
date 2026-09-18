@@ -109,6 +109,7 @@ body {
 .src-fixture { color: var(--text-dim); border-color: var(--border-hi); background: rgba(148, 163, 184, .07); }
 .src-paper { color: var(--amber); border-color: rgba(251, 191, 36, .35); background: rgba(251, 191, 36, .07); }
 .src-live { color: var(--green); border-color: rgba(52, 211, 153, .35); background: rgba(52, 211, 153, .07); }
+.src-imported { color: var(--violet); border-color: rgba(167, 139, 250, .35); background: rgba(167, 139, 250, .07); }
 .src-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 /* ---------- 按钮 / 选择 ---------- */

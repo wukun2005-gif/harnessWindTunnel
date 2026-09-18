@@ -84,7 +84,16 @@ test('Chinese dictionaries match the pre-fix baseline exactly', () => {
 test('all scenario metadata, replay steps, markers, context previews, and Forge data remain English', () => {
   const root = resolve('data')
   const seen = new Set<string>()
+  // data/imports holds upload samples, not recorded replay branches — checked for language, excluded from the branch index.
+  const isImportSample = (path: string) => path.startsWith(resolve(root, 'imports'))
   for (const path of files(root)) {
+    if (isImportSample(path)) {
+      const values: unknown = path.endsWith('.jsonl')
+        ? readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
+        : JSON.parse(readFileSync(path, 'utf8'))
+      for (const value of strings(values)) assert.ok(!han.test(fixture(value, 'en')), `${path}: ${value}`)
+      continue
+    }
     let values: unknown
     if (path.endsWith('.jsonl')) {
       const events = readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line)) as HarnessEvent[]

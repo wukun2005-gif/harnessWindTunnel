@@ -48,6 +48,7 @@ interface RunState {
   playing: boolean
   speed: number
   load: (scenarioId: string, branchId: string) => Promise<void>
+  loadImported: (events: HarnessEvent[], label: string) => void
   setPlayhead: (n: number) => void
   setPlaying: (b: boolean) => void
   setSpeed: (n: number) => void
@@ -63,6 +64,17 @@ export const useRun = create<RunState>((set, get) => ({
     } catch (e) {
       set({ loading: false, error: String(e) })
     }
+  },
+  loadImported(events, label) {
+    set({
+      run: deriveRun(events),
+      meta: {
+        runId: `imported#${label}`, scenarioId: 'imported', branchId: label,
+        configFingerprint: 'imported', exactMatch: false,
+        source: { kind: 'imported', label: 'Imported transcript' },
+      },
+      loading: false, error: null, playhead: 0, playing: false,
+    })
   },
   setPlayhead: (n) => set((s) => ({ playhead: Math.max(0, Math.min(n, s.run?.events.length ?? 0)) })),
   setPlaying: (b) => set({ playing: b }),
@@ -107,6 +119,7 @@ interface TunnelState {
   setScenario: (id: string) => void
   loadBranchConfig: (scenarioId: string, branchId: string) => void
   setField: (f: keyof HarnessConfig, v: string) => void
+  applyConfig: (config: HarnessConfig) => void
   addVariant: (label: string, config: HarnessConfig, branchId?: string, note?: string) => void
   removeVariant: (key: string) => void
   clearVariants: () => void
@@ -142,6 +155,7 @@ export const useTunnel = create<TunnelState>((set, get) => ({
     }
   },
   setField(f, v) { set((s) => ({ config: { ...s.config, [f]: v } })) },
+  applyConfig(config: HarnessConfig) { set({ config: { ...config } }) },
   addVariant(label, config, branchId, note) {
     const key = `v${++vseq}`
     set((s) => ({ variants: [...s.variants, { key, label, config, branchId, note, color: COLORS[s.variants.length % COLORS.length] }] }))

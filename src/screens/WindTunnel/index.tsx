@@ -28,6 +28,33 @@ export default function WindTunnel() {
   const T = useTunnel()
   const meta = metas[current]
   const t = useT()
+  const nlahRef = useRef<HTMLInputElement>(null)
+  const [nlahMsg, setNlahMsg] = useState<string | null>(null)
+  const [nlahErr, setNlahErr] = useState(false)
+  const onNlahExport = async () => {
+    setNlahMsg(null)
+    setNlahErr(false)
+    try {
+      const doc = await api.nlahExport(T.config, meta?.task ?? current)
+      downloadJson(`nlah-${current}.json`, doc)
+      setNlahMsg(t('tunnel.nlah.exported'))
+    } catch (e) {
+      setNlahErr(true)
+      setNlahMsg(t('tunnel.nlah.error', { error: e instanceof Error ? e.message : String(e) }))
+    }
+  }
+  const onNlahFile = async (file: File) => {
+    setNlahMsg(null)
+    setNlahErr(false)
+    try {
+      const { config, task } = await api.nlahImport(JSON.parse(await file.text()))
+      T.applyConfig(config)
+      setNlahMsg(t('tunnel.nlah.imported', { task }))
+    } catch (e) {
+      setNlahErr(true)
+      setNlahMsg(t('tunnel.nlah.error', { error: e instanceof Error ? e.message : String(e) }))
+    }
+  }
 
   useEffect(() => { if (T.scenarioId !== current) T.setScenario(current) }, [current]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -83,6 +110,12 @@ export default function WindTunnel() {
               <button onClick={() => T.resetBoard()}>{t('tunnel.components.clear')}</button>
             </div>
             <div className="faint" style={{ marginTop: 6 }}>{t('tunnel.components.hint')}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button style={{ flex: 1, padding: '2px 10px', fontSize: 12 }} onClick={() => void onNlahExport()}>{t('tunnel.nlah.export')}</button>
+              <button style={{ flex: 1, padding: '2px 10px', fontSize: 12 }} onClick={() => nlahRef.current?.click()}>{t('tunnel.nlah.import')}</button>
+              <input ref={nlahRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onNlahFile(f); e.target.value = '' }} />
+            </div>
+            {nlahMsg && <div style={{ color: nlahErr ? 'var(--red)' : 'var(--green)', fontSize: 12, marginTop: 6 }}>{nlahMsg}</div>}
           </div>
         </div>
 

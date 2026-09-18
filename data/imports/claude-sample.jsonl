@@ -1,0 +1,6 @@
+{"type":"human","message":{"role":"user","content":"Research pricing and positioning of 3 competitors, output a comparison memo"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Plan the searches: pricing pages, product positioning, recent updates."},{"type":"tool_use","id":"t1","name":"web_search","input":{"q":"Competitor A pricing 2026"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"Competitor A official pricing snapshot: three tiers $29/$79/$199"}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Have A. Next: Competitor B positioning analysis."},{"type":"tool_use","id":"t2","name":"web_search","input":{"q":"Competitor B positioning analysis"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t2","content":"Third-party review: Competitor B targets small and mid-size teams"}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Two sources so far; still need Competitor C before the memo is defensible."}]}}
