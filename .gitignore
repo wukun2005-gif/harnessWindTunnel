@@ -4,5 +4,5 @@ dist/
 .DS_Store
 coverage/
 *.local
+docs/
 dev-plan-v0.2.md
-docs/ dev-plan/
