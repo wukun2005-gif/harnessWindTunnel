@@ -80,6 +80,17 @@ const server = createServer((req, res) => {
 
     if (p === '/api/presets') return json(res, 200, { presets: PRESETS })
 
+    if (p === '/api/adaptation') {
+      const scenarioId = q.get('scenario')!
+      try {
+        const doc = JSON.parse(readFileSync(resolve(process.cwd(), 'data', 'adaptation.json'), 'utf8'))
+        if (!doc || doc.scenarioId !== scenarioId) return json(res, 404, { error: `no adaptation data for ${scenarioId}` })
+        return json(res, 200, doc)
+      } catch {
+        return json(res, 404, { error: `no adaptation data for ${scenarioId}` })
+      }
+    }
+
     if (p === '/api/forge') {
       return json(res, 200, JSON.parse(readFileSync(resolve(process.cwd(), 'data', 'forge', 'generations.json'), 'utf8')))
     }

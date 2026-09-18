@@ -53,7 +53,8 @@ test('isFragile flags positive means with negative worst or low win rate', () =>
 
 test('fitRating follows the three-tier rule', () => {
   assert.equal(fitRating([2, 3, 1]), 'Recommended')
-  assert.equal(fitRating([5, -1, 4]), 'Compatible')
+  assert.equal(fitRating([5, -1, 4]), 'Caution')
+  assert.equal(fitRating([1, 15, 9]), 'Compatible')
   assert.equal(fitRating([-1, -2]), 'Caution')
   assert.equal(fitRating([]), null)
   assert.deepEqual(compatibilitySpread([70, 74, 72]), { range: 4, std: std([70, 74, 72]) })

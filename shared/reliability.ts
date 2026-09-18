@@ -112,15 +112,20 @@ export function compatibilitySpread(scores: number[]): Spread | null {
 }
 
 /**
- * Three-tier fit rating (PRD §6): all-positive conditional lifts with
- * non-negative cross-model worst → Recommended; positive mean but wide
- * spread → Compatible; any negative → Caution (names the model in the UI).
+ * Three-tier fit rating (PRD §6): any negative conditional lift → Caution
+ * (the UI names the model); all non-negative with positive mean → Recommended,
+ * unless the spread is wide → Compatible. PRD leaves "wide" unquantified;
+ * WIDE_SPREAD_PP documents this UI heuristic.
  */
-export function fitRating(conditionalLifts: number[]): FitRating | null {
+export const WIDE_SPREAD_PP = 10
+export function fitRating(conditionalLifts: number[], spread?: Spread | null): FitRating | null {
   if (conditionalLifts.length === 0) return null
-  if (conditionalLifts.every((v) => v > 0) && Math.min(...conditionalLifts) >= 0) return 'Recommended'
-  if (mean(conditionalLifts) > 0) return 'Compatible'
-  return 'Caution'
+  if (conditionalLifts.some((v) => v < 0)) return 'Caution'
+  if (mean(conditionalLifts) <= 0) return 'Caution'
+  const r = spread
+    ? spread.range
+    : Math.max(...conditionalLifts) - Math.min(...conditionalLifts)
+  return r > WIDE_SPREAD_PP ? 'Compatible' : 'Recommended'
 }
 
 /** Kendall tau rank correlation in [-1, 1]; null when undefined. */
@@ -137,4 +142,22 @@ export function kendallTau(a: number[], b: number[]): number | null {
   }
   const denom = conc + disc
   return denom === 0 ? null : (conc - disc) / denom
+}
+
+// ---------- F2-4 / F2-11 cross-model fixture ----------
+
+import type { HarnessConfig } from './config'
+
+/**
+ * One score table serves both readings (PRD: same batch of data, two views):
+ * F2-4 reads it as Model × Harness, F2-11 locks one harness and varies model.
+ */
+export interface AdaptationDoc {
+  scenarioId: string
+  note?: string
+  harnesses: { id: string; label: string; config: HarnessConfig }[]
+  models: string[]
+  /** scores[model][harnessId] = scorecard success rate (%). */
+  scores: Record<string, Record<string, number>>
+  source: { kind: string; label: string; citation?: string }[]
 }

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BASE_CONFIG, COMPONENT_GROUPS, COMPONENT_META, CONFIG_FIELDS, fingerprint, type ConfigField } from '../../../shared/config'
-import { hashSeed, isFragile, liftStats, pairedLifts } from '../../../shared/reliability'
+import { compatibilitySpread, fitRating, hashSeed, isFragile, kendallTau, liftStats, pairedLifts, type AdaptationDoc } from '../../../shared/reliability'
+
+const fmtPp = (v: number) => {
+  const s = `${v >= 0 ? '+' : ''}${v.toFixed(1)}pp`
+  return <span className={v > 0.05 ? 'delta-pos' : v < -0.05 ? 'delta-neg' : 'delta-zero'}>{s}</span>
+}
 import type { HarnessEvent, ScenarioMeta } from '../../../shared/events'
 import { MAST_LABEL } from '../../../shared/mast'
 import { PRESETS } from '../../../shared/presets'
@@ -83,6 +88,7 @@ export default function WindTunnel() {
         <div>
           <RunMatrix meta={meta} />
           <TrajDiff meta={meta} />
+          <AdaptProfile scenarioId={current} />
         </div>
       </div>
     </div>
@@ -241,10 +247,6 @@ function LowerTail({ scenarioId }: { scenarioId: string }) {
   if (rows.length === 0 || !locked?.runs) {
     return rows.length === 0 ? null : <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.lowertail.noruns')}</div>
   }
-  const pp = (v: number) => {
-    const s = `${v >= 0 ? '+' : ''}${v.toFixed(1)}pp`
-    return <span className={v > 0.05 ? 'delta-pos' : v < -0.05 ? 'delta-neg' : 'delta-zero'}>{s}</span>
-  }
   return (
     <>
       <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.lowertail.title')} <span className="tag">{t('tunnel.lowertail.tag')}</span></div>
@@ -279,10 +281,10 @@ function LowerTail({ scenarioId }: { scenarioId: string }) {
             return (
               <tr key={v.key}>
                 <td><span style={{ color: v.color }}>■</span> {label(v.label)}</td>
-                <td className="num">{pp(stats.meanLift)}</td>
-                <td className="num">{pp(stats.worstLift)}</td>
+                <td className="num">{fmtPp(stats.meanLift)}</td>
+                <td className="num">{fmtPp(stats.worstLift)}</td>
                 <td className="num">{(stats.rr0 * 100).toFixed(0)}%</td>
-                <td className="num">{pp(stats.relLift95)}</td>
+                <td className="num">{fmtPp(stats.relLift95)}</td>
                 <td>{fragile
                   ? <span style={{ color: 'var(--red)', fontSize: 12 }}>⚠ {t('tunnel.lowertail.fragile')}</span>
                   : <span style={{ color: 'var(--green)', fontSize: 12 }}>✓ {t('tunnel.lowertail.solid')}</span>}</td>
@@ -433,6 +435,116 @@ function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
       {data && firstDiverge >= 0 && (
         <div className="faint" style={{ marginTop: 8 }}>{t('tunnel.diff.firstDiverge', { step: firstDiverge + 1 })}</div>
       )}
+    </div>
+  )
+}
+
+/**
+ * F2-11 adaptation profile + F2-4 cross matrix. One fixture table, two readings:
+ * lock a harness and vary only the model (profile), or read the full grid (matrix).
+ */
+function AdaptProfile({ scenarioId }: { scenarioId: string }) {
+  const t = useT()
+  const [doc, setDoc] = useState<AdaptationDoc | null>(null)
+  const [locked, setLocked] = useState('')
+  const [missing, setMissing] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    setDoc(null)
+    setLocked('')
+    setMissing(false)
+    api.adaptation(scenarioId)
+      .then((d) => {
+        if (!live) return
+        setDoc(d)
+        setLocked(d.harnesses.find((h) => h.id !== 'base')?.id ?? d.harnesses[0]?.id ?? '')
+      })
+      .catch(() => { if (live) setMissing(true) })
+    return () => { live = false }
+  }, [scenarioId])
+
+  if (!doc) {
+    if (!missing) return null
+    return (
+      <div className="panel">
+        <h3>{t('tunnel.adapt.title')} <span className="tag">{t('tunnel.adapt.tag')}</span></h3>
+        <div className="faint">{t('tunnel.adapt.none')}</div>
+      </div>
+    )
+  }
+
+  const bare = doc.harnesses.find((h) => h.id === 'base') ?? doc.harnesses[0]
+  const H = doc.harnesses.find((h) => h.id === locked) ?? bare
+  const scoreOf = (model: string, hid: string) => doc.scores[model]?.[hid]
+  const complete = doc.models.every((m) => Number.isFinite(scoreOf(m, H.id)) && Number.isFinite(scoreOf(m, bare.id)))
+  const lifts = complete ? doc.models.map((m) => (scoreOf(m, H.id) as number) - (scoreOf(m, bare.id) as number)) : []
+  const rating = fitRating(lifts)
+  const spread = complete ? compatibilitySpread(doc.models.map((m) => scoreOf(m, H.id) as number)) : null
+  const tau = complete
+    ? kendallTau(doc.models.map((m) => scoreOf(m, bare.id) as number), doc.models.map((m) => scoreOf(m, H.id) as number))
+    : null
+  const negatives = doc.models.filter((_, i) => (lifts[i] ?? 0) < 0)
+  const ratingColor = rating === 'Recommended' ? 'var(--green)' : rating === 'Compatible' ? 'var(--amber)' : 'var(--red)'
+
+  return (
+    <div className="panel" style={{ overflowX: 'auto' }}>
+      <h3>{t('tunnel.adapt.title')} <span className="tag">{t('tunnel.adapt.tag')}</span></h3>
+      <div style={{ marginBottom: 8 }}>{doc.source.map((s, i) => <span key={i} style={{ marginRight: 6 }}><SourceBadge source={s as never} /></span>)}</div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span className="faint">{t('tunnel.adapt.harness')}</span>
+        {doc.harnesses.map((h) => (
+          <button key={h.id} className={h.id === H.id ? 'active-btn' : ''} style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => setLocked(h.id)}>{h.label}</button>
+        ))}
+      </div>
+      <div className="faint mono" style={{ marginBottom: 10 }}>{t('tunnel.adapt.diff0', { fp: fingerprint(H.config) })}</div>
+
+      <table className="t" style={{ width: 'max-content' }}>
+        <thead><tr><th>{t('tunnel.adapt.model')}</th><th className="num">{t('tunnel.adapt.scoreH', { h: H.label })}</th><th className="num">{t('tunnel.adapt.scoreBare')}</th><th className="num">{t('tunnel.adapt.condlift')}</th></tr></thead>
+        <tbody>
+          {doc.models.map((m, i) => (
+            <tr key={m}>
+              <td className="mono" style={{ fontSize: 12 }}>{m}</td>
+              <td className="num">{complete ? (scoreOf(m, H.id) as number).toFixed(1) : '…'}</td>
+              <td className="num">{complete ? (scoreOf(m, bare.id) as number).toFixed(1) : '…'}</td>
+              <td className="num">{complete ? fmtPp(lifts[i]) : '…'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rating && (
+        <div style={{ marginTop: 8, fontSize: 13 }}>
+          <b style={{ color: ratingColor }}>{t(`tunnel.adapt.rating.${rating}`)}</b>
+          {spread && <span className="faint" style={{ marginLeft: 10 }}>{t('tunnel.adapt.spread', { range: spread.range.toFixed(1), std: spread.std.toFixed(1) })}</span>}
+          {negatives.length > 0 && <div style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 2 }}>{t('tunnel.adapt.negative', { models: negatives.join(', ') })}</div>}
+          {tau !== null && (
+            <div className="faint" style={{ marginTop: 2 }}>
+              {tau < 1 ? t('tunnel.adapt.reversal', { tau: tau.toFixed(2) }) : t('tunnel.adapt.stable', { tau: tau.toFixed(2) })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.adapt.matrix.title')}</div>
+      <table className="t" style={{ width: 'max-content' }}>
+        <thead><tr><th>{t('tunnel.adapt.model')}</th>{doc.harnesses.map((h) => <th key={h.id} className="num">{h.label}</th>)}</tr></thead>
+        <tbody>
+          {doc.models.map((m) => {
+            const vals = doc.harnesses.map((h) => scoreOf(m, h.id))
+            const best = Math.max(...vals.filter((v): v is number => Number.isFinite(v)))
+            return (
+              <tr key={m}>
+                <td className="mono" style={{ fontSize: 12 }}>{m}</td>
+                {doc.harnesses.map((h, j) => (
+                  <td key={h.id} className="num" style={Number.isFinite(vals[j]) && vals[j] === best ? { color: 'var(--green)', fontWeight: 700 } : undefined}>
+                    {Number.isFinite(vals[j]) ? (vals[j] as number).toFixed(1) : '·'}
+                  </td>
+                ))}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }

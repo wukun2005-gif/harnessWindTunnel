@@ -1,0 +1,51 @@
+{
+  "scenarioId": "workflow-crm-export",
+  "note": "Illustrative cross-model readings for F2-11 / F2-4 demo. Same task set and scorer for every cell; only the model varies when a harness is locked.",
+  "harnesses": [
+    {
+      "id": "base",
+      "label": "Bare Baseline",
+      "config": {
+        "loopControl": "basic", "toolset": "minimal", "filesystem": "none", "sandbox": "off", "subAgents": "off",
+        "planner": "off", "memory": "none", "compression": "off", "skills": "off",
+        "hooks": "off", "permissions": "open", "guides": "none", "sensors": "none", "selfVerify": "off", "globalPolicy": "none",
+        "observability": "off", "eval": "off", "humanInLoop": "none", "resume": "off", "optimizer": "off"
+      }
+    },
+    {
+      "id": "filestate",
+      "label": "+ File-backed State",
+      "config": {
+        "loopControl": "basic", "toolset": "minimal", "filesystem": "file-backed-state", "sandbox": "off", "subAgents": "off",
+        "planner": "off", "memory": "none", "compression": "off", "skills": "off",
+        "hooks": "off", "permissions": "open", "guides": "none", "sensors": "none", "selfVerify": "off", "globalPolicy": "none",
+        "observability": "off", "eval": "off", "humanInLoop": "none", "resume": "off", "optimizer": "off"
+      }
+    },
+    {
+      "id": "verifier",
+      "label": "+ Verifier",
+      "config": {
+        "loopControl": "basic", "toolset": "minimal", "filesystem": "none", "sandbox": "off", "subAgents": "off",
+        "planner": "off", "memory": "none", "compression": "off", "skills": "off",
+        "hooks": "off", "permissions": "ask-write", "guides": "none", "sensors": "verifier", "selfVerify": "off", "globalPolicy": "none",
+        "observability": "off", "eval": "off", "humanInLoop": "none", "resume": "off", "optimizer": "off"
+      }
+    }
+  ],
+  "models": [
+    "gpt-5.4-xhigh (illustrative)",
+    "gemini-3-flash (illustrative)",
+    "claude-5-class (illustrative)",
+    "local-7b (illustrative)"
+  ],
+  "scores": {
+    "gpt-5.4-xhigh (illustrative)": { "base": 44.4, "filestate": 58.3, "verifier": 52.8 },
+    "gemini-3-flash (illustrative)": { "base": 47.1, "filestate": 56.3, "verifier": 45.9 },
+    "claude-5-class (illustrative)": { "base": 42.0, "filestate": 53.0, "verifier": 47.5 },
+    "local-7b (illustrative)": { "base": 38.5, "filestate": 49.5, "verifier": 41.2 }
+  },
+  "source": [
+    { "kind": "fixture", "label": "Illustrative cross-model readings (F2-4 / F2-11 demo)" }
+  ]
+}

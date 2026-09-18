@@ -1,6 +1,7 @@
 import type { HarnessConfig } from '../shared/config'
 import type { MetricsEntry, ReplayMeta, ScenarioMeta } from '../shared/events'
 import { PRESETS, type Preset } from '../shared/presets'
+import type { AdaptationDoc } from '../shared/reliability'
 
 async function jget<T>(url: string): Promise<T> {
   const r = await fetch(url)
@@ -47,4 +48,6 @@ export const api = {
     ),
   presets: () => Promise.resolve({ presets: PRESETS } as { presets: Preset[] }),
   forge: () => jget<ForgeData>('/api/forge'),
+  adaptation: (scenarioId: string) =>
+    jget<AdaptationDoc>(`/api/adaptation?scenario=${encodeURIComponent(scenarioId)}`),
 }
