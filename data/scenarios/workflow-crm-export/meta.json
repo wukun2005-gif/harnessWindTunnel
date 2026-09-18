@@ -191,6 +191,16 @@
         "scope-violation": 1,
         "reasoning-action-mismatch": 1
       },
+      "runs": [
+        41.5,
+        42.4,
+        45.4,
+        44.2,
+        44.8,
+        46.6,
+        41.5,
+        40.7
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative baseline (Δ from NLAH v2: Compression −8.3 / File-backed State +13.9, OSWorld family)"
@@ -201,6 +211,16 @@
       "tokens": 91000,
       "latencyP50": 128000,
       "failureModes": {},
+      "runs": [
+        57.8,
+        55.5,
+        56.9,
+        58,
+        56.6,
+        60.1,
+        56.4,
+        62.4
+      ],
       "source": {
         "kind": "paper-reproduction",
         "label": "Paper reproduction · script",
@@ -212,6 +232,16 @@
       "tokens": 124000,
       "latencyP50": 171000,
       "failureModes": {},
+      "runs": [
+        53.5,
+        51,
+        57.4,
+        51.5,
+        54.8,
+        53.4,
+        50.3,
+        51.3
+      ],
       "source": {
         "kind": "paper-reproduction",
         "label": "Paper reproduction · script",
@@ -228,6 +258,16 @@
         "unaware-of-stopping": 1,
         "task-derailment": 1
       },
+      "runs": [
+        39.3,
+        37.2,
+        33.5,
+        34.9,
+        38.2,
+        37.3,
+        34.2,
+        33.7
+      ],
       "source": {
         "kind": "fixture",
         "label": "Δ −8.3pp illustrative (NLAH v2 direction: aggressive compression summaries drift from the evaluator)"
@@ -241,6 +281,16 @@
         "weak-grounding": 1,
         "reasoning-action-mismatch": 1
       },
+      "runs": [
+        46.6,
+        47.2,
+        46.9,
+        45.2,
+        48.2,
+        46.5,
+        47.2,
+        51.3
+      ],
       "source": {
         "kind": "fixture",
         "label": "Δ +2.8pp illustrative (NLAH v2: Multi-Candidate small OSWorld gain, −1.6pp on SWE)"
@@ -251,6 +301,16 @@
       "tokens": 96000,
       "latencyP50": 136000,
       "failureModes": {},
+      "runs": [
+        58.5,
+        58.2,
+        55.5,
+        56,
+        58.1,
+        58.7,
+        53.4,
+        57.4
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative: filestate locks scope → verifier passes first try → hooks guard mail.send; all components from MRI demo"

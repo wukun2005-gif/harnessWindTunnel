@@ -186,6 +186,16 @@
       "failureModes": {
         "premature-victory": 1
       },
+      "runs": [
+        30.7,
+        33.9,
+        36.9,
+        37.6,
+        30.4,
+        35.4,
+        33,
+        33.9
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative baseline (opening demo 34%)"
@@ -196,6 +206,16 @@
       "tokens": 63800,
       "latencyP50": 141000,
       "failureModes": {},
+      "runs": [
+        75.3,
+        79.8,
+        76.5,
+        72.8,
+        75.1,
+        76.2,
+        76.1,
+        75.7
+      ],
       "source": {
         "kind": "paper-reproduction",
         "label": "Paper reproduction · script",
@@ -207,6 +227,16 @@
       "tokens": 44600,
       "latencyP50": 104000,
       "failureModes": {},
+      "runs": [
+        40.5,
+        41.4,
+        41.3,
+        38.6,
+        42.5,
+        40.6,
+        38.8,
+        40.7
+      ],
       "source": {
         "kind": "fixture",
         "label": "Δ +5.8pp from NLAH Self-Evolution (SWE family, v2 Table 5); baseline illustrative"
@@ -217,6 +247,16 @@
       "tokens": 58000,
       "latencyP50": 132000,
       "failureModes": {},
+      "runs": [
+        68.5,
+        72.2,
+        64.9,
+        73.5,
+        68.3,
+        72.1,
+        70.5,
+        68.6
+      ],
       "source": {
         "kind": "paper-reproduction",
         "label": "Paper reproduction · script",
@@ -228,6 +268,16 @@
       "tokens": 66000,
       "latencyP50": 158000,
       "failureModes": {},
+      "runs": [
+        41.4,
+        43.5,
+        45.3,
+        39.5,
+        38.9,
+        40.9,
+        42.3,
+        41.6
+      ],
       "source": {
         "kind": "paper-reproduction",
         "label": "Paper reproduction · script",
@@ -241,6 +291,16 @@
       "failureModes": {
         "spec-misinterpretation": 1
       },
+      "runs": [
+        34.6,
+        37.7,
+        37,
+        34.7,
+        38.7,
+        33.2,
+        35.5,
+        36.1
+      ],
       "source": {
         "kind": "paper-reproduction",
         "label": "Paper reproduction · script",

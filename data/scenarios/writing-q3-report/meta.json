@@ -105,6 +105,16 @@
       "failureModes": {
         "long-horizon-decay": 2
       },
+      "runs": [
+        20,
+        23,
+        22.4,
+        18.7,
+        23.6,
+        20.6,
+        21.1,
+        22.9
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative data"
@@ -118,6 +128,16 @@
         "long-horizon-decay": 1,
         "context-loss": 1
       },
+      "runs": [
+        56.6,
+        57.2,
+        58,
+        58.1,
+        61.2,
+        56.6,
+        60.1,
+        56
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative data (same trunk as five-layer, for comparison)"
@@ -128,6 +148,16 @@
       "tokens": 168000,
       "latencyP50": 182000,
       "failureModes": {},
+      "runs": [
+        60.9,
+        63,
+        63.1,
+        62,
+        61.6,
+        66.1,
+        60.5,
+        60.7
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative data"

@@ -82,6 +82,11 @@ export interface MetricsEntry {
   latencyP50: number
   failureModes: Partial<Record<MastTag, number>>
   source: SourceRef
+  /**
+   * Per-run scorecard success rates (%) backing F2-6 lower-tail stats.
+   * Fixture readings for demo; absent = single point estimate only.
+   */
+  runs?: number[]
 }
 
 export interface BranchMeta {

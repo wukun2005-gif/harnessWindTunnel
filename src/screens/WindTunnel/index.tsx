@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BASE_CONFIG, COMPONENT_GROUPS, COMPONENT_META, CONFIG_FIELDS, type ConfigField } from '../../../shared/config'
+import { BASE_CONFIG, COMPONENT_GROUPS, COMPONENT_META, CONFIG_FIELDS, fingerprint, type ConfigField } from '../../../shared/config'
+import { hashSeed, isFragile, liftStats, pairedLifts } from '../../../shared/reliability'
 import type { HarnessEvent, ScenarioMeta } from '../../../shared/events'
 import { MAST_LABEL } from '../../../shared/mast'
 import { PRESETS } from '../../../shared/presets'
@@ -95,7 +96,9 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
   const T = useTunnel()
   const { select } = useApp()
   const rows = T.variants.map((v) => ({ v, m: T.metrics[v.key] }))
-  const base = rows.find((r) => r.m)?.m
+  // F2-2 locked baseline (falls back to the first row when nothing is locked).
+  const lockedKey = T.lockedKey ?? rows[0]?.v.key
+  const base = rows.find((r) => r.v.key === lockedKey)?.m ?? rows.find((r) => r.m)?.m
   // A field identical across every row carries no comparative signal — dim it,
   // so the eye lands on what actually varies between variants.
   const consensus = new Set<ConfigField>()
@@ -180,7 +183,12 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
                 ))}
               </td>
               <td>{m && <SourceBadge source={m.source as never} />}</td>
-              <td><button className="danger" style={{ padding: '1px 8px', fontSize: 12 }} onClick={() => T.removeVariant(v.key)}>✕</button></td>
+              <td style={{ whiteSpace: 'nowrap' }}>
+                {v.key === lockedKey
+                  ? <b style={{ color: 'var(--accent)', fontSize: 12 }} title={t('tunnel.baseline.locked')}>◉ {t('tunnel.baseline.locked')}</b>
+                  : <button style={{ padding: '1px 8px', fontSize: 12 }} title={t('tunnel.baseline.lock')} onClick={() => T.lockBaseline(v.key)}>○</button>}{' '}
+                <button className="danger" style={{ padding: '1px 8px', fontSize: 12 }} onClick={() => T.removeVariant(v.key)}>✕</button>
+              </td>
             </tr>
             )
           })}
@@ -207,6 +215,8 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
         </>
       )}
 
+      {rows.length >= 1 && <LowerTail scenarioId={T.scenarioId} />}
+
       {rows.length >= 2 && (
         <>
           <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.pareto.title')}</div>
@@ -216,6 +226,72 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
       {meta && <div className="faint" style={{ marginTop: 8 }}>{t('tunnel.meta.task', { task: meta.task, model: meta.model })}</div>}
       </>)}
     </div>
+  )
+}
+
+/** F2-6 reliability lower-tail: per-run lifts vs the locked baseline. */
+function LowerTail({ scenarioId }: { scenarioId: string }) {
+  const label = useVariantLabel()
+  const t = useT()
+  const T = useTunnel()
+  const rows = T.variants.map((v) => ({ v, m: T.metrics[v.key] }))
+  const lockedKey = T.lockedKey ?? rows[0]?.v.key
+  const locked = rows.find((r) => r.v.key === lockedKey)?.m
+
+  if (rows.length === 0 || !locked?.runs) {
+    return rows.length === 0 ? null : <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.lowertail.noruns')}</div>
+  }
+  const pp = (v: number) => {
+    const s = `${v >= 0 ? '+' : ''}${v.toFixed(1)}pp`
+    return <span className={v > 0.05 ? 'delta-pos' : v < -0.05 ? 'delta-neg' : 'delta-zero'}>{s}</span>
+  }
+  return (
+    <>
+      <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.lowertail.title')} <span className="tag">{t('tunnel.lowertail.tag')}</span></div>
+      <table className="t" style={{ width: 'max-content' }}>
+        <thead><tr><th>{t('tunnel.readings.config')}</th><th className="num">MeanLift</th><th className="num">WorstLift</th><th className="num">RR₀</th><th className="num">RelLift₉₅</th><th>{t('tunnel.lowertail.verdict')}</th></tr></thead>
+        <tbody>
+          {rows.map(({ v, m }) => {
+            if (v.key === lockedKey) {
+              return (
+                <tr key={v.key}>
+                  <td><span style={{ color: v.color }}>■</span> {label(v.label)}</td>
+                  <td className="num" colSpan={4} style={{ color: 'var(--text-faint)' }}>—</td>
+                  <td><b style={{ color: 'var(--accent)', fontSize: 12 }}>◉ {t('tunnel.baseline.locked')}</b></td>
+                </tr>
+              )
+            }
+            const candRuns = m?.runs
+            const baseRuns = locked.runs
+            const stats = candRuns && baseRuns
+              ? liftStats(pairedLifts(candRuns, baseRuns), hashSeed(`${scenarioId}:${fingerprint(v.config)}`))
+              : null
+            if (!stats) {
+              return (
+                <tr key={v.key}>
+                  <td><span style={{ color: v.color }}>■</span> {label(v.label)}</td>
+                  <td className="num" colSpan={4} style={{ color: 'var(--text-faint)' }}>…</td>
+                  <td className="faint">{t('tunnel.lowertail.noruns')}</td>
+                </tr>
+              )
+            }
+            const fragile = isFragile(stats)
+            return (
+              <tr key={v.key}>
+                <td><span style={{ color: v.color }}>■</span> {label(v.label)}</td>
+                <td className="num">{pp(stats.meanLift)}</td>
+                <td className="num">{pp(stats.worstLift)}</td>
+                <td className="num">{(stats.rr0 * 100).toFixed(0)}%</td>
+                <td className="num">{pp(stats.relLift95)}</td>
+                <td>{fragile
+                  ? <span style={{ color: 'var(--red)', fontSize: 12 }}>⚠ {t('tunnel.lowertail.fragile')}</span>
+                  : <span style={{ color: 'var(--green)', fontSize: 12 }}>✓ {t('tunnel.lowertail.solid')}</span>}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </>
   )
 }
 

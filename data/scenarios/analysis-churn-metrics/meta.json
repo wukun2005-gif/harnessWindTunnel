@@ -80,6 +80,16 @@
         "weak-grounding": 1,
         "fail-to-clarify": 1
       },
+      "runs": [
+        55,
+        48.2,
+        52.9,
+        51.3,
+        49.2,
+        48.6,
+        49.1,
+        50.1
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative data"
@@ -90,6 +100,16 @@
       "tokens": 41000,
       "latencyP50": 72000,
       "failureModes": {},
+      "runs": [
+        59.7,
+        55.9,
+        56.8,
+        54.4,
+        59.8,
+        56.6,
+        57.2,
+        57.2
+      ],
       "source": {
         "kind": "fixture",
         "label": "Illustrative data (same trunk as base, for comparison)"

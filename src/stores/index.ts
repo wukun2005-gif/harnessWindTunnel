@@ -92,6 +92,8 @@ export interface VariantMetrics {
   source: { kind: string; label: string; citation?: string }
   exact: boolean
   distance?: number
+  /** Per-run scorecard success rates backing F2-6 lower-tail stats. */
+  runs?: number[]
 }
 interface TunnelState {
   scenarioId: string
@@ -99,6 +101,9 @@ interface TunnelState {
   variants: Variant[]
   metrics: Record<string, VariantMetrics>
   fetching: string | null
+  /** Locked baseline variant key for F2-2 (null = first row acts as baseline). */
+  lockedKey: string | null
+  lockBaseline: (key: string) => void
   setScenario: (id: string) => void
   loadBranchConfig: (scenarioId: string, branchId: string) => void
   setField: (f: keyof HarnessConfig, v: string) => void
@@ -117,8 +122,10 @@ export const useTunnel = create<TunnelState>((set, get) => ({
   variants: [],
   metrics: {},
   fetching: null,
+  lockedKey: null,
+  lockBaseline(key) { set({ lockedKey: key }) },
   setScenario(id) {
-    set({ scenarioId: id, variants: [], metrics: {}, config: { ...BASE_CONFIG } })
+    set({ scenarioId: id, variants: [], metrics: {}, config: { ...BASE_CONFIG }, lockedKey: null })
     void get().fetchMetrics()
   },
   loadBranchConfig(scenarioId, branchId) {
@@ -147,7 +154,7 @@ export const useTunnel = create<TunnelState>((set, get) => ({
     // fetchMetrics on stale snapshots, and the scenarioId lag let the screen
     // effect wipe freshly added variants when switching scenarios.
     const vs: Variant[] = list.map((v, i) => ({ key: `v${++vseq}`, label: v.label, config: v.config, branchId: v.branchId, note: v.note, color: COLORS[i % COLORS.length] }))
-    set({ scenarioId, variants: vs, metrics: {}, fetching: null })
+    set({ scenarioId, variants: vs, metrics: {}, fetching: null, lockedKey: null })
     void get().fetchMetrics()
   },
   async fetchMetrics() {
@@ -164,7 +171,7 @@ export const useTunnel = create<TunnelState>((set, get) => ({
             [v.key]: {
               successRate: r.entry.successRate, tokens: r.entry.tokens, latencyP50: r.entry.latencyP50,
               failureModes: r.entry.failureModes as Record<string, number>, source: r.entry.source,
-              exact: r.exact, distance: r.distance,
+              exact: r.exact, distance: r.distance, runs: r.entry.runs,
             },
           },
         }))
