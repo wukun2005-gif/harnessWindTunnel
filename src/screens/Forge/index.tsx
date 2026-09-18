@@ -103,7 +103,8 @@ export default function Forge() {
           <div className="panel">
             <h3>{t('forge.change.card')} <span className="tag">· GEN {gen.gen} / {forge.gens.length}</span></h3>
             <div className="change-card">
-              <span className="seam">{t('forge.seam', { seam: gen.card.seam })}</span>
+              <span className="seam">{t('forge.seam', { seam: gen.card.seam })}</span>{' '}
+              <span className="seam" title={gen.card.surfaceReason}>{t(`forge.surface.${gen.card.surface}`)}</span>
               <h4>{gen.card.title}</h4>
               <div className="nl">{gen.card.nl}</div>
               <div className="code-diff">{gen.card.diff.split('\n').map((l, i) => (

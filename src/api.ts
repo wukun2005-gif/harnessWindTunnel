@@ -19,13 +19,14 @@ export interface ScenarioSummary {
   branches: string[]
 }
 
+export type EditSurface = 'prompt' | 'middleware' | 'joint'
 export interface ForgeGen {
   gen: number
   gain: number
   verdict: 'approved' | 'rejected'
   approvedBy: 'human' | 'autoplay-gate'
   cluster: { mast: string; count: number; summary: string; sampleBranches: string[] }
-  card: { seam: string; title: string; nl: string; diff: string; prediction: { gainPp: [number, number] } }
+  card: { seam: string; title: string; nl: string; diff: string; surface: EditSurface; surfaceReason: string; prediction: { gainPp: [number, number] } }
   falsification: { rescued: number; regressed: number; detail: string }
 }
 export interface ForgeData {

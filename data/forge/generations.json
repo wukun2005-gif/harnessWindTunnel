@@ -38,7 +38,9 @@
             0.5,
             1.2
           ]
-        }
+        },
+        "surface": "middleware",
+        "surfaceReason": "Guarded intercept at the commit boundary (PRISM middleware surface)"
       },
       "falsification": {
         "rescued": 5,
@@ -69,7 +71,9 @@
             0.8,
             1.8
           ]
-        }
+        },
+        "surface": "middleware",
+        "surfaceReason": "Runtime compaction mechanism, not prompt wording (PRISM middleware surface)"
       },
       "falsification": {
         "rescued": 3,
@@ -100,7 +104,9 @@
             0.2,
             0.8
           ]
-        }
+        },
+        "surface": "prompt",
+        "surfaceReason": "Guideline text the model reads before acting (PRISM prompt surface)"
       },
       "falsification": {
         "rescued": 2,
@@ -131,7 +137,9 @@
             0.6,
             1.4
           ]
-        }
+        },
+        "surface": "middleware",
+        "surfaceReason": "PostToolUse hook truncates tool output outside the model (PRISM middleware surface)"
       },
       "falsification": {
         "rescued": 3,
@@ -162,7 +170,9 @@
             0.3,
             0.9
           ]
-        }
+        },
+        "surface": "joint",
+        "surfaceReason": "Hook enforces a prompt-level evidence convention (PRISM joint surface)"
       },
       "falsification": {
         "rescued": 2,
@@ -193,7 +203,9 @@
             1,
             1.5
           ]
-        }
+        },
+        "surface": "prompt",
+        "surfaceReason": "Fixed self-reflection rule expressed as loop instruction (PRISM prompt surface)"
       },
       "falsification": {
         "rescued": 1,
@@ -224,7 +236,9 @@
             0.8,
             1.6
           ]
-        }
+        },
+        "surface": "middleware",
+        "surfaceReason": "Join-time verification between runtime and logs (PRISM middleware surface)"
       },
       "falsification": {
         "rescued": 4,
@@ -255,7 +269,9 @@
             0.4,
             1
           ]
-        }
+        },
+        "surface": "middleware",
+        "surfaceReason": "State externalized to path-addressable files (PRISM middleware surface)"
       },
       "falsification": {
         "rescued": 2,
@@ -286,7 +302,9 @@
             0.7,
             1.5
           ]
-        }
+        },
+        "surface": "joint",
+        "surfaceReason": "Eval snapshot plus loop instruction to diff before commit (PRISM joint surface)"
       },
       "falsification": {
         "rescued": 3,
