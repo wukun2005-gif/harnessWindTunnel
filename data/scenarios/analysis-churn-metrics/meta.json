@@ -1,0 +1,99 @@
+{
+  "scenarioId": "analysis-churn-metrics",
+  "family": "analysis",
+  "familyLabel": "Data Analysis",
+  "task": "Compute the Q3 churn rate of the subscription service and attribute the causes",
+  "model": "gpt-5.4-xhigh (fixed model, illustrative)",
+  "traps": [
+    "Definition/scope errors",
+    "Conclusions not backed by data"
+  ],
+  "diffPairs": [
+    [
+      "base",
+      "checklist"
+    ]
+  ],
+  "branches": [
+    {
+      "branchId": "base",
+      "fingerprint": "d0c96e06",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "base.jsonl"
+    },
+    {
+      "branchId": "checklist",
+      "fingerprint": "a77a953c",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "domain-checklist",
+        "sensors": "lint",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "checklist.jsonl"
+    }
+  ],
+  "metrics": {
+    "d0c96e06": {
+      "successRate": 50.5,
+      "tokens": 36000,
+      "latencyP50": 64000,
+      "failureModes": {
+        "spec-misinterpretation": 1,
+        "weak-grounding": 1,
+        "fail-to-clarify": 1
+      },
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data"
+      }
+    },
+    "a77a953c": {
+      "successRate": 57,
+      "tokens": 41000,
+      "latencyP50": 72000,
+      "failureModes": {},
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data (same trunk as base, for comparison)"
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "scenarioId": "research-competitor-scan",
+  "family": "research",
+  "familyLabel": "Research",
+  "task": "Research pricing and positioning of 3 competitors, produce a comparison memo",
+  "model": "gpt-5.4-xhigh (fixed model, illustrative)",
+  "traps": [
+    "Concluding before coverage is complete",
+    "Fabricated citations"
+  ],
+  "diffPairs": [
+    [
+      "base",
+      "verifier"
+    ]
+  ],
+  "branches": [
+    {
+      "branchId": "base",
+      "fingerprint": "d0c96e06",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "base.jsonl"
+    },
+    {
+      "branchId": "verifier",
+      "fingerprint": "24a4b274",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "verifier",
+        "selfVerify": "premature-victory-check",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "verifier.jsonl"
+    }
+  ],
+  "metrics": {
+    "d0c96e06": {
+      "successRate": 44,
+      "tokens": 98000,
+      "latencyP50": 121000,
+      "failureModes": {
+        "premature-victory": 1,
+        "fabricated-citation": 1
+      },
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data"
+      }
+    },
+    "24a4b274": {
+      "successRate": 49.5,
+      "tokens": 121000,
+      "latencyP50": 149000,
+      "failureModes": {},
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data (same trunk as base, for comparison)"
+      }
+    }
+  }
+}

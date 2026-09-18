@@ -1,0 +1,251 @@
+{
+  "scenarioId": "coding-terminal-refactor",
+  "family": "coding",
+  "familyLabel": "Coding (control group)",
+  "task": "Fix flaky tests in the CLI output module and finish the refactor (Terminal-Bench-style container)",
+  "model": "gpt-5.4-xhigh (fixed model, illustrative)",
+  "traps": [
+    "Declaring done while tests fail",
+    "Committing without verification"
+  ],
+  "diffPairs": [
+    [
+      "base",
+      "tuned"
+    ]
+  ],
+  "branches": [
+    {
+      "branchId": "base",
+      "fingerprint": "d0c96e06",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "base.jsonl"
+    },
+    {
+      "branchId": "tuned",
+      "fingerprint": "3ac8f087",
+      "config": {
+        "loopControl": "plan-act",
+        "toolset": "standard",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "context-isolated",
+        "planner": "todo-list",
+        "memory": "none",
+        "compression": "five-layer",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "verifier",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "trace+mast",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "tuned.jsonl"
+    },
+    {
+      "branchId": "selfevo",
+      "fingerprint": "0768d243",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "wind-tunnel-search"
+      },
+      "file": "selfevo.jsonl"
+    },
+    {
+      "branchId": "ahe-gen0",
+      "fingerprint": "64a65d44",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "standard",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "trace",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": ""
+    },
+    {
+      "branchId": "r1-batch",
+      "fingerprint": "fb51a3bb",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "standard",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "trace",
+        "eval": "golden-set",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": ""
+    },
+    {
+      "branchId": "r1-naive",
+      "fingerprint": "f5057503",
+      "config": {
+        "loopControl": "reflexion",
+        "toolset": "standard",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "verifier+critic",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "trace",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": ""
+    }
+  ],
+  "metrics": {
+    "d0c96e06": {
+      "successRate": 34,
+      "tokens": 41200,
+      "latencyP50": 96000,
+      "failureModes": {
+        "premature-victory": 1
+      },
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative baseline (opening demo 34%)"
+      }
+    },
+    "3ac8f087": {
+      "successRate": 77,
+      "tokens": 63800,
+      "latencyP50": 141000,
+      "failureModes": {},
+      "source": {
+        "kind": "paper-reproduction",
+        "label": "Paper reproduction · script",
+        "citation": "AHE Terminal-Bench2 final state 77.0%, arXiv:2604.25850"
+      }
+    },
+    "0768d243": {
+      "successRate": 38.8,
+      "tokens": 44600,
+      "latencyP50": 104000,
+      "failureModes": {},
+      "source": {
+        "kind": "fixture",
+        "label": "Δ +4.8pp from NLAH Self-Evolution (SWE family); baseline illustrative"
+      }
+    },
+    "64a65d44": {
+      "successRate": 69.7,
+      "tokens": 58000,
+      "latencyP50": 132000,
+      "failureModes": {},
+      "source": {
+        "kind": "paper-reproduction",
+        "label": "Paper reproduction · script",
+        "citation": "AHE start 69.7%, arXiv:2604.25850"
+      }
+    },
+    "fb51a3bb": {
+      "successRate": 41.6,
+      "tokens": 66000,
+      "latencyP50": 158000,
+      "failureModes": {},
+      "source": {
+        "kind": "paper-reproduction",
+        "label": "Paper reproduction · script",
+        "citation": "Harness-R1 baseline batch 41.6%, arXiv:2608.02276"
+      }
+    },
+    "f5057503": {
+      "successRate": 35.4,
+      "tokens": 78000,
+      "latencyP50": 189000,
+      "failureModes": {
+        "spec-misinterpretation": 1
+      },
+      "source": {
+        "kind": "paper-reproduction",
+        "label": "Paper reproduction · script",
+        "citation": "Harness-R1 naive self-patch 35.4% (−6.2pp), arXiv:2608.02276"
+      }
+    }
+  }
+}

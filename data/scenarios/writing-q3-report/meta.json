@@ -1,0 +1,137 @@
+{
+  "scenarioId": "writing-q3-report",
+  "family": "writing",
+  "familyLabel": "Writing / Reports",
+  "task": "Summarize 24 Q3 source documents and draft the Q3 Business Review report",
+  "model": "gpt-5.4-xhigh (fixed model, illustrative)",
+  "traps": [
+    "Long-context overflow",
+    "Late-stage quality decay"
+  ],
+  "diffPairs": [
+    [
+      "fivelayer",
+      "budget"
+    ]
+  ],
+  "branches": [
+    {
+      "branchId": "nocomp",
+      "fingerprint": "d0c96e06",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "off",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "nocomp.jsonl"
+    },
+    {
+      "branchId": "budget",
+      "fingerprint": "aed16286",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "budget",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "budget.jsonl"
+    },
+    {
+      "branchId": "fivelayer",
+      "fingerprint": "14a7cd9f",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "five-layer",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "fivelayer.jsonl"
+    }
+  ],
+  "metrics": {
+    "d0c96e06": {
+      "successRate": 22,
+      "tokens": 221000,
+      "latencyP50": 248000,
+      "failureModes": {
+        "long-horizon-decay": 2
+      },
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data"
+      }
+    },
+    "aed16286": {
+      "successRate": 58.9,
+      "tokens": 196000,
+      "latencyP50": 205000,
+      "failureModes": {
+        "long-horizon-decay": 1,
+        "context-loss": 1
+      },
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data (same trunk as five-layer, for comparison)"
+      }
+    },
+    "14a7cd9f": {
+      "successRate": 61.5,
+      "tokens": 168000,
+      "latencyP50": 182000,
+      "failureModes": {},
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data"
+      }
+    }
+  }
+}

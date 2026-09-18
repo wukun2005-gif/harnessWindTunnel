@@ -1,0 +1,298 @@
+{
+  "source": [
+    {
+      "kind": "paper-reproduction",
+      "label": "Paper reproduction · script",
+      "citation": "AHE ten-generation curve 69.7→77.0, arXiv:2604.25850"
+    },
+    {
+      "kind": "paper-reproduction",
+      "label": "Paper reproduction · script",
+      "citation": "Harness-R1 counter-example card, arXiv:2608.02276"
+    }
+  ],
+  "scenarioId": "coding-terminal-refactor",
+  "startScore": 69.7,
+  "endScore": 77,
+  "gens": [
+    {
+      "gen": 1,
+      "gain": 0.8,
+      "verdict": "approved",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "premature-victory",
+        "count": 7,
+        "summary": "7 trajectories committed without running the full test suite",
+        "sampleBranches": [
+          "base"
+        ]
+      },
+      "card": {
+        "seam": "⑬ Feedback Sensors & Lints",
+        "title": "Mandatory full test run before commit",
+        "nl": "Insert a deterministic verifier before commit: allow committing only when pytest is fully green and flaky reruns pass.",
+        "diff": "+ sensors: verifier\n+ selfVerify: premature-victory-check",
+        "prediction": {
+          "gainPp": [
+            0.5,
+            1.2
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 5,
+        "regressed": 0,
+        "detail": "Replay of 9 task trajectories: 5 rescued, 0 regressed, consistent with the predicted range"
+      }
+    },
+    {
+      "gen": 2,
+      "gain": 1.3,
+      "verdict": "approved",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "long-horizon-decay",
+        "count": 4,
+        "summary": "Late-stage long tasks overflow context and early evidence gets pushed out",
+        "sampleBranches": [
+          "tuned"
+        ]
+      },
+      "card": {
+        "seam": "⑧ Context Compression",
+        "title": "Replace single-layer budget with the five-layer compaction pipeline",
+        "nl": "Enable budget→snip→microcompact→collapse→auto-compact in cheapest-to-most-expensive order.",
+        "diff": "~ compression: budget → five-layer",
+        "prediction": {
+          "gainPp": [
+            0.8,
+            1.8
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 3,
+        "regressed": 0,
+        "detail": "All 4 long-task trajectories flipped to success"
+      }
+    },
+    {
+      "gen": 3,
+      "gain": 0.5,
+      "verdict": "approved",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "spec-misinterpretation",
+        "count": 3,
+        "summary": "Misreads the test spec: runs only cases related to the change",
+        "sampleBranches": [
+          "selfevo"
+        ]
+      },
+      "card": {
+        "seam": "⑫ Feedforward Guidelines",
+        "title": "Encode the \"full test suite\" definition in AGENTS.md",
+        "nl": "The guide states: the full pytest suite must run before any commit; running only a -k subset is not allowed.",
+        "diff": "+ guides: style-rules (AGENTS.md addition)",
+        "prediction": {
+          "gainPp": [
+            0.2,
+            0.8
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 2,
+        "regressed": 0,
+        "detail": "2 of 3 trajectories rescued; 1 overlaps with the verifier and does not stack"
+      }
+    },
+    {
+      "gen": 4,
+      "gain": 1,
+      "verdict": "approved",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "long-horizon-decay",
+        "count": 3,
+        "summary": "Full test output is fed back and crowds the context",
+        "sampleBranches": [
+          "tuned"
+        ]
+      },
+      "card": {
+        "seam": "⑩ Lifecycle Hooks",
+        "title": "Persist test output to disk, feed back only a summary",
+        "nl": "PostToolUse hook: write pytest output to /tmp/last-test.log and feed back only the failing stack.",
+        "diff": "+ hooks: lifecycle (post:test → truncate)",
+        "prediction": {
+          "gainPp": [
+            0.6,
+            1.4
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 3,
+        "regressed": 0,
+        "detail": "All 3 long-output trajectories rescued"
+      }
+    },
+    {
+      "gen": 5,
+      "gain": 0.6,
+      "verdict": "approved",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "weak-grounding",
+        "count": 3,
+        "summary": "Fix descriptions lack evidence links",
+        "sampleBranches": [
+          "tuned"
+        ]
+      },
+      "card": {
+        "seam": "⑩ Lifecycle Hooks",
+        "title": "Require test evidence in the commit message",
+        "nl": "PreCommit hook validates that the commit message contains the test run identifier.",
+        "diff": "+ hooks: lifecycle (pre:commit → evidence)",
+        "prediction": {
+          "gainPp": [
+            0.3,
+            0.9
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 2,
+        "regressed": 1,
+        "detail": "2 rescued, 1 regressed (a style conflict); net gain positive"
+      }
+    },
+    {
+      "gen": 6,
+      "gain": -6.2,
+      "verdict": "rejected",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "spec-misinterpretation",
+        "count": 2,
+        "summary": "The model's self-reflection rule conflicts with the task goal",
+        "sampleBranches": [
+          "r1-naive"
+        ]
+      },
+      "card": {
+        "seam": "① Loop Control Flow",
+        "title": "Add a fixed Self-Refine rule (counter-example)",
+        "nl": "Force one self-reflection rewrite after every turn. [Harness-R1 evidence: this fixed rule lowered scores on all 3 benchmarks]",
+        "diff": "~ loopControl: plan-act → reflexion",
+        "prediction": {
+          "gainPp": [
+            1,
+            1.5
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 1,
+        "regressed": 3,
+        "detail": "1 rescued, 3 regressed: 41.6% → 35.4% (−6.2pp). Regression → an automatic rollback point is created and the human rejects this card"
+      }
+    },
+    {
+      "gen": 7,
+      "gain": 1.2,
+      "verdict": "approved",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "premature-victory",
+        "count": 2,
+        "summary": "Sub-agent conclusions are fed back without verification",
+        "sampleBranches": [
+          "tuned"
+        ]
+      },
+      "card": {
+        "seam": "⑤ Sub-Agent Isolation",
+        "title": "Test sub-agent conclusions must carry a raw-log summary",
+        "nl": "On join, verify the child summary against the logs; reject if inconsistent.",
+        "diff": "~ subAgents: context-isolated (+join verification)",
+        "prediction": {
+          "gainPp": [
+            0.8,
+            1.6
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 4,
+        "regressed": 0,
+        "detail": "All 4 sub-agent trajectories flipped"
+      }
+    },
+    {
+      "gen": 8,
+      "gain": 0.7,
+      "verdict": "approved",
+      "approvedBy": "human",
+      "cluster": {
+        "mast": "long-horizon-decay",
+        "count": 2,
+        "summary": "Earlier localization findings are lost after a restart",
+        "sampleBranches": [
+          "tuned"
+        ]
+      },
+      "card": {
+        "seam": "③ File System & State",
+        "title": "Externalize localization findings to file-backed state",
+        "nl": "Write hypotheses/evidence to state/findings.json and restore from it each turn.",
+        "diff": "+ filesystem: file-backed-state",
+        "prediction": {
+          "gainPp": [
+            0.4,
+            1
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 2,
+        "regressed": 0,
+        "detail": "2 resume-from-checkpoint trajectories rescued"
+      }
+    },
+    {
+      "gen": 9,
+      "gain": 1.2,
+      "verdict": "approved",
+      "approvedBy": "autoplay-gate",
+      "cluster": {
+        "mast": "weak-grounding",
+        "count": 2,
+        "summary": "No comparison against the old-behavior baseline after refactoring",
+        "sampleBranches": [
+          "selfevo"
+        ]
+      },
+      "card": {
+        "seam": "⑰ Golden Evaluation Set",
+        "title": "Bring the golden behavior baseline into the loop",
+        "nl": "For refactoring tasks, record a snapshot of old behavior first and diff against that baseline before commit.",
+        "diff": "+ eval: golden-set",
+        "prediction": {
+          "gainPp": [
+            0.7,
+            1.5
+          ]
+        }
+      },
+      "falsification": {
+        "rescued": 3,
+        "regressed": 1,
+        "detail": "3 rescued, 1 regressed, net gain still positive; after Autoplay stops at the gate, a human approves in batch"
+      }
+    }
+  ]
+}

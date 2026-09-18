@@ -1,0 +1,17 @@
+[
+  {
+    "scenarioId": "writing-q3-report"
+  },
+  {
+    "scenarioId": "research-competitor-scan"
+  },
+  {
+    "scenarioId": "workflow-crm-export"
+  },
+  {
+    "scenarioId": "coding-terminal-refactor"
+  },
+  {
+    "scenarioId": "analysis-churn-metrics"
+  }
+]

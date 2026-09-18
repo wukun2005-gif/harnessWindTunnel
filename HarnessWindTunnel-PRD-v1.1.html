@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>HarnessWindTunnel（Harness Wind Tunnel）产品需求文档 PRD · v1.1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233b5bdb'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='white' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4.5' fill='none' stroke='white' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='1.6' fill='white'/%3E%3C/svg%3E"/>
+<style>
+:root{--bg:#e8eaef;--card:#fcfcfd;--ink:#22272f;--muted:#5d6675;--line:#d4d9e1;--th:#eef1f5;
+--accent:#3b5bdb;--accent-soft:rgba(59,91,219,.08);
+--p0:#d64545;--p1:#d98a2b;--p2:#3f8f63;
+--box:#f3f5f8;--box-accent:#eef2fd;--box-warn:#fdf3e8;--box-ok:#eef7f1;}
+body.dark{--bg:#14161a;--card:#1e2127;--ink:#d6dae1;--muted:#98a1af;--line:#333944;--th:#282d36;
+--accent:#7c9bff;--accent-soft:rgba(124,155,255,.12);
+--p0:#ff8585;--p1:#f0b25e;--p2:#6fc594;
+--box:#262b33;--box-accent:#222a3d;--box-warn:#33291a;--box-ok:#1f2f27;}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+ line-height:1.78;font-size:16px;-webkit-font-smoothing:antialiased}
+.topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--card) 88%,transparent);
+ backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:920px;margin:0 auto;padding:10px 20px;display:flex;gap:12px;align-items:center}
+.topbar .docname{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:13px;font-family:inherit;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.toc{max-width:920px;margin:0 auto;background:var(--card);border-bottom:1px solid var(--line)}
+.toc-toggle{display:block;width:100%;text-align:left;cursor:pointer;border:0;background:transparent;
+ font-family:inherit;padding:9px 20px;font-size:13px;color:var(--muted);user-select:none}
+.toc-toggle:hover{color:var(--accent)}
+.toc-list{max-height:46vh;overflow:auto;padding:4px 20px 14px;margin:0;list-style:none;font-size:13.5px}
+.toc-list[hidden]{display:none}
+.toc-list a{color:var(--ink);text-decoration:none;display:block;padding:2px 0;border-radius:5px}
+.toc-list a:hover{color:var(--accent)}
+.toc-list .lv1{font-weight:600;margin-top:6px}
+.toc-list .lv2{padding-left:18px;color:var(--muted)}
+article{max-width:900px;margin:26px auto 80px;background:var(--card);border:1px solid var(--line);
+ border-radius:14px;padding:40px 48px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.doc-title{font-size:27px;font-weight:800;line-height:1.4;margin:0 0 6px;letter-spacing:.2px}
+.doc-sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+article{counter-reset:ch}
+article h1{counter-reset:sc;counter-increment:ch;font-size:22px;margin:40px 0 14px;padding-top:18px;
+ border-top:2px solid var(--line);line-height:1.45;scroll-margin-top:64px}
+article h1::before{content:counter(ch);display:inline-block;min-width:1.5em;color:var(--accent);font-weight:800;margin-right:.3em}
+article h2{counter-increment:sc;font-size:18px;margin:26px 0 10px;line-height:1.5;scroll-margin-top:64px}
+article h2::before{content:counter(ch)"."counter(sc);color:var(--accent);font-weight:700;margin-right:.45em;font-size:.92em}
+article h3{font-size:16px;margin:18px 0 8px}
+.nocount{counter-increment:none}
+.nocount::before{content:none!important}
+article h1::before,article h2::before{content:none!important}
+p{margin:10px 0}
+strong{font-weight:700}
+ul,ol{margin:10px 0;padding-left:26px}
+li{margin:5px 0}
+li::marker{color:var(--accent)}
+code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.88em;background:var(--box);
+ border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.callout{border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:13px 16px;margin:16px 0;line-height:1.7}
+.callout .ct{font-weight:800;margin-right:6px}
+.callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
+.c-accent{background:var(--box-accent);border-color:var(--accent)}
+.c-warn{background:var(--box-warn);border-color:#e8a35a}
+.c-ok{background:var(--box-ok);border-color:var(--p2)}
+.c-gray{background:var(--box);border-color:var(--line)}
+blockquote{margin:16px 0;padding:10px 16px;border-left:4px solid var(--accent);
+ background:var(--accent-soft);border-radius:0 8px 8px 0;color:var(--ink)}
+blockquote p:first-child{margin-top:0}blockquote p:last-child{margin-bottom:0}
+.table-wrap{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:14px;line-height:1.6}
+th,td{border:1px solid var(--line);padding:8px 10px;vertical-align:top;word-break:break-word}
+th{background:var(--th);font-weight:700;text-align:left}
+th p,td p{margin:.25em 0}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:1px 9px;white-space:nowrap;line-height:1.7}
+.p0{color:#fff;background:var(--p0)}.p1{color:#fff;background:var(--p1)}.p2{color:#fff;background:var(--p2)}
+body.dark .p0,body.dark .p1,body.dark .p2{color:#1a1a1a}
+.tag{display:inline-block;font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:0 7px;margin:1px 2px;color:var(--muted);white-space:nowrap}
+/* 功能卡片 */
+.fr{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:14px 0;background:color-mix(in srgb,var(--card) 60%,var(--box))}
+.fr-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px}
+.fr-id{font-weight:800;color:var(--accent);font-size:14.5px;white-space:nowrap}
+.fr-name{font-weight:700;font-size:15px}
+.fr-kv{font-size:13.5px;margin:6px 0}
+.fr-kv b{color:var(--muted);font-weight:600}
+.ac{margin:8px 0 2px;padding:8px 12px;background:var(--box);border-radius:8px;font-size:13.5px}
+.ac .act{font-weight:700;color:var(--p2)}
+/* 架构分层图 */
+.arch{border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0;background:var(--box)}
+.arch-layer{border:1.5px solid var(--line);border-radius:9px;padding:10px 14px;margin:8px 0;background:var(--card)}
+.arch-layer .al-t{font-weight:700;font-size:13.5px;margin-bottom:6px;color:var(--accent)}
+.arch-cells{display:flex;gap:8px;flex-wrap:wrap}
+.arch-cell{flex:1 1 0;min-width:120px;border:1px dashed var(--line);border-radius:7px;padding:7px 10px;font-size:12.5px;background:var(--box);text-align:center}
+.arch-cell b{display:block;font-size:13px;margin-bottom:2px}
+.arrow-down{text-align:center;color:var(--muted);font-size:13px;margin:2px 0;line-height:1}
+/* 三栏卡片 */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0}
+.minicard{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--box)}
+.minicard h4{margin:0 0 6px;font-size:14.5px}
+.minicard p{font-size:13px;margin:5px 0}
+@media(max-width:760px){.grid3,.grid2{grid-template-columns:1fr}}
+/* 时间轴（grid 三列对齐） */
+.tl{margin:16px 0}
+.tl-row{display:grid;grid-template-columns:96px 26px 1fr;align-items:start;gap:0}
+.tl-time{text-align:right;padding-right:14px;font-size:13px;font-weight:700;color:var(--muted);padding-top:2px}
+.tl-axis{position:relative;justify-self:center;width:2px;background:var(--line);align-self:stretch}
+.tl-dot{position:absolute;top:5px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:var(--accent);border:2px solid var(--card);box-shadow:0 0 0 1px var(--accent)}
+.tl-body{padding:0 0 16px 16px;font-size:13.5px}
+.tl-body b{font-size:14px}
+.tl-row:last-child .tl-axis{background:linear-gradient(var(--line),var(--line) 12px,transparent 12px)}
+/* 步骤流 */
+.flow{display:flex;gap:0;flex-wrap:wrap;align-items:stretch;margin:14px 0}
+.flow .step{flex:1 1 130px;border:1px solid var(--line);padding:9px 11px;font-size:12.8px;background:var(--box);position:relative}
+.flow .step b{display:block;color:var(--accent);font-size:12px;margin-bottom:2px}
+.flow .step:first-child{border-radius:9px 0 0 9px}.flow .step:last-child{border-radius:0 9px 9px 0}
+/* 公式 */
+.formula{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13px;background:var(--box);border:1px solid var(--line);
+ border-radius:8px;padding:10px 14px;margin:10px 0;overflow-x:auto;white-space:nowrap}
+.kvtable td:first-child{font-weight:600;color:var(--muted)}
+.legend-note{font-size:12px;color:var(--muted);margin-top:6px}
+/* v1.1 改动高亮：只高亮最新版本（v1.1）相对上一版（v1.0）的新增 / 改写，单一琥珀色 */
+.v11{background:rgba(245,190,70,.16);border-radius:7px;box-shadow:0 0 0 2px rgba(236,170,30,.45);scroll-margin-top:64px}
+.fr.v11{background:color-mix(in srgb,rgba(245,190,70,.20) 55%,var(--box))}
+tr.v11>td{background:rgba(245,190,70,.15)}
+body.dark .v11{background:rgba(245,196,90,.14);box-shadow:0 0 0 2px rgba(245,196,90,.34)}
+body.dark .fr.v11{background:color-mix(in srgb,rgba(245,196,90,.16) 55%,var(--box))}
+body.dark tr.v11>td{background:rgba(245,196,90,.13)}
+.v11-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.3px;color:#8a5a00;background:rgba(240,176,40,.32);border-radius:5px;padding:0 6px;margin-left:7px;vertical-align:1px;white-space:nowrap}
+body.dark .v11-tag{color:#ffd97a;background:rgba(245,196,90,.2)}
+body.no-hl .v11{background:none!important;box-shadow:none!important}
+body.no-hl tr.v11>td{background:none!important}
+body.no-hl .v11-tag{display:none}
+@media(max-width:680px){article{padding:24px 18px;border-radius:0;border-left:0;border-right:0}.doc-title{font-size:22px}body{font-size:15px}table{font-size:14px}.flow .step{flex-basis:100%}}
+@media print{.topbar,details.toc,.theme-btn,.hl-btn{display:none!important}body{background:#fff}article{border:0;box-shadow:none;max-width:100%}.v11{background:none!important;box-shadow:none!important}.v11-tag{display:none}}
+</style></head>
+<body>
+<div class="topbar"><div class="topbar-in">
+ <span class="docname">HarnessWindTunnel Harness Wind Tunnel · 产品需求文档 PRD v1.1（2026-09-14）</span>
+ <button class="btn hl-btn" id="hlBtn" type="button">隐藏 v1.1 高亮</button>
+ <button class="btn" id="themeBtn">深色</button>
+</div></div>
+<div class="toc"><button class="toc-toggle" id="tocToggle" type="button">目录（点击展开 / 收起）</button><ul class="toc-list" id="tocList" hidden></ul></div>
+<article>
+
+<h1 class="nocount" style="border-top:0;padding-top:0">HarnessWindTunnel（Harness Wind Tunnel）产品需求文档</h1>
+<p class="doc-sub">PRD v1.1（2026-09-14） · 唯一事实依据：《Agent Harness 全景调研与 Demo 创意提案 v0.5》（同目录 harness-research-v0.5.html） · 关联工程：harness-wind-tunnel（React 18 + TS + Vite） · v1.1 起覆盖通用 / 法律 / 安全三套同构风洞（琥珀色高亮＝v1.1 相对 v1.0 的改动，可用右上角开关隐藏）</p>
+
+<div class="callout c-gray">
+<p><span class="ct">文档信息</span></p>
+<div class="table-wrap"><table class="kvtable"><colgroup><col style="width:22%"><col style="width:78%"></colgroup><tbody>
+<tr><td>产品名</td><td><b>HarnessWindTunnel（Harness Wind Tunnel）</b>——给 Agent 的「Harness」做受控风洞实验的 Web Demo</td></tr>
+<tr class="v11"><td>文档版本 / 状态</td><td><b>v1.1（2026-09-14）</b>，对应工程 package v0.1.0；v1.1 一次覆盖<b>三套同构风洞</b>——通用风洞 HarnessWindTunnel、法律领域风洞 Domain Wind Tunnel（F5）、安全红队舱 Red-Team Chamber（F6）；三者共用「透视 → 受控消融 → 人控演化」三屏母版。<span class="v11-tag">v1.1 改</span></td></tr>
+<tr><td>事实来源</td><td>所有结论、数字、设计取舍均来自调研报告 v0.5 及其一手出处（arXiv / 官方仓库 / 官方公告）；本 PRD 不新增未经报告证实的外部断言。论文数字在正文以 arXiv 编号标注，汇总见附录 B</td></tr>
+<tr><td>阅读对象</td><td>项目作者本人（开发依据）、技术评审 / 演示观众；术语首次出现给中文解释，术语表见附录 A</td></tr>
+<tr class="v11"><td>Change History</td><td><b>v1.0（2026-09-13）</b>：基于调研报告 v0.5 首次成文，确立三屏产品形态、功能需求与验收标准、数据契约、三周排期与演进路线<br/><b>v1.1（2026-09-14）</b>；<b>v1.1.1（2026-09-17，当前补丁）</b><span class="v11-tag">当前版本</span>：① 1/2 章章节号统一为 1.x/2.x，全文顶层补 1–12 编号；② 术语统一（Legal Controls / Security Controls、Change Card、Enforced/Guide、scorecard 正典、Bare Baseline、Optimizer 别名、事件 16 类、L-MARS 五类、F1-2 七类介入）；③ ⑱ HITL 首现给全称与中文解释，附录 A 增 HITL 条目；④ 2.7 重复术语表并入附录 A；⑤ Hook 标题消歧（~24 种事件 × matcher ≈ 30 组合）；① 范围由「仅通用风洞」扩为<b>三套同构风洞</b>（新增法律领域 F5、安全红队舱 F6，原第 12 章（演进路线）改为 v1.1 之后的深化路线）；② NLAH 导入导出、真实 Claude Code transcript / dsh Trajectory 接入由 Stretch 提为必做（F4-5）；③ 在线档由「固定 OpenAI」改为<b>用户自配任意 LLM Provider</b>，配置 UI / 逻辑 / 持久化照搬现成 docStudio 工程（F4-6、第 8 章）；④ 新增「<b>固定 harness、只变换 model</b>」的适配度评测维度 F2-11 与第 6 章适配度指标，回答「这套Harness和哪些模型合拍 / 不合拍」。<b>以下正文中所有琥珀色高亮处即为本版相对 v1.0 的新增 / 改写。</b></td></tr>
+</tbody></table></div></div>
+
+<h1>1 产品概述</h1>
+
+<h2>1.1 一句话定位与电梯陈述</h2>
+<p><strong>一句话：</strong>模型是引擎，Harness 是赛道。HarnessWindTunnel 让 Agent 开发者<strong>固定一个模型、一套任务，像吹风洞一样切换「Harness」配法</strong>——透视模型每一步实际看到什么，对 20 个 harness 模块做受控消融与反事实对比，并把一次失败炼成一条经过验证、人来批准、可回滚的Harness 改动。</p>
+<div class="callout c-accent"><p><span class="ct">30 秒电梯陈述</span>2026 年行业共识是 <code>Agent = Model + Harness</code>：模型趋同后，任务能不能可靠做完，越来越取决于模型之外的执行脚手架（主循环、工具面、记忆、上下文压缩、校验器、权限门……）。但现有工具要么只回放单次运行轨迹（LangSmith 类），要么是黑盒自动改 harness 的研究代码（AHE / Harness-R1）。<strong>没有人给开发者一台「风洞」：在上线前用受控实验看清每个模块的边际作用，并在人的批准下让Harness可证伪地进化。</strong>HarnessWindTunnel 补的就是这一格，且默认面向写文档、数据分析、信息调研、跨应用工作流等<strong>非 coding 通用知识任务</strong>。</p></div>
+
+<h2>1.2 背景与问题：为什么现在做、为什么值得做</h2>
+<p><strong>问题 1：可靠性瓶颈已从模型转移到模型之外。</strong>前沿模型在 SWE-bench Verified 上差距收窄到约 5 个百分点内；MAST 标注 7 个框架 1600+ 条轨迹归纳出 14 类失败（标注一致性 κ=0.88，arXiv:2503.13657），其中绝大多数是「配置问题」而非「模型笨」。早在 SWE-agent（arXiv:2405.15793）就已证明：固定模型与环境、只改面向 Agent 的接口，就能把 SWE-bench 从 12.5% 拉到当时 SOTA。</p>
+<p><strong>问题 2：harness 模块「不是越多越好」，且作用随任务族、随模型反转，靠看单次 trace 永远发现不了。</strong>这是产品成立的硬证据：</p>
+<div class="table-wrap"><table><colgroup><col style="width:30%"><col style="width:46%"><col style="width:24%"></colgroup><thead><tr><th>实证（来源）</th><th>关键数字</th><th>说明的问题</th></tr></thead><tbody>
+<tr><td>NLAH 逐模块消融（arXiv:2603.25723）</td><td>同一模型同一运行时、每次只叠一个模块：File-backed State +1.6/+5.5pp；Optimizer（NLAH 别名 Self-Evolution）+4.8/+2.7；但 Verifier 在 OSWorld 上 <b>−8.4pp</b>、Multi-Candidate 双任务族都为负</td><td>凭直觉「加验证、加候选」会掉分，必须受控消融才看得见</td></tr>
+<tr><td>DeepMind AutoHarness（arXiv:2603.03329）</td><td>模型排名随 harness 反转：Flash+合成 Harness 单人奖励 0.745 &gt; Pro 0.707 &gt; 裸 Flash 0.673；双人局对 Pro 胜率 56.3% 对 38.2%</td><td>脱离 harness 无法给模型排名，必须做「模型 × harness」二维交叉</td></tr>
+<tr><td>Airbnb Beyond Prompts（arXiv:2609.05736，EMNLP 2026）</td><td>固定模型只改 prompt + 工具边界中间件，非 coding 的函数调用 / 零售 / 电信客服任务平均提升 +14.2 / +14.9 / +10.1pp</td><td>harness 增益对非 coding 业务任务同样成立，且闭源也能从 IO 边界接入</td></tr>
+<tr><td>Harness-R1（arXiv:2608.02276）反例</td><td>让强模型直接改 harness，39 个有效补丁中 21 个让批次成绩变差（41.6%→35.4%，−6.2pp），仅 12 个变好</td><td>黑盒全自动演化不可靠 → 产品必须「风洞证伪 + 人控批准 + 可回滚」</td></tr>
+</tbody></table></div>
+<p><strong>问题 3：harness 正在被云厂商托管、黑盒化，反而更需要外部透视与版本回归。</strong>OpenAI 于 2026-09-10 公测 Agents API，把 durable session、自动压缩、recovery、tool search、服务端多 agent 等整套 harness 做成托管服务；它托管的是「通用均值」而非「对你任务的最优配法」，且官方会在用户不可见时持续改进 harness——<strong>同一任务会被悄悄改变行为，harness 版本回归从极客玩法变成生产刚需</strong>。</p>
+
+<h2>1.3 现有方案与市场空白</h2>
+<p>把相邻产品带与本产品对齐后，空白清晰（调研报告第 5 章空白对照表）：</p>
+<div class="table-wrap"><table><colgroup><col style="width:21%"><col style="width:30%"><col style="width:24%"><col style="width:25%"></colgroup><thead><tr><th>现有方案类别</th><th>代表</th><th>能做什么</th><th>不做什么（=本产品空位）</th></tr></thead><tbody>
+<tr><td>LLM 观测平台</td><td>LangSmith（含 Engine）、Langfuse、Braintrust、Phoenix</td><td>看单次 trace、评结果、生产侧 guardrail 与失败聚类建议</td><td>不编辑 harness、不做受控消融、不做反事实重放；修复建议只指向应用代码</td></tr>
+<tr><td>上下文查看小工具</td><td>ctxdiff、contextspy、dsh-context 等</td><td>被动展示单次请求的上下文构成与 token</td><td>2026 年已密集出现、赛道拥挤；只被动看，不能实验 → 降级为本产品屏一</td></tr>
+<tr><td>自动演化研究系统</td><td>AHE、Meta-Harness、Harness-R1、EvoUndo</td><td>能力前沿：自动搜索 / 演化 harness</td><td>命令行研究代码、黑盒自动循环、无人控批准、无可视化产品面</td></tr>
+<tr><td>运行时自带开关</td><td>Claude Code / Codex 的权限模式、沙箱、hook；dsh Creator</td><td>给了可拨的旋钮、运行时可自改插件树</td><td>不告诉你「旋钮在你的任务上该停在哪」；Creator 无离线 eval、无版本谱系</td></tr>
+<tr><td>云托管 harness</td><td>OpenAI Agents API、Anthropic / Google Managed Agents</td><td>把整套 harness 做成服务、整体包走运维</td><td>黑盒化、只给通用均值；不回答哪个模块在帮倒忙、换模型 / 版本会怎样</td></tr>
+</tbody></table></div>
+<div class="callout c-accent"><p><span class="ct">本产品独占的六格能力</span>① 按 harness 模块归因 trace；② 五层上下文 shaper 显形 + 位置热力；③ 固定任务切换 harness 做交互式受控消融；④ 同任务双 harness 逐步轨迹 diff（反事实回放）；⑤ 从失败生成带证据 / 预测 / 可证伪的改动提议；⑥ 人控批准 + 版本谱系 + 回滚（核心交互）。</p></div>
+
+<h2>1.4 价值主张：对谁有什么用</h2>
+<div class="grid3">
+<div class="minicard"><h4>Agent / Harness 开发者</h4><p>不再靠直觉堆模块或凭一次成功就上线。用受控实验回答「这个 verifier / 压缩策略 / 子 agent 到底帮没帮倒忙、值多少 token」，把每次失败沉淀为一条经验证、可回滚的配置改动。</p></div>
+<div class="minicard"><h4>技术探索者 / 研究者</h4><p>一键复现 NLAH、AHE、Harness-R1、Airbnb PRISM 等论文结论，把「配对消融、模型×harness 交叉、可靠性下尾」这套学界已重复四遍却无产品的标准方法变成可亲手操作的实验台。</p></div>
+<div class="minicard"><h4>演示 / 评审观众</h4><p>2 分钟看到「同模型同任务、两个 harness 终局 34% 对 77%」，并亲手拨动开关观察成绩与成本变化——把抽象的「Agent = Model + Harness」变成可观察、可干预的肌肉记忆。</p></div>
+</div>
+
+<h2>1.5 目标与非目标</h2>
+<div class="grid2">
+<div class="minicard" style="border-color:var(--p2)"><h4 style="color:var(--p2)">v1.1 目标（In Scope）</h4><ul>
+<li>三屏闭环：运行透视、Wind Tunnel 受控消融、Evolution Forge 人控自演化，外加一键演示导览</li>
+<li>四类通用知识任务族（写文档 / 数据分析 / 信息调研 / 跨应用工作流）各 1–2 个 golden 场景 + 1 个 coding 对照场景</li>
+<li>离线 fixture 确定性回放为默认（零成本、100% 可复现），可选在线真模型双轨</li>
+<li>20 字段 harness 配置 DSL、模型×harness 二维矩阵、配对消融与可靠性下尾指标族、双配置轨迹 diff</li>
+<li>3 个论文复现预设；人控批准 + 版本树 + 回滚 + 证据包</li>
+<li class="v11"><b>三套同构风洞一次交付：</b>通用风洞做深，法律领域风洞（F5）与安全红队舱（F6）复用同一三屏母版、以「领域模块板 + 埋雷题库 / 攻击库 + 领域指标」挂载，各做到可完整演示的 MVP 深度 <span class="v11-tag">v1.1 新增</span></li>
+<li class="v11"><b>双向评测：</b>既做「固定模型变 harness」（F2-4/F2-5），也做「固定 harness 变 model」的适配画像（F2-11），回答一套Harness与哪些模型合拍 <span class="v11-tag">v1.1 新增</span></li>
+<li class="v11"><b>真实轨迹互操作：</b>导入真实 Claude Code transcript、dsh Trajectory 并在运行透视中查看；NLAH 格式导入导出（F4-5，必做） <span class="v11-tag">v1.1 转正</span></li>
+<li class="v11"><b>在线档自配任意模型：</b>用户可配置多个自有 LLM Provider（预设厂商 + 自定义 OpenAI 兼容端点），配置 UI / 逻辑 / 持久化照搬 docStudio（F4-6） <span class="v11-tag">v1.1 新增</span></li>
+</ul></div>
+<div class="minicard" style="border-color:var(--p0)"><h4 style="color:var(--p0)">非目标（Out of Scope，v1.1 不做）</h4><ul>
+<li>不做通用 Agent 编排框架 / 不做生产级 agent 运行时（不重造 Claude Code、dsh）</li>
+<li>不做黑盒一键自演化（明确拒绝，Harness-R1 反例做成演示项）</li>
+<li>不追求任务数量：每个任务族先把 1–2 个 golden 场景做深</li>
+<li>不做 LLM 观测 SaaS、不做多人协作 / 账号体系 / 后端数据库（html skill 与 demo 定位）</li>
+<li class="v11">法律 / 安全两包 v1.1 只做<b>离线可复现 MVP</b>：法律 3–5 份埋雷案卷、安全一组固定 + 自适应攻击用例；不接真实权威库生产 API、不做真实渗透 / 出具法律效力文件；金融、医疗领域包不做（进第 12 章深化路线） <span class="v11-tag">v1.1 改</span></li>
+<li class="v11">在线档不内置 / 不绑定任何一家模型厂商，不代存云端密钥；Provider 完全由用户自配（F4-6） <span class="v11-tag">v1.1 改</span></li>
+</ul></div>
+</div>
+
+<h1>2 理论基础</h1>
+<blockquote>
+<p>本文档是 PRD 的理论底座。先建立完整定义，再据此构建 demo 功能。</p>
+</blockquote>
+<h2>2.1 核心公式</h2>
+<pre><code>Agent = Model + Harness</code></pre>
+<p><strong>Model</strong> 是推理引擎（GPT、Claude、Gemini……），提供”能做什么”的上限。</p>
+<p><strong>Harness</strong> 是围绕模型的一切工程化控制——循环怎么跑、工具怎么给、上下文怎么压、失败怎么拦、人怎么介入。它决定模型的能力<strong>能不能稳定兑现</strong>。</p>
+<p>类比：模型是发动机，Harness 是赛道。同一台发动机在不同赛道上的圈速天差地别。</p>
+<p><strong>量化证据：</strong> - 同一模型（gpt-5.4-xhigh）+ 同一任务，仅切换 harness 配置：34% → 77%（+43pp） - Harness-R1 论文：固定模型，Harness 优化平均提升 +10pp（arXiv:2608.02276） - NLAH 论文：Harness 模块消融实验，单模块最大增益 +5.5pp（File-backed State）</p>
+
+<h2>2.2 Harness 模块体系</h2>
+<h3>2.2.1 设计原则</h3>
+<p>Harness 不是一个黑盒，而是一个<strong>可拆卸、可拨动、可度量</strong>的模块系统。每个模块： - 有明确的接口（选项值有限、确定性） - 有论文或实验证据支撑（不是拍脑袋） - 可独立开关，不影响其他模块（正交性）</p>
+<h3>2.2.2 20 模块 × 4 大分组</h3>
+<p>模块按职责分为 4 大分组：</p>
+<pre><code>┌─────────────────────────────────────────────────────┐
+│                  Agent = Model + Harness             │
+├─────────────┬──────────────┬────────────┬───────────┤
+│ Runtime Core│ State &amp;      │Constraints│ Evolution │
+│ (怎么跑)    │ Memory       │&amp; Safety   │&amp; Resilience│
+│             │ (记什么)     │(不能做什么)│(怎么变好)  │
+├─────────────┼──────────────┼────────────┼───────────┤
+│ ① Loop Ctrl │ ⑥ Planner   │ ⑩ Hooks   │ ⑯ Observ. │
+│ ② Tool Set  │ ⑦ Memory    │ ⑪ Permits │ ⑰ Eval    │
+│ ③ FileSys   │ ⑧ Compress  │ ⑫ Guides  │ ⑱ HITL   │
+│ ④ Sandbox   │ ⑨ Skills    │ ⑬ Sensors │ ⑲ Resume  │
+│ ⑤ SubAgent  │              │ ⑭ SelfVfy │ ⑳ Optim.  │
+│             │              │ ⑮ Policy  │           │
+└─────────────┴──────────────┴────────────┴───────────┘</code></pre>
+<p><strong>裸基准（Bare Baseline，正典；Basic / base / 裸跑基线为别名）：</strong>20 个模块全部取选项列中 <code>[]</code> 方括号标记的默认值时的配置（恰好都是每行的第一项），即代码中的 <code>BASE_CONFIG</code>，也是各场景 base 分支运行的配置——模型与任务固定，只剩裸循环加最小工具面。风洞"与基准差异"列即相对裸基准计算。注意裸基准不是"没有 harness"，而是"最素的 harness"。</p>
+<h3>2.2.3 模块详解</h3>
+<h4>分组 ①：Runtime Core（运行时核心）— Agent 怎么跑</h4>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>模块</th>
+<th>选项</th>
+<th>定义</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>①</td>
+<td>Loop Control Flow</td>
+<td>[basic] / plan-act / reflexion</td>
+<td>循环控制：基础单轮 / Plan-Act 分离 / 自反思重写</td>
+<td>Plan/Act 分离是业界收敛模式（AutoGPT → Claude Code）</td>
+</tr>
+<tr class="even">
+<td>②</td>
+<td>Tool Surface</td>
+<td>[minimal] / standard / extended</td>
+<td>工具集粒度：精简（仅文件+搜索）/ 标准 / 扩展（含数据库、邮件等）</td>
+<td>按操作模式限制工具面（Claude Code、OpenHands）</td>
+</tr>
+<tr class="odd">
+<td>③</td>
+<td>File System &amp; State</td>
+<td>[none] / file-backed-state</td>
+<td>外部化状态持久化：无 / 将假设和证据写入路径可寻址文件</td>
+<td>NLAH: +1.6pp (SWE) / +5.5pp (OSWorld)，最稳健增益</td>
+</tr>
+<tr class="even">
+<td>④</td>
+<td>Execution Sandbox</td>
+<td>[off] / readonly-parallel / write-barrier</td>
+<td>执行隔离：无 / 只读并行 / 写屏障（写操作被拦截审查）</td>
+<td>dsh（Devin 团队）: fail-closed, read-only parallel + write barriers</td>
+</tr>
+<tr class="odd">
+<td>⑤</td>
+<td>Sub-Agent Isolation</td>
+<td>[off] / context-isolated</td>
+<td>子代理：不启用 / 启用且上下文严格隔离</td>
+<td>Cognition（Devin）: spawn sub-agents strictly for context isolation</td>
+</tr>
+</tbody>
+</table>
+<h4>分组 ②：State &amp; Memory（状态与记忆）— Agent 记住什么</h4>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>模块</th>
+<th>选项</th>
+<th>定义</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>⑥</td>
+<td>Task Planner</td>
+<td>[off] / todo-list</td>
+<td>任务规划器：无 / 待办清单式分解</td>
+<td>通用实践，无单一论文来源</td>
+</tr>
+<tr class="even">
+<td>⑦</td>
+<td>Memory Hierarchy</td>
+<td>[none] / flat / layered</td>
+<td>记忆层级：无 / 扁平（全部平等）/ 分层（工作记忆+长期记忆+归档）</td>
+<td>MemGPT / CoALA: paged hierarchical memory architecture</td>
+</tr>
+<tr class="odd">
+<td>⑧</td>
+<td>Context Compression</td>
+<td>[off] / budget / five-layer</td>
+<td>上下文压缩：无 / 预算溢出裁剪 / 五级级联（Budget→Snip→Microcompact→Collapse→Auto-compact）</td>
+<td>Claude Code 5-stage shaper: cheap→expensive progressive cascade</td>
+</tr>
+<tr class="even">
+<td>⑨</td>
+<td>Progressive Disclosure</td>
+<td>[off] / progressive-disclosure</td>
+<td>渐进式信息披露：无 / 按需逐步展开上下文</td>
+<td>通用概念，无单一论文来源</td>
+</tr>
+</tbody>
+</table>
+<h4>分组 ③：Constraints &amp; Safety（约束与安全）— Agent 不能做什么</h4>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>模块</th>
+<th>选项</th>
+<th>定义</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>⑩</td>
+<td>Lifecycle Hooks</td>
+<td>[off] / lifecycle</td>
+<td>生命周期钩子：无 / 启用确定性钩子（~24 种事件类型，详见 2.3 节）</td>
+<td>Claude Code: ~30 deterministic lifecycle hooks</td>
+</tr>
+<tr class="even">
+<td>⑪</td>
+<td>Permission Gate</td>
+<td>[open] / ask-write / deny-first</td>
+<td>权限门控：全开 / 写操作需确认 / 默认拒绝（确定性强制门）</td>
+<td>deny-first 是确定性门控；prompt 引导仅为概率性</td>
+</tr>
+<tr class="odd">
+<td>⑫</td>
+<td>Feedforward Guidelines</td>
+<td>[none] / style-rules / domain-checklist</td>
+<td>前馈引导：无 / 代码风格规则 / 领域检查清单（行动前注入，概率性）</td>
+<td>Guides feed forward before action; probabilistic</td>
+</tr>
+<tr class="even">
+<td>⑬</td>
+<td>Feedback Sensors &amp; Lints</td>
+<td>[none] / lint / verifier / verifier+critic</td>
+<td>反馈传感器（行动后检测），按强度分档：无 / lint（轻量确定性规则检查：只判定定义口径、格式完备等可形式化规则，不做语义判断）/ verifier（重语义验证：需跑测试、查证据或证明范围，如单测全绿、引用溯源）/ verifier+critic（验证器结论再经批评者复核）</td>
+<td>NLAH: SWE −0.8pp, OSWorld −8.4pp — mismatch causes regression</td>
+</tr>
+<tr class="odd">
+<td>⑭</td>
+<td>Self-Verification Circuit</td>
+<td>[off] / premature-victory-check</td>
+<td>自验证：无 / 过早胜利检查（Agent 说”做完了”时自动校验）</td>
+<td>针对 premature-victory 失败模式的专用检测</td>
+</tr>
+<tr class="even">
+<td>⑮</td>
+<td>Global Safety Policy</td>
+<td>[none] / policy-enforced</td>
+<td>全局安全策略：无 / 策略强制执行</td>
+<td>通用安全实践</td>
+</tr>
+</tbody>
+</table>
+<h4>分组 ④：Evolution &amp; Resilience（演化与韧性）— Agent 怎么变好</h4>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>模块</th>
+<th>选项</th>
+<th>定义</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>⑯</td>
+<td>Observability &amp; Trace</td>
+<td>[off] / trace / trace+mast</td>
+<td>可观测性：无 / 基础追踪 / 追踪+失败标注</td>
+<td>通用可观测性实践</td>
+</tr>
+<tr class="even">
+<td>⑰</td>
+<td>Golden Evaluation Set</td>
+<td>[off] / golden-set</td>
+<td>黄金评测集：无 / 有标准答案的评测集</td>
+<td>通用评测实践</td>
+</tr>
+<tr class="odd">
+<td>⑱</td>
+<td>Human-in-the-Loop Gate</td>
+<td>[none] / approval-gates / slider</td>
+<td>人工介入：无 / 关键操作需批准 / 自主等级滑块（手动→全自动）</td>
+<td>HITL（Human-in-the-Loop，人在回路）实践：任何进入版本树的改动必须经过人的批准动作，详见第 5 章 F3-4</td>
+</tr>
+<tr class="even">
+<td>⑲</td>
+<td>Checkpoint &amp; Resume</td>
+<td>[off] / checkpoint</td>
+<td>检查点与恢复：无 / 支持断点续跑</td>
+<td>通用容错实践</td>
+</tr>
+<tr class="odd">
+<td>⑳</td>
+<td>Optimizer</td>
+<td>[off] / wind-tunnel-search</td>
+<td>优化器：无 / 风洞搜索（基于历史实验数据自动搜索更优配置）</td>
+<td>NLAH: Optimizer（别名 Self-Evolution）+4.8pp on SWE benchmark</td>
+</tr>
+</tbody>
+</table>
+<h3>2.2.4 确定性强制门（Enforced） vs 概率性引导（Guide）</h3>
+<p>Harness 模块分为两类：</p>
+<table>
+<colgroup>
+<col style="width: 28%" />
+<col style="width: 28%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>类型</th>
+<th>行为</th>
+<th>代表模块</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>确定性强制门（Enforced）</strong></td>
+<td>规则写死，Agent 无法绕过</td>
+<td>④ Sandbox、⑪ Permissions、⑬ Sensors</td>
+</tr>
+<tr class="even">
+<td><strong>概率性引导（Probabilistic）</strong></td>
+<td>通过 prompt 引导，Agent 可能遵守也可能忽略</td>
+<td>⑫ Guides、⑦ Memory、⑨ Skills</td>
+</tr>
+</tbody>
+</table>
+<p>这是本产品的关键区分点：<strong>wrappers ENFORCE / prompts REQUEST</strong>。大多数 Agent 框架只提供概率性引导（prompt engineering），本产品的硬价值在于确定性强制门。</p>
+
+<h3>2.2.5 模块动态模型：模块→事件映射</h3>
+<p>20 个模块是<strong>静态配置</strong>（拨开关时改什么），事件是<strong>运行时行为</strong>（执行过程中产生什么）。每个模块在运行时产生特定类型的事件，这些事件构成 Append-only 事件流，是运行透视、风洞消融、Forge 归因的数据根基。</p>
+<table>
+<thead><tr><th>分组</th><th>#</th><th>模块</th><th>运行时产生的事件</th><th>事件说明</th></tr></thead>
+<tbody>
+<tr><td rowspan="2"><strong>Runtime Core</strong></td><td>①</td><td>Loop Control</td><td><code>model.request</code> <code>model.response</code></td><td>每轮循环：模型看到什么上下文（request）、回复了什么（response）</td></tr>
+<tr><td>②</td><td>Tool Surface</td><td><code>tool.call</code> <code>tool.result</code></td><td>每次工具调用：调了什么工具、返回了什么结果</td></tr>
+<tr><td></td><td>⑤</td><td>SubAgent Isolation</td><td><code>agent.fork</code> <code>agent.join</code></td><td>子代理启动（fork：创建隔离上下文）与结束（join：结果回传主代理）</td></tr>
+<tr><td rowspan="2"><strong>State &amp; Memory</strong></td><td>⑦</td><td>Memory Hierarchy</td><td><code>model.request</code> 中的 memory 层</td><td>分层记忆内容注入上下文（作为 contextBlock 出现）</td></tr>
+<tr><td>⑧</td><td>Context Compression</td><td><code>shaper.fire</code> <code>compact.boundary</code></td><td>压缩边界（compact.boundary：标记压缩点，记录压缩前后 token 数）与压缩器触发（shaper.fire：哪级压缩器生效、释放了多少 token）</td></tr>
+<tr><td rowspan="3"><strong>Constraints &amp; Safety</strong></td><td>⑩</td><td>Lifecycle Hooks</td><td><code>hook.decision</code></td><td>钩子裁决：每个 hook 对工具调用做出 allow / deny / rewrite 决定</td></tr>
+<tr><td>⑪</td><td>Permission Gate</td><td><code>permission.request</code> <code>permission.granted</code></td><td>权限请求（标明风险等级 low / medium / high）与授权结果</td></tr>
+<tr><td>⑬</td><td>Sensors &amp; Lints</td><td><code>sensor.lint</code> <code>verifier.verdict</code></td><td>lint 与 verifier 的裁决（pass / reject + reason）：lint 只判确定性规则（定义口径、格式完备），verifier 判语义（跑测试、查证据、证范围，可附带失败检测标签）。<code>failure.tag</code> 系叙述者事后标注（author=narrator），不归属⑬的运行时行为</td></tr>
+<tr><td><strong>Evolution</strong></td><td>⑯</td><td>Observability</td><td><code>run.started</code> <code>run.finished</code></td><td>运行生命周期：开始（记录模型与任务）与结束（记录成功/失败、总 token、延迟、失败模式分布）</td></tr>
+<tr><td><strong>Evolution</strong></td><td>⑳</td><td>Optimizer</td><td><code>optimizer.fire</code></td><td>优化器触发：self-check inject（提交前强制跑全量测试，跳过则拒绝）与 self-evolution trigger（发现未覆盖边界用例时扩大重跑范围再提交）</td></tr>
+</tbody>
+</table>
+<p><strong>未列出的模块</strong>（③ FileSys、④ Sandbox、⑥ Planner、⑨ Skills、⑫ Guides、⑰ Eval、⑱ HITL（人在回路）、⑲ Resume、⑮ Policy）在当前离线 fixture 中不产生独立事件类型——它们的作用通过影响其他事件的参数来体现（如③ FileSys 影响 tool.result 的内容，⑥ Planner 影响 model.request 的上下文组成）。</p>
+<p><strong>事件流的层次结构：</strong></p>
+<pre><code>run.started                          ← 运行开始
+  ├─ model.request (step 1)          ← 模型看到的上下文快照
+  │   └─ [① Loop Control 产生]
+  ├─ model.response (step 1)         ← 模型回复
+  │   └─ [① Loop Control 产生]
+  ├─ hook.decision (step 1)          ← ⑩ Hooks 裁决
+  ├─ permission.request (step 1)     ← ⑪ Permissions 请求
+  ├─ tool.call (step 1)              ← ② Tool Surface 调用
+  ├─ tool.result (step 1)            ← ② Tool Surface 结果
+  ├─ verifier.verdict (step 1)       ← ⑬ Sensors 验证（重语义）
+  ├─ sensor.lint (step 1)            ← ⑬ Sensors 轻量检查（确定性规则）
+  ├─ shaper.fire (step 1)            ← ⑧ Compression 触发
+  │   └─ compact.boundary            ← ⑧ Compression 压缩边界
+  ├─ agent.fork (step N)             ← ⑤ SubAgent 启动
+  │   └─ agent.join (step M)         ← ⑤ SubAgent 结束
+  ├─ failure.tag (step N)            ← 叙述者事后标注（author=narrator，见下）
+  └─ run.finished                    ← 运行结束</code></pre>
+<p>这个事件流是<strong>确定性的、可回放的</strong>：给定同一组事件，运行透视、风洞对比、Forge 归因的每一步都可精确重建。这正是"风洞"方法论的物理基础——实验数据不是黑盒日志，而是结构化的、可审计的事件序列。</p>
+<p><strong>事件作者（author）：</strong>每个事件带 <code>author</code> 字段，取值为 <code>harness</code>（被测 Harness 在运行时产生）或 <code>narrator</code>（叙述者事后标注）。离线 fixture 模式下，只有 <code>failure.tag</code> 的作者是 narrator（由剧本在犯错步骤后手工贴标，其余事件作者均为 harness——裸 baseline 分支也有 failure.tag 恰好证明了这一点）。<strong>评估 Harness 行为（消融读数、干预计数）时只认 <code>author=harness</code> 的事件</strong>；运行透视把 narrator 事件单列在"失败标注"区，不计入"Harness 干预"。Live 模式下以事件自带的 author 为准：Harness 自身的传感器也可能产生 <code>failure.tag</code>（此时 author=harness），与叙述者标注严格区分。</p>
+
+<h2>2.3 Hook 生命周期模型（~24 种事件类型 × matcher ≈ 30 常用组合）</h2>
+<h3>2.3.1 事件分类</h3>
+<p>Hook 是 Harness 的⑩号模块（Lifecycle Hooks）的具体实现。Claude Code 定义了 ~24 种事件类型，按触发频率分三层：</p>
+<p><strong>会话级（每会话 1 次）：</strong></p>
+<table>
+<thead><tr><th>事件</th><th>触发时机</th><th>典型用途</th></tr></thead>
+<tbody>
+<tr><td>Setup</td><td>首次启动</td><td>拉取资源、检查认证</td></tr>
+<tr><td>SessionStart</td><td>会话开始</td><td>初始化状态</td></tr>
+<tr><td>SessionEnd</td><td>会话结束</td><td>清理资源、写审计日志</td></tr>
+</tbody></table>
+
+<p><strong>每轮对话级（每轮 1 次）：</strong></p>
+<table>
+<thead><tr><th>事件</th><th>触发时机</th><th>典型用途</th></tr></thead>
+<tbody>
+<tr><td>UserPromptSubmit</td><td>用户提交 prompt</td><td>添加上下文、校验 prompt 格式</td></tr>
+<tr><td>UserPromptExpansion</td><td>斜杠命令展开</td><td>审计命令展开</td></tr>
+<tr><td>Stop</td><td>Claude 完成回复</td><td>最终检查、添加提醒</td></tr>
+<tr><td>StopFailure</td><td>回复失败</td><td>错误处理</td></tr>
+<tr><td>Notification</td><td>发送通知</td><td>桌面推送、空闲提醒</td></tr>
+<tr><td>ConfigChange</td><td>配置热更新</td><td>重新加载配置</td></tr>
+<tr><td>ModelChanged</td><td>模型切换</td><td>重新初始化</td></tr>
+</tbody></table>
+
+<p><strong>工具调用级（每次调用触发）：</strong></p>
+<table>
+<thead><tr><th>事件</th><th>触发时机</th><th>典型用途</th></tr></thead>
+<tbody>
+<tr><td>PreToolUse</td><td>工具执行前</td><td>拦截危险操作、修改输入</td></tr>
+<tr><td>PermissionRequest</td><td>权限请求前</td><td>自动回答可信权限</td></tr>
+<tr><td>PermissionDenied</td><td>自动拒绝时</td><td>记录拒绝原因</td></tr>
+<tr><td>PostToolUse</td><td>工具执行后</td><td>跑格式化、记录日志</td></tr>
+<tr><td>PostToolUseFailure</td><td>工具执行失败后</td><td>添加调试上下文</td></tr>
+<tr><td>PostToolBatch</td><td>并行工具全部完成后</td><td>批量级检查</td></tr>
+<tr><td>SubagentStart</td><td>子代理启动</td><td>监控子代理</td></tr>
+<tr><td>SubagentStop</td><td>子代理结束</td><td>捕获摘要</td></tr>
+<tr><td>PreCompact</td><td>上下文压缩前</td><td>保存交接笔记</td></tr>
+<tr><td>PostCompact</td><td>上下文压缩后</td><td>重新注入上下文</td></tr>
+<tr><td>FileChanged</td><td>文件变更</td><td>监听文件变化</td></tr>
+<tr><td>MessageDisplay</td><td>消息流式输出</td><td>只读展示</td></tr>
+</tbody></table>
+<h3>2.3.2 Matcher 机制</h3>
+<p>每个 Hook 事件可以挂多个 handler，通过 <strong>matcher</strong> 过滤器控制”哪种工具调用时触发”：</p>
+<div class="sourceCode"><pre class="sourceCode json"><code class="sourceCode json"><span><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;hooks&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;PostToolUse&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;matcher&quot;</span><span class="fu">:</span> <span class="st">&quot;Edit|Write&quot;</span><span class="fu">,</span> <span class="dt">&quot;hooks&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span> <span class="dt">&quot;command&quot;</span><span class="fu">:</span> <span class="st">&quot;check-style.sh&quot;</span> <span class="fu">}</span><span class="ot">]</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;matcher&quot;</span><span class="fu">:</span> <span class="st">&quot;Bash&quot;</span><span class="fu">,</span>       <span class="dt">&quot;hooks&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span> <span class="dt">&quot;command&quot;</span><span class="fu">:</span> <span class="st">&quot;check-security.sh&quot;</span> <span class="fu">}</span><span class="ot">]</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;matcher&quot;</span><span class="fu">:</span> <span class="st">&quot;mcp__.*&quot;</span><span class="fu">,</span>    <span class="dt">&quot;hooks&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="fu">{</span> <span class="dt">&quot;command&quot;</span><span class="fu">:</span> <span class="st">&quot;audit-mcp.sh&quot;</span> <span class="fu">}</span><span class="ot">]</span> <span class="fu">}</span></span>
+<span><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span></span>
+<span><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>24 种事件类型 × 常见 matcher 组合 ≈ 30 个常用 hook。这就是 PRD 中”~30 个确定性生命周期钩子”的来源。</p>
+
+<h2>2.4 上下文压缩：5 级 Shaper 级联</h2>
+<h3>2.4.1 问题</h3>
+<p>Agent 的上下文窗口是有限的（如 128k tokens）。随着对话推进，上下文不断膨胀。如果不压缩，会出现： - <strong>上下文溢出</strong>：超出窗口限制，早期信息被强制丢弃 - <strong>长程衰减</strong>：中间部分的信息被挤出，导致 U 形注意力曲线中段召回下降</p>
+<h3>2.4.2 五级级联</h3>
+<p>压缩管线按<strong>从便宜到昂贵</strong>的顺序依次尝试：</p>
+<table>
+<thead>
+<tr class="header">
+<th>级别</th>
+<th>名称</th>
+<th>策略</th>
+<th>成本</th>
+<th>触发条件</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>①</td>
+<td>Budget</td>
+<td>预算溢出裁剪</td>
+<td>最低</td>
+<td>上下文超过 token 预算</td>
+</tr>
+<tr class="even">
+<td>②</td>
+<td>Snip</td>
+<td>修剪历史</td>
+<td>低</td>
+<td>Budget 不够时</td>
+</tr>
+<tr class="odd">
+<td>③</td>
+<td>Microcompact</td>
+<td>微粒度压缩</td>
+<td>中</td>
+<td>Snip 不够时</td>
+</tr>
+<tr class="even">
+<td>④</td>
+<td>Context Collapse</td>
+<td>只读折叠投影</td>
+<td>高</td>
+<td>Microcompact 不够时</td>
+</tr>
+<tr class="odd">
+<td>⑤</td>
+<td>Auto-compact</td>
+<td>语义摘要兜底</td>
+<td>最高</td>
+<td>前四级都不够时</td>
+</tr>
+</tbody>
+</table>
+<h3>2.4.3 Context Collapse 详解</h3>
+<p>Context Collapse（上下文折叠）是第 4 级压缩，也是最接近”理解”的压缩方式：</p>
+<ul>
+<li><strong>Budget/Snip</strong> = 删除（丢弃旧消息）</li>
+<li><strong>Microcompact</strong> = 缩小（压缩单条消息的 token 数）</li>
+<li><strong>Context Collapse</strong> = 重组（把多条相关消息合并成一条精炼总结）</li>
+</ul>
+<p>“只读投影”的含义：原始完整历史仍然存在（只读），但模型只看到压缩后的投影版本。就像把 100 页会议记录整理成 10 页摘要——保留关键信息，去掉冗余。</p>
+<h3>2.4.4 实际效果</h3>
+<table>
+<thead>
+<tr class="header">
+<th>配置</th>
+<th>压缩策略</th>
+<th>成功率</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>fivelayer</td>
+<td>五级全开</td>
+<td>61.5%</td>
+<td>从廉价到昂贵逐步压缩，保留最多信息</td>
+</tr>
+<tr class="even">
+<td>budget</td>
+<td>仅第 1 级</td>
+<td>58.9%</td>
+<td>只做最粗暴的裁剪</td>
+</tr>
+<tr class="odd">
+<td>nocomp</td>
+<td>不压缩</td>
+<td>22%</td>
+<td>上下文溢出直接导致任务失败</td>
+</tr>
+</tbody>
+</table>
+
+<h2>2.5 失败检测标签体系（对齐 MAST）</h2>
+<h3>2.5.1 标签从哪来</h3>
+<p>MAST（Multi-Agent LLM System Taxonomy）来自伯克利论文《Why Do Multi-Agent LLM Systems Fail?》（arXiv:2503.13657），是一套 Agent 失败模式分类体系，用于<strong>检测和归类</strong> Agent 在执行任务时的失败。原论文定义 14 种失败模式（编号为 FM-1.1～FM-3.3，分属 FC1 系统设计、FC2 智能体间错位、FC3 任务验证三组，附各模式在 1642 条轨迹中的占比；<b>原论文没有 1～14 的流水编号</b>，此前文案中的“#14”系误写，已更正为 FC3）。本产品保留 12 个一等标签＋1 个 <code>other</code> 兜底：<b>前 6 个自下而上从 5 个场景的 Trap 长出来</b>（2.6.4：全部场景 Trap 恰好完全落入这 6 个标签），再到 MAST 及其他来源里找对应、找依据；<b>后 6 个来自 MAST 14 类复查（2.5.4），为检测完整性补齐，全部直接对上 MAST</b>（步骤重复＝FM-1.3，不知停止＝FM-1.5，任务脱轨＝FM-2.3，未问澄清＝FM-2.2，上下文丢失＝FM-1.4，推理行动错位＝FM-2.6，见下表映射列与 2.5.4 复查表）。<code>other</code> 只剩 4 种未映射的原文模式（FM-1.2、FM-2.1、FM-2.4、FM-2.5，均为多智能体协作特有且低占比）。取舍理由：FC2 整组描述多智能体协作错位，当前 5 个场景均为单智能体执行、无此运行形态可观测；其余单智能体相关模式已全部升为一等标签，不再有缺口。</p>
+<h3>2.5.2 12 种失败检测标签</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 24%" />
+<col style="width: 28%" />
+<col style="width: 28%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>标签</th>
+<th>定义</th>
+<th>典型表现</th>
+<th>原文对应与占比</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>premature-victory</strong></td>
+<td>过早宣布完成</td>
+<td>只跑了部分测试就说”全部通过”</td>
+<td>直接对应 FC3 三合一：FM-3.1 过早终止 6.2%＋FM-3.2 无/不完整验证 8.2%＋FM-3.3 错误验证 9.1%（合计 23.5%，原文第一大桶）</td>
+</tr>
+<tr class="even">
+<td><strong>weak-grounding</strong></td>
+<td>结论缺乏证据支撑</td>
+<td>做了调研但结论没有引用来源</td>
+<td>任务族失败表（数据分析“结论无数据支撑”、调研“来源单一”）＋docStudio句级溯源 / L-MARS证据充分性思想；MAST无直接对应</td>
+</tr>
+<tr class="odd">
+<td><strong>long-horizon-decay</strong></td>
+<td>长程执行质量塌陷</td>
+<td>前半段很好，后半段质量急剧下降</td>
+<td>任务族失败表（文档“后段塌陷”、工作流“状态丢失”）＋Context Rot / RULER / Claude Code压缩文献；MAST无直接对应</td>
+</tr>
+<tr class="even">
+<td><strong>spec-misinterpretation</strong></td>
+<td>任务规格误解</td>
+<td>理解错了需求，做了不该做的事</td>
+<td>直接对应 FM-1.1 违背任务规格 11.8%，外加流失分析“口径/范围错误”的本地化延伸</td>
+</tr>
+<tr class="odd">
+<td><strong>fabricated-citation</strong></td>
+<td>编造引用</td>
+<td>引用了不存在的论文或数据</td>
+<td>Mata事故线＋L-MARS引用审计（桥接标签，2.7.1已登记）＋VeritasBench；MAST无直接对应（原论文不以幻觉为重点）</td>
+</tr>
+<tr class="even">
+<td><strong>scope-violation</strong></td>
+<td>越界操作</td>
+<td>发了不该发的邮件，改了不该改的文件</td>
+<td>工作流“误发（越界）”Trap＋ToolPrivBench / Palisade最小权限安全线；MAST无直接对应</td>
+</tr>
+<tr class="odd">
+<td><strong>step-repetition</strong></td>
+<td>步骤重复</td>
+<td>同一工具调用翻来覆去、无进展</td>
+<td>直接对应 FM-1.3 15.7%（原文占比第一）；演示见工作流验证器分支（驳回→重试循环）</td>
+</tr>
+<tr class="even">
+<td><strong>reasoning-action-mismatch</strong></td>
+<td>推理行动错位</td>
+<td>想一套做一套</td>
+<td>直接对应 FM-2.6 13.2%；演示见工作流裸基线（想着核对、动手群发）与多候选分支（评审挑错答案）</td>
+</tr>
+<tr class="odd">
+<td><strong>unaware-of-stopping</strong></td>
+<td>不知停止</td>
+<td>该停时停不下来</td>
+<td>直接对应 FM-1.5 12.4%；演示见工作流验证器分支（循环到超时）；与 premature-victory（停太早）互补</td>
+</tr>
+<tr class="even">
+<td><strong>task-derailment</strong></td>
+<td>任务脱轨</td>
+<td>偏离任务目标</td>
+<td>直接对应 FM-2.3 7.4%；演示见工作流验证器分支（目标从发邮件漂成取悦验证器）</td>
+</tr>
+<tr class="odd">
+<td><strong>fail-to-clarify</strong></td>
+<td>未请求澄清</td>
+<td>靠猜硬做、不追问</td>
+<td>直接对应 FM-2.2 6.8%；演示见流失分析裸基线（口径模糊直接算，不澄清定义）</td>
+</tr>
+<tr class="even">
+<td><strong>context-loss</strong></td>
+<td>上下文丢失</td>
+<td>早期结论掉出上下文</td>
+<td>直接对应 FM-1.4 2.8%；演示见报告写作压缩分支（大纲写完即不可达）；与 long-horizon-decay（下游症状）互补</td>
+</tr>
+</tbody>
+</table>
+<p><code>other</code> 只剩以下 <b>4 种</b>未映射的原文模式：FM-1.2 违背角色规格 1.5%、FM-2.1 对话重置 2.2%、FM-2.4 信息扣留 0.85%、FM-2.5 无视他智能体输入 1.9%——均为多智能体协作特有且低占比，当前 5 个场景无此运行形态，暂留 <code>other</code>。新增 6 标签暂无专属 Trap（2.6.4 映射表仍只覆盖原 6 标签与场景 Trap 的闭包关系），其 fixtures 演示见上表“演示见”列；若未来新增协作场景，FC2 相关标签与 Trap 一起补。</p>
+
+<h3>2.5.3 MAST 在产品中的位置</h3>
+<pre><code>场景定义 Trap（诱因）
+    ↓ 触发
+Agent 执行任务
+    ↓ 产生
+MAST Sensor 检测失败 → 打上 failure.tag
+    ↓ 聚类
+Forge 失败聚类 → 生成改动卡</code></pre>
+
+<h3>2.5.4 原论文 14 类复查（按占比降序）</h3>
+<p>图例：<span class="pill p2">已覆盖</span> 自家有对应一等标签　<span class="pill p0">未覆盖</span> 睡在 <code>other</code> 里（仅剩 4 行，均为多智能体协作特有且低占比）</p>
+<div class="table-wrap"><table><colgroup><col style="width:16%" /><col style="width:12%" /><col style="width:10%" /><col style="width:16%" /><col style="width:46%" /></colgroup><thead><tr><th>原文模式</th><th>组</th><th>占比</th><th>状态</th><th>自家去向</th></tr></thead><tbody>
+<tr><td>FM-1.3 步骤重复</td><td>FC1</td><td>15.7%</td><td><span class="pill p2">已覆盖</span></td><td>步骤重复（fixtures：工作流验证器分支驳回→重试循环）</td></tr>
+<tr><td>FM-2.6 推理行动错位</td><td>FC2</td><td>13.2%</td><td><span class="pill p2">已覆盖</span></td><td>推理行动错位（fixtures：工作流裸基线想着核对动手群发、多候选分支评审挑错）</td></tr>
+<tr><td>FM-1.5 不知停止条件</td><td>FC1</td><td>12.4%</td><td><span class="pill p2">已覆盖</span></td><td>不知停止（fixtures：工作流验证器分支循环到超时；与过早胜利“停太早”互补）</td></tr>
+<tr><td>FM-1.1 违背任务规格</td><td>FC1</td><td>11.8%</td><td><span class="pill p2">已覆盖</span></td><td>规格误解</td></tr>
+<tr><td>FM-3.3 错误验证</td><td>FC3</td><td>9.1%</td><td><span class="pill p2">已覆盖</span></td><td>过早胜利（三合一）</td></tr>
+<tr><td>FM-3.2 验证不完整</td><td>FC3</td><td>8.2%</td><td><span class="pill p2">已覆盖</span></td><td>过早胜利（三合一）</td></tr>
+<tr><td>FM-2.3 任务脱轨</td><td>FC2</td><td>7.4%</td><td><span class="pill p2">已覆盖</span></td><td>任务脱轨（fixtures：工作流验证器分支目标漂成取悦验证器）</td></tr>
+<tr><td>FM-2.2 不问澄清直接干</td><td>FC2</td><td>6.8%</td><td><span class="pill p2">已覆盖</span></td><td>未请求澄清（fixtures：流失分析裸基线口径模糊直接算）</td></tr>
+<tr><td>FM-3.1 过早终止</td><td>FC3</td><td>6.2%</td><td><span class="pill p2">已覆盖</span></td><td>过早胜利（三合一）</td></tr>
+<tr><td>FM-1.4 上下文丢失</td><td>FC1</td><td>2.8%</td><td><span class="pill p2">已覆盖</span></td><td>上下文丢失（fixtures：报告写作压缩分支大纲不可达；与长程塌陷的下游症状互补）</td></tr>
+<tr><td>FM-2.1 对话重置</td><td>FC2</td><td>2.2%</td><td><span class="pill p0">未覆盖</span></td><td><code>other</code>；需多智能体协作场景，当前 5 场景无此运行形态，暂留</td></tr>
+<tr><td>FM-2.5 无视他人输入</td><td>FC2</td><td>1.9%</td><td><span class="pill p0">未覆盖</span></td><td><code>other</code>；需多智能体协作场景＋低占比，暂留</td></tr>
+<tr><td>FM-1.2 违背角色规格</td><td>FC1</td><td>1.5%</td><td><span class="pill p0">未覆盖</span></td><td><code>other</code>；需角色分工场景，当前无，暂留</td></tr>
+<tr><td>FM-2.4 信息扣留</td><td>FC2</td><td>0.85%</td><td><span class="pill p0">未覆盖</span></td><td><code>other</code>；占比可忽略，暂留</td></tr>
+</tbody></table></div>
+<p>读法：14 行里 10 行绿，剩下 4 行红全是多智能体协作特有＋低占比（FM-1.2、FM-2.1、FM-2.4、FM-2.5），当前 5 个场景无此运行形态，暂留 <code>other</code>。占比是原论文多智能体轨迹上的数据，在当前单智能体场景下只能当参考排序，不能当命中率——若未来新增协作场景，红的 4 行随场景一起转正。</p>
+
+<h2>2.6 Trap、Failure Mode、失败标签的关系</h2>
+<h3>2.6.1 三层分类体系</h3>
+<p>本产品有三层不同的”失败”概念，容易混淆：</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 18%" />
+<col style="width: 25%" />
+<col style="width: 18%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>层级</th>
+<th>名称</th>
+<th>谁定义</th>
+<th>数量</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>场景层</strong></td>
+<td>Trap（陷阱/诱因）</td>
+<td>每个场景自己定义</td>
+<td>不固定（每场景 2-10 个）</td>
+<td>描述”这个场景可能怎么失败”</td>
+</tr>
+<tr class="even">
+<td><strong>系统层</strong></td>
+<td>失败检测标签</td>
+<td>MAST 体系＋任务族综合定义</td>
+<td>固定 12+1 种</td>
+<td>描述”检测到的失败属于哪种模式”</td>
+</tr>
+<tr class="odd">
+<td><strong>结果层</strong></td>
+<td>Failure Mode（失败模式）</td>
+<td>run.finished 汇总</td>
+<td>来自失败标签</td>
+<td>最终统计”这个分支有多少种失败”</td>
+</tr>
+</tbody>
+</table>
+<h3>2.6.2 映射关系</h3>
+<p>一个 Trap 可能映射到一个失败标签，也可能一个失败标签覆盖多个 Trap：</p>
+<pre><code>场景: writing-q3-report
+  Trap: &quot;长上下文溢出&quot;        ──→ 失败标签: long-horizon-decay
+  Trap: &quot;长程后段质量塌陷&quot;     ──→ 失败标签: long-horizon-decay（同一个）
+
+场景: research-competitor-scan
+  Trap: &quot;没查全就下结论&quot;      ──→ 失败标签: premature-victory
+  Trap: &quot;编造引用&quot;            ──→ 失败标签: fabricated-citation</code></pre>
+<h3>2.6.3 为什么 Trap 和失败标签不是一一对应？</h3>
+<ul>
+<li><strong>Trap 是场景视角</strong>：从任务特性出发，描述”可能出什么问题”（如”长上下文溢出”是报告写作场景特有的风险）</li>
+<li><strong>失败标签是检测视角</strong>：从失败模式出发，描述”怎么分类检测到的失败”（如”long-horizon-decay”是通用的长程衰减模式）</li>
+<li>一个 Trap 可能触发多种失败标签，一个失败标签也可能覆盖多个 Trap</li>
+</ul>
+<h3>2.6.4 5 个场景的完整 Trap 列表</h3>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>场景</th>
+<th>Trap 1</th>
+<th>Trap 2</th>
+<th>映射的失败标签</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>写文档/报告</td>
+<td>长上下文溢出</td>
+<td>长程后段质量塌陷</td>
+<td>long-horizon-decay</td>
+</tr>
+<tr class="even">
+<td>Coding（对照组）</td>
+<td>测试不过就宣布完成</td>
+<td>未验证就提交</td>
+<td>premature-victory</td>
+</tr>
+<tr class="odd">
+<td>信息调研</td>
+<td>没查全就下结论</td>
+<td>编造引用</td>
+<td>premature-victory / fabricated-citation</td>
+</tr>
+<tr class="even">
+<td>跨应用工作流</td>
+<td>误发邮件（越界操作）</td>
+<td>长程状态丢失</td>
+<td>scope-violation / long-horizon-decay</td>
+</tr>
+<tr class="odd">
+<td>流失分析</td>
+<td>口径/范围错误</td>
+<td>结论无数据支撑</td>
+<td>spec-misinterpretation / weak-grounding</td>
+</tr>
+</tbody>
+</table>
+
+<h2>2.7 证据来源汇总</h2>
+<p>本产品的模块定义和分类并非凭空捏造，而是综合了以下来源：</p>
+<h3>2.7.1 论文</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 37%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>论文</th>
+<th>核心贡献</th>
+<th>对应模块</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>NLAH（2026）</td>
+<td>Harness 模块消融实验，20 模块 × 多任务族</td>
+<td>③ FileSys、⑬ Sensors、⑳ Optimizer</td>
+</tr>
+<tr class="even">
+<td>Harness-R1（arXiv:2608.02276）</td>
+<td>反例卡：自改补丁反而降分</td>
+<td>④ Sandbox、⑱ HITL（人在回路）</td>
+</tr>
+<tr class="odd">
+<td>AHE（arXiv:2604.25850）</td>
+<td>10 代演化曲线 69.7→77.0</td>
+<td>⑧ Compression、⑳ Optimizer</td>
+</tr>
+<tr class="even">
+<td>MAST（arXiv:2503.13657）</td>
+<td>Multi-Agent 失败分类体系（14 类）</td>
+<td>⑬ Sensors、失败标签体系</td>
+</tr>
+<tr class="odd">
+<td>L-MARS（arXiv:2509.00761）</td>
+<td>法律域引用忠实度审计（6 类断言标签）</td>
+<td>⑬ Sensors、fabricated-citation</td>
+</tr>
+<tr class="even">
+<td>MemGPT / CoALA</td>
+<td>分层记忆架构</td>
+<td>⑦ Memory</td>
+</tr>
+<tr class="odd">
+<td>Airbnb PRISM（arXiv:2609.05736）</td>
+<td>可靠性下尾指标（MeanLift / WorstLift / RR₀）</td>
+<td>数据模型</td>
+</tr>
+</tbody>
+</table>
+<h3>2.7.2 系统</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 37%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>系统</th>
+<th>核心贡献</th>
+<th>对应模块</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Claude Code</td>
+<td>5 级 shaper、~30 生命周期钩子、权限模式</td>
+<td>⑧ Compression、⑩ Hooks、⑪ Permissions</td>
+</tr>
+<tr class="even">
+<td>Cognition（Devin）</td>
+<td>子代理上下文隔离、沙箱</td>
+<td>⑤ SubAgent、④ Sandbox</td>
+</tr>
+<tr class="odd">
+<td>dsh</td>
+<td>fail-closed 沙箱、写屏障</td>
+<td>④ Sandbox</td>
+</tr>
+<tr class="even">
+<td>OpenAI Agents API</td>
+<td>托管 harness 服务</td>
+<td>三档接入的 B 档</td>
+</tr>
+</tbody>
+</table>
+<h3>2.7.3 本产品的独创性</h3>
+<p>本产品不发明基础理论——MAST、MemGPT、CoALA、NLAH、VeritasBench 等来源提供了模块和概念。本产品的独创性在于：<strong>在这些别人的工作之上，搭建和定制了自己需要的理论框架，并在这个框架基础上 build 了这个产品。</strong></p>
+<p>具体而言：</p>
+<ul>
+<li><strong>统一 DSL</strong>：将 NLAH、Claude Code、MemGPT、MAST 等来源的零散概念提炼为 20 字段可配置 DSL——不是发明新模块，而是定义了一套统一的配置语言</li>
+<li><strong>模块分组</strong>：将 20 模块按职责归入 4 大分组——不是发明新的分类维度，而是为本产品的交互设计选择了最合适的组织方式</li>
+<li><strong>Trap → 失败标签映射</strong>：建立场景级诱因与系统级检测标签的关联——6 标签自下而上从场景 Trap 长出（2.6.4），再到 MAST 及其他来源找依据（2.5.2 映射列），不是 MAST 原文的直接子集</li>
+<li><strong>确定性 vs 概率性</strong>：借鉴 VeritasBench “wrappers ENFORCE / prompts REQUEST” 框架，但将其从论文概念转化为产品中可操作的设计原则</li>
+<li><strong>交互化消融</strong>：将论文中的受控消融实验（NLAH、AHE）转化为可上手拨动的交互式 demo——不是发明新方法论，而是让学术方法论变得人人可用</li>
+</ul>
+<p>一句话：<strong>站在巨人肩膀上，为自己的产品搭了一套适用的框架，然后把框架变成了可交互的产品。</strong></p>
+
+<h2>2.8 术语表（正典见附录 A，此处仅保留指针）</h2>
+<p>本 PRD 仅维护一份正典术语表（<b>附录 A</b>，与 <code>shared/vocabulary.ts</code> 一致）：Enforced / Guide、Change Card、Bare Baseline、scorecard、Legal Controls / Security Controls、Kill-Chain、HITL、16 类事件。为避免双头维护，本节原重复表格已删除，新增术语只写入附录 A。</p>
+
+<h1>3 用户、任务与场景</h1>
+
+<h2>目标用户画像（Persona）</h2>
+<div class="table-wrap"><table><colgroup><col style="width:16%"><col style="width:26%"><col style="width:30%"><col style="width:28%"></colgroup><thead><tr><th>画像</th><th>背景</th><th>核心痛点</th><th>本产品给出的成功</th></tr></thead><tbody>
+<tr><td><b>P1 Agent / Harness 开发者</b>（主要用户）</td><td>在用 Claude Code / Codex / dsh / 自研框架搭 agent，做知识工作类应用；会改 prompt、工具、校验与权限策略</td><td>「我加了个 verifier / 多候选 / 子 agent，到底有没有用？」只能看单次运行、靠感觉；上线后不稳定却不知是哪个模块的锅；想改又怕改坏、不敢动</td><td>固定任务做配对消融，读到每个模块的边际增益与可靠性下尾；改动先过风洞、人批准、可回滚</td></tr>
+<tr><td><b>P2 技术探索者 / 研究者</b></td><td>跟踪 agent harness 前沿论文，需要复现、对比、验证论文主张</td><td>论文结论散、复现成本高；「平均提升」掩盖脆弱更新；缺一个把多种标准方法串起来的可操作实验台</td><td>一键复现预设 + 模型×harness 交叉 + repair/gate/scorecard 隔离，快速验证或证伪一个主张</td></tr>
+<tr><td><b>P3 演示 / 评审观众</b>（次要但决定传播）</td><td>技术分享、作品集评审、团队内科普，未必深入操作</td><td>「Agent=Model+Harness」太抽象；黑盒 agent 不可信却讲不清为什么不可信、该怎么控</td><td>2 分钟被「34% 对 77% + 拨开关」说服，记住「配法比堆料重要、人要有最终控制权」</td></tr>
+</tbody></table></div>
+
+<h2>JTBD（用户要「雇佣」本产品完成的任务）</h2>
+<ul>
+<li><strong>功能型 Job：</strong>当我要决定一套 harness 配法是否上线时，帮我在固定模型与任务上量化每个模块的边际作用（成功率 / token / 时延 / 失败模式 / 可靠性下尾），并把选定改动以可回滚、带证据的方式固化下来。</li>
+<li><strong>情感型 Job：</strong>让我从「不知道它为什么时好时坏、不敢改」变成「我看得见、我测得准、我说了算」的确定感。</li>
+<li><strong>社交型 Job：</strong>让我能在 2 分钟内向别人讲清并演示「harness 才是当前可靠性杠杆、且自动化演化必须有人控」。</li>
+</ul>
+
+<h2>任务域：四类通用知识任务族 + coding 对照族</h2>
+<p>现实中 Claude Code、Codex、Cursor、DeepSeek 已被大量用于<b>写文档、分析数据、调研收集信息、完成工作流</b>而非写代码；Anthropic 也用同一套 agentic 架构分出面向知识工作的 Cowork。v1.1 因此<b>以非 coding 通用知识任务为主、coding 仅作对照族</b>（用来演示同一模块跨任务族作用反转）。工程已建 5 个场景与之对应。</p>
+<div class="table-wrap"><table><colgroup><col style="width:17%"><col style="width:24%"><col style="width:35%"><col style="width:24%"></colgroup><thead><tr><th>任务族</th><th>已建场景（data/scenarios）</th><th>典型失败（对应 MAST / L-MARS）</th><th>最关键的 harness 模块</th></tr></thead><tbody>
+<tr><td>写文档 / 报告</td><td>writing-q3-report</td><td>编造引用、长文后段质量塌陷、跑题</td><td>风格与引用规范 guide、引用核查 sensor、先大纲后成文</td></tr>
+<tr><td>数据分析</td><td>analysis-churn-metrics</td><td>口径错误、结论无数据支撑</td><td>口径校验 sensor、分析计划前置、复核子 Agent</td></tr>
+<tr><td>信息调研</td><td>research-competitor-scan</td><td>没查全就下结论、来源单一</td><td>来源多样性 guide、groundedness 核查、premature-victory 检测</td></tr>
+<tr><td>跨应用工作流</td><td>workflow-crm-export</td><td>误发误写、长程状态丢失</td><td>外发权限门、file-backed state 状态外置</td></tr>
+<tr><td>coding（对照族）</td><td>coding-terminal-refactor</td><td>测试不过、未验证就合并</td><td>测试 verifier、worktree、diff 编辑；用于演示模块作用跨族反转</td></tr>
+</tbody></table></div>
+<div class="callout c-warn"><p><span class="ct">为什么非 coding 反而更需要风洞</span>编程有编译器和单测提供<b>二元、免费、确定性</b>的验证信号；研究 / 文档类产出「全不全面、来源是否可靠、甚至对不对」只能相对任务判断，ground truth 持续漂移、专家都可能不一致（Anthropic《Demystifying evals for AI agents》, 2026-01）。非 coding 没有标准答案，只能靠 harness 里的 guide / sensor / checklist 兜底，<b>配法对错更隐蔽</b>。NLAH 的硬证据：同一个 Verifier 模块在 SWE-bench 上只 −0.8pp，换到 OSWorld 通用桌面任务却是 <b>−8.4pp</b>，副作用大十倍——这只有跨任务族受控实验才看得见。</p></div>
+
+<h2>核心用户旅程</h2>
+<h3>旅程一：2 分钟一键演示（面向 P3，四幕叙事，详细分镜见 4.0 / F0）</h3>
+<div class="flow">
+<div class="step"><b>第 1 幕 · 开场钩子</b>同模型同任务、两个 harness 终局 34% 对 77%——差距不在模型？</div>
+<div class="step"><b>第 2 幕 · 运行透视</b>报告写作任务上下文将满、五层压缩器（Shaper）依次点火；verifier（验证器）驳回一次 premature victory（过早胜利）</div>
+<div class="step"><b>第 3 幕 · 风洞消融</b>关 Verifier 成绩回落、开 File-backed State 回升；双配置轨迹分叉 diff（发邮件决策处首次分开）</div>
+<div class="step"><b>第 4 幕 · 人控演化</b>失败簇→改动卡预测收益→风洞证伪→人批准、版本树长出 commit→十代爬升收尾</div>
+</div>
+<h3>旅程二：开发者实操（面向 P1 / P2）</h3>
+<div class="flow">
+<div class="step"><b>1 选模型与任务集</b>挑一个知识任务 golden 场景，确定基线模型（离线 / 在线双轨）</div>
+<div class="step"><b>2 透视一次运行</b>在运行透视看清每步模型可见内容、harness 在哪一刻介入、首个不可恢复错误</div>
+<div class="step"><b>3 配受控实验</b>在模块板拨 20 个开关、设模型×harness 矩阵，从同一黄金快照分叉并行重放</div>
+<div class="step"><b>4 读对照结果</b>成功率 / token / 时延 / 失败转移 / Pareto + MeanLift·WorstLift·RR₀·RelLift₉₅</div>
+<div class="step"><b>5 提改动并证伪</b>失败簇归因→生成改动卡（预测翻转哪些任务）→风洞实测救回 / 回归数</div>
+<div class="step"><b>6 批准并固化</b>拒绝 / 修改 / 批准（自治度滑块）→ commit 进版本树、带证据包、可回滚</div>
+</div>
+
+<h1>4 产品方案总览</h1>
+
+<h2>信息架构与分层架构</h2>
+<p>产品由「一个导览 + 三屏 + 两层底座」构成：顶部 Demo 导览负责一键演示与论文预设入口；三屏分别承担<b>运行透视 → 实验（Wind Tunnel）→ 演化（Evolution Forge）</b>的闭环；下层是「数据 / 事件契约层」与「运行 / 回放层（双轨 + 沙箱快照分叉）」。</p>
+<p class="v11"><b>一套三屏母版、三套风洞模式：</b>顶部提供「通用 / 法律 / 安全」模式切换，三套风洞是同一三屏框架在不同问题轴上的投影——<b>通用风洞</b>问「哪个模块让任务做得更好」，<b>法律领域风洞（F5）</b>把三屏换成领域语言（事故尸检台 Autopsy / 领域风洞 / 合规演化炉 Compliance Forge），<b>安全红队舱（F6）</b>换成安全语言（攻击火线 Kill-Chain / 控制件消融台 / 策略合成）。切换模式只更换「模块板变量集、题库 / 攻击库、领域指标与终态产物」，三屏主逻辑、事件契约、回放器完全复用，不为垂直包另起一套视图。<span class="v11-tag">v1.1 新增</span></p>
+<div class="arch">
+ <div class="arch-layer"><div class="al-t">交互层 · Demo 导览 + 三屏</div>
+  <div class="arch-cells">
+   <div class="arch-cell v11"><b>Demo 导览</b>12 步 golden path / 预设入口 / 通用·法律·安全三模式切换 / 双轨切换 / 来源标注</div>
+   <div class="arch-cell"><b>屏一 运行透视</b>轨迹播放 · 模型可见栈 · shaper 点火 · 失败标记</div>
+   <div class="arch-cell"><b>屏二 Wind Tunnel</b>模块板 · 模型×harness 矩阵 · 配对消融 · 轨迹 diff · Pareto</div>
+   <div class="arch-cell"><b>屏三 Evolution Forge</b>失败聚类 · 改动卡 · 风洞证伪 · 人控批准 · 版本树</div>
+  </div></div>
+ <div class="arrow-down">▼ 读 / 写</div>
+ <div class="arch-layer"><div class="al-t">数据 / 事件契约层（append-only，model-visible means logged）</div>
+  <div class="arch-cells">
+   <div class="arch-cell"><b>事件流</b>16 类 HarnessEvent（15 运行时 + harness.mutation，zod 校验）</div>
+   <div class="arch-cell"><b>HarnessConfig</b>20 字段 DSL + 指纹 / diff</div>
+   <div class="arch-cell"><b>Scenario / Branch</b>场景 × 配置分支与指标</div>
+   <div class="arch-cell"><b>版本树 / 证据包</b>mutation commit + Evidence Pack</div>
+  </div></div>
+ <div class="arrow-down">▼ 驱动</div>
+ <div class="arch-layer"><div class="al-t">运行 / 回放层（双轨 + 受控实验物理底座）</div>
+  <div class="arch-cells">
+   <div class="arch-cell"><b>离线档</b>确定性 Replayer 按配置选预录分支（默认、零成本）</div>
+   <div class="arch-cell v11"><b>在线档（可选）</b>最小真实 harness + 用户自配多 Provider（预设厂商 / 自定义 OpenAI 兼容端点，照搬 docStudio）</div>
+   <div class="arch-cell"><b>沙箱快照分叉</b>snapshot / clone / rollback / pause 保证「除 harness 外一切相同」</div>
+  </div></div>
+</div>
+<p class="legend-note">三屏是同一条数据流的三个视图而非三个孤立页面：运行透视产出的 trace 是 Wind Tunnel 的实验素材，Wind Tunnel 的失败对比是 Forge 的改动依据，Forge 批准的新配置又回到 Wind Tunnel 回归、并可在运行透视重新查看。</p>
+
+<h2>核心概念模型</h2>
+<div class="table-wrap"><table><colgroup><col style="width:19%"><col style="width:43%"><col style="width:38%"></colgroup><thead><tr><th>实体</th><th>定义</th><th>关键关系 / 工程对应</th></tr></thead><tbody>
+<tr class="v11"><td>Model（模型）</td><td>实验变量：既可以被固定（变 harness，F2-4/F2-5），也可以被单独切换（固定 harness 变 model，F2-11），如 GPT-5.4 / Flash / Pro / 用户自配模型</td><td>与 HarnessConfig 构成二维交叉矩阵，支持<b>纵、横两个方向</b>阅读；对应 ScenarioMeta.model，在线模型来自 F4-6 配置</td></tr>
+<tr><td>HarnessConfig（Harness 配置）</td><td>20 字段小 DSL，每个字段对应一个标准 harness 模块及其可选策略</td><td>fingerprint 生成 8 位指纹、configDiff 输出差异；见 5.2 / shared/config.ts</td></tr>
+<tr><td>Scenario（任务场景）</td><td>一个 golden 任务：任务描述、埋的陷阱（traps）、模型、多配置分支与指标</td><td>一个 Scenario 含多个 Branch；对应 data/scenarios</td></tr>
+<tr><td>Run（一次运行）</td><td>某模型 + 某配置在某场景上的一次完整执行，产出一条 append-only trace 与一组指标</td><td>离线为预录分支回放，在线为真实执行</td></tr>
+<tr><td>Branch（配置分支）</td><td>同一场景下、某个 HarnessConfig 指纹对应的预录 / 实跑轨迹分支与指标</td><td>反事实对比 = 同场景两个 Branch 逐步对齐</td></tr>
+<tr><td>Trace（轨迹）</td><td>由 16 类事件构成的有序事件流（15 运行时 + harness.mutation），可完整重建「模型每步看到什么」</td><td>对齐 dsh Trajectory / OpenHands EventLog / OTel GenAI</td></tr>
+<tr><td>Mutation（Harness 改动）</td><td>Forge 产出的一次配置变更：定位改动点、自然语言说明 + 确定性 diff、预测收益、证伪结果</td><td>经人批准后成为版本树一个 commit</td></tr>
+<tr><td>Version Tree（版本谱系）</td><td>harness 配置的 commit 树，每节点带 Evidence Pack，可分支、可回滚</td><td>核心交互；对应 EvoUndo「出现回归即建回滚点」</td></tr>
+</tbody></table></div>
+
+<h2>Harness 适配层：三档接入（含闭源）</h2>
+<p>「风洞要能控制 / 访问 harness 模块，是否只对开源 harness 有用？」综合调研报告对闭源接入的多处论述（Airbnb 工具边界拦截、LongHorizon 的 AgentAdapter、闭源退到协议 / 身份侧），抽象为三档接入，v1.1 主要落在 A / B 档离线复现，C 档仅在演进中预留：</p>
+<div class="table-wrap"><table><colgroup><col style="width:15%"><col style="width:30%"><col style="width:33%"><col style="width:22%"></colgroup><thead><tr><th>档位</th><th>接入方式</th><th>能控制 / 访问到什么</th><th>代表与 v1.1 处理</th></tr></thead><tbody>
+<tr><td><b>A 开源 / 白盒直改</b></td><td>harness 开源或配置完全暴露，直接切换模块、读取内部事件</td><td>20 个模块全部可拨、五层 shaper 等内部过程可见</td><td>dsh、OpenHands、自研最小 harness；v1.1 离线 fixture 与在线档主用此档</td></tr>
+<tr><td><b>B 闭源但 IO 边界可拦截</b></td><td>拿不到源码，但在模型↔工具的标准 IO 边界外用代理 / 中间件包裹（guarded intercept）</td><td>可改 prompt、可在工具边界做受守卫拦截、可记录可见 trace；不可改其内部压缩实现</td><td>Airbnb PRISM、LongHorizon AgentAdapter（可套 Claude Code / Codex / OpenClaw / Hermes）；v1.1 以此论证「闭源不是死角」，论文预设体现</td></tr>
+<tr><td><b>C 完全黑盒、IO 也不可拦截</b></td><td>连 IO 边界都够不到，退到协议侧 / 身份侧从外部约束</td><td>只能约束预算、授权、身份、可追溯，无法做模块级消融</td><td>AP2 / APASS / Okta NHI；v1.1 明确标注「可控前提是至少存在一个够得到的独立卡点」，不假装能消融</td></tr>
+</tbody></table></div>
+<div class="callout c-gray"><p><span class="ct">设计含义</span>风洞的「受控程度」必须随接入档位诚实显示：A 档可做完整模块消融，B 档只开放 prompt 与工具边界中间件两个编辑面，C 档不给模块级结论。UI 上用接入档位标识避免对闭源系统过度承诺。</p></div>
+
+<h2>双轨运行架构：离线确定性回放 + 在线真模型</h2>
+<div class="grid2">
+<div class="minicard"><h4>离线档（默认 · 零成本 · 100% 可复现）</h4><p>预置四类知识任务族各 1–2 个 golden 场景 + 1 个 coding 对照；每个场景 × 若干 harness 配置预录 fixture 轨迹分支。回放器（server/replayer）按 HarnessConfig 指纹选分支，指纹不命中时回退到汉明距离最近分支并显式提示 <code>nearestTo</code>，保证演示永远稳定可复现、不依赖网络与密钥。</p></div>
+<div class="minicard v11"><h4>在线档（可选 · 用户自配 LLM Provider）<span class="v11-tag">v1.1 改</span></h4><p>Node 侧实现最小真实 harness（主循环 + 3–4 个工具、可切换压缩与 verifier 策略），用<b>用户自己配置的模型</b>真跑，用于验证「这不是只对写死的数据成立」。<b>不绑定任何厂商</b>：Provider 配置界面（厂商预设 + 自定义 OpenAI 兼容端点、apiKey / baseUrl / 模型列表 / 默认模型 / fallback、拉取模型与验证）及其持久化<b>整体照搬现成 docStudio 工程</b>（详见第 5 章 F4-6 与第 8 章在线 Provider 设置）。在线结果与离线 fixture 在 UI 上以来源标签明确区分。</p></div>
+</div>
+<div class="callout c-warn"><p><span class="ct">诚实原则（不可妥协）</span>论文预设数字标注来源与「脚本复现」，fixture 示意数据标注「示意」，<b>绝不把 mock 说成实测</b>；每条指标带来源（fixture / paper-reproduction / live）与引用（SourceRef）。这沿用作者既有 appUIRefiner「不假装已生效」原则，也是本产品区别于「造好看假数据 demo」的底线。</p></div>
+
+<h2>受控实验的物理底座：沙箱快照分叉</h2>
+<p>严格的反事实对比要求「除 harness 外一切相同」。调研报告 4.6 节指出，现代 agent 沙箱把四个状态操作做成一等公民：<b>snapshot（快照）/ clone·fork（分叉）/ rollback（回滚）/ pause-resume（暂停恢复）</b>（腾讯 CubeSandbox、清华×月之暗面 AgentENV、E2B、阿里 OpenSandbox）。风洞屏二的「同任务双配置逐步 diff」在工程上应建立在<strong>从同一黄金快照分叉 N 份、分别跑不同配置、跑完即弃、可回滚重放</strong>之上，而非每次手工重搭环境。</p>
+<div class="flow">
+<div class="step"><b>① 黄金快照</b>固定任务输入、工作区、依赖、初始状态，打不可变 snapshot</div>
+<div class="step"><b>② clone N 份</b>从同一快照分叉，每份注入一个 harness 配置（A/B/C…）</div>
+<div class="step"><b>③ 并行运行</b>各分支独立执行，凭证由网关注入、不进沙箱</div>
+<div class="step"><b>④ 对齐读数</b>同步对齐轨迹、计算 lift 与下尾，分支跑完即弃 / 可 rollback 重放</div>
+</div>
+<p class="legend-note">v1.1 离线档用「预录分支」等价实现快照分叉的可复现效果（不真正起 microVM）；在线档与 Stretch 再对接真实沙箱 API。注意隔离的是<b>执行过程</b>，产物通过受控通道（diff / 文件 / 快照）回传，因此「被隔离」不等于「结果用不了」。</p>
+<h1>5 功能需求（FR）</h1>
+<p>优先级：<span class="pill p0">P0</span> v1.1 必做、缺则演示不成立；<span class="pill p1">P1</span> 显著增强、排入三周内；<span class="pill p2">P2</span> Stretch / 可延后。每条功能给「交互」与可检验的「验收标准 AC」，并标注调研报告中的依据。工程现状（已搭骨架 src/screens/{Demo,MRI,WindTunnel,Forge}）在每条末尾以【现状】注明。</p>
+
+<h2>F0 · Demo 导览与一键演示（全局入口）</h2>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F0-1</span><span class="fr-name">一键演示播放器（2 分钟 golden path）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>提供「播放 / 暂停 / 上一步 / 下一步 / 跳转幕」控件，按脚本自动在三屏间推进并高亮当前记忆点；可随时切到手动操作再回到自动播放。</div>
+<div class="fr-kv"><b>12 步分镜（约 2 分钟，源自调研报告 7.1 节）：</b></div>
+<div class="table-wrap"><table><colgroup><col style="width:12%"><col style="width:16%"><col style="width:72%"></colgroup><thead><tr><th>步</th><th>画面</th><th>动作与观众记忆点</th></tr></thead><tbody>
+<tr><td>1</td><td>开场</td><td>同模型同任务、两个 harness 终局 34% 对 77%——抛出「差距不在模型？」</td></tr>
+<tr><td>2–4</td><td>运行透视</td><td>报告写作任务上下文将满、五层压缩器（Shaper）依次点火；点开工具结果看来源组件与 U 形位置；verifier（验证器）驳回一次 premature victory（过早胜利）</td></tr>
+<tr><td>5–8</td><td>风洞</td><td>直觉失灵：只加验证器（Verifier，完工前按规则自动拦一道，通不过打回重做）反而掉8.4个点；先把范围写进文件再干活（File-backed State，关键范围以文件为准）涨5.5个点，隔离子Agent×评审挑选（论文打包名 Multi-Candidate＝⑤＋⑬两个开关一起开）掉3.1个点；双配置轨迹分叉 diff（发邮件决策处首次分开）；失败模式转移矩阵。注：数字为示意，方向引自 NLAH Table 3 跨应用任务列（论文原名 OSWorld）</td></tr>
+<tr><td>9–12</td><td>Forge</td><td>失败簇归因 Premature Victory → 改动卡预测 +3~6pp → 风洞证伪（救回 4、回归 1，自动建回滚点）→ 人批准、版本树长出 commit → Autoplay 十代爬升收尾</td></tr>
+</tbody></table></div>
+<div class="ac"><span class="act">AC：</span>① 不点任何其他按钮，一键播放可在约 2 分钟内完整走完 12 步且每步停留可读；② 每步画面与脚本表一一对应、记忆点（数字 / 分叉 / 回滚点）在屏上可见；③ 离线、无网络、无 Key 下可完整播放；④ 支持暂停后手动操作、再回到自动节奏。【现状：src/screens/Demo 骨架已建】</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F0-2</span><span class="fr-name">论文复现预设入口</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>3 组预设数据（NLAH / AHE / Harness-R1），不设独立卡片区；风洞对照表空状态提供快捷载入入口，载入后走与手拨完全相同的对照链路（场景切换、变体、读数）；每个预设显式标注论文出处、哪些是脚本复现、Δ 数字引自哪张表。</div>
+<div class="ac"><span class="act">AC：</span>① 三个预设可一键载入：NLAH 受控消融、AHE 十代爬升（69.7→77.0）、Harness-R1 越改越差（41.6→35.4）；② 每个预设可见来源 citation 与「脚本复现 / 示意」标记，不把示意基线说成论文实测；③ AutoHarness 预设呈现模型×harness 交叉而非单条排名。【现状：shared/presets.ts 已定义 3 预设】</div></div>
+
+<div class="fr v11"><div class="fr-head"><span class="fr-id">F0-3</span><span class="fr-name">双轨切换与全局来源标注</span><span class="v11-tag">v1.1 改</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>全局开关在「离线 fixture / 在线真模型」间切换（在线需先在设置中配置至少一个用户自配 Provider 与默认模型，见 F4-6）；任何数字、轨迹、指标旁带来源徽标（fixture / paper-reproduction / live）。</div>
+<div class="ac"><span class="act">AC：</span>① 默认离线、零依赖可跑；② 切到在线时若未配置任何 Provider 则引导到 F4-6 设置页且不崩溃；③ 三类来源在 UI 上可一眼区分，论文数字必有 citation。【现状：events.ts 已定义 SourceKind/SourceRef】</div></div>
+
+<h2>F1 · 屏一 运行透视</h2>
+<p>回答「它每一步到底看到了什么、Harness 在哪一刻介入」。</p>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F1-1</span><span class="fr-name">主泳道轨迹播放器</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>左侧时间轴按 Thought → Tool → Observation 渲染主泳道，支持播放 / 拖拽定位 / 单步前进后退；点击任一步，右侧模型可见栈同步跳到该步。</div>
+<div class="ac"><span class="act">AC：</span>① 轨迹事件顺序与 append-only 事件流一致；② 时间轴与右侧栈在任一步严格同步；③ 可定位到指定 step 且刷新 / 重放结果一致（确定性）。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F1-2</span><span class="fr-name">Harness 介入标记叠加层</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>在主泳道上以不同图标 / 色点叠加七类介入：Hook Intercept（拦截）、Permission Gate（权限询问）、Shaper Fired（压缩触发）、Verifier Rejected / Passed（语义验证）、Lint Rejected / Passed（轻量确定性检查）、Agent Fork / Join（子 Agent 分合）、Compaction Boundary（压缩边界）；悬停看裁决理由（allow/deny/rewrite、风险等级）。</div>
+<div class="ac"><span class="act">AC：</span>① 七类介入均能从事件流（hook.decision / permission.* / shaper.fire / verifier.verdict / sensor.lint / agent.fork|join / compact.boundary）渲染；② 点击标记显示对应事件字段与 reason；③ 演示第 4 步可见一次 verifier 驳回 premature victory。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F1-3</span><span class="fr-name">Model-Visible Stack 分层栈（主角）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>右侧把当步请求按来源分 6 层渲染：System / 记忆 / Skills 元数据 / 工具 Schema / 历史 / 工具结果；每层一条 token 条，标注由哪个组件注入（sourceComponent），可展开看 preview。</div>
+<div class="ac"><span class="act">AC：</span>① 六层与 CONTEXT_LAYERS 一致、token 条长度按 tokens 比例；② 每层显示注入组件名；③ 切换 step 时分层栈随之变化，且六层 token 之和与该步 estTokens 对得上（容许四舍五入误差并标注口径）。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F1-4</span><span class="fr-name">Lost-in-the-Middle 位置热力</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>在分层栈 / 历史层上叠加 U 形位置热力（首尾召回高、中段低，arXiv:2307.03172），随上下文增长可视化中段「被忽略区」扩大。</div>
+<div class="ac"><span class="act">AC：</span>① 热力为 U 形示意并明确标注「示意，非本任务实测召回」；② 位置随 positionIndex 正确映射，不与 token 条冲突遮挡。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F1-5</span><span class="fr-name">五层上下文 Shaper 点火动画</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>上下文逼近上限时，按「先便宜后昂贵」顺序播放五个 shaper 依次点火：① Budget → ② Snip → ③ Microcompact → ④ Context Collapse → ⑤ Auto-compact，每个显示释放多少 token、触发原因。</div>
+<div class="ac"><span class="act">AC：</span>① 点火顺序严格 1→5（源自 Claude Code 五层压缩，arXiv:2604.14228）；② 每次点火显示 freedTokens 且累计释放量与前后 estTokens 差额自洽；③ 第 2–4 步演示中五层依次点火清晰可见。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F1-6</span><span class="fr-name">失败检测标签与首个不可恢复错误标记</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>对每步实时打失败检测标签（通用）/ L-MARS 领域标签（未验证即完成、资料未综合、长程塌陷、口径偏差、编造引用、越界、步骤重复、推理行动错位、不知停止、任务脱轨、未问澄清、上下文丢失）；并标记 AgentRx 定义的 critical failure step＝第一个无法被后续恢复的错误。</div>
+<div class="ac"><span class="act">AC：</span>① 标签集合与 shared/mast.ts 一致；② 首个不可恢复错误在时间轴上被显著标记、且确实早于其后的连锁失败；③ 悬停给出该失败类别的一句话解释（MAST_HINT）。</div></div>
+
+<h2>F2 · 屏二 Wind Tunnel 受控消融（核心屏）</h2>
+<p>回答「每个Harness 模块到底值多少分」，是本产品区别于观测平台的关键。</p>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-1</span><span class="fr-name">20 模块板（受控变量开关）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>按「运行内核 / 状态与记忆 / 约束与安全 / 进化与韧性」四组渲染 20 个模块，每个以下拉或分段开关切换策略；旁附证据 tooltip（如 File-backed State「+1.6/+5.5」、Verifier「OSWorld −8.4」）；对「确定性强制门」与「概率性引导」用不同标记区分（permissions、sensors 标 enforced）。</div>
+<div class="ac"><span class="act">AC：</span>① 20 字段、四组与 shared/config.ts 完全一致；② 每次改动生成新指纹且 configDiff 能列出相对基线改了哪几个字段；③ 证据 tooltip 数字与调研报告一致并标 arXiv；④ 确定性门（deny-first）与引导（guide）视觉可区分，呼应「wrappers ENFORCE / prompts REQUEST」。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-2</span><span class="fr-name">固定模型 / 任务集与基线</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>先选模型与一个或多个场景（任务集），并以 Basic 配置为基线；实验期间模型与任务被「锁定」显示，提醒用户当前只在变 harness。</div>
+<div class="ac"><span class="act">AC：</span>① 切换实验时模型与任务保持不变、界面有锁定标识；② 基线配置为 BASE_CONFIG 且可一键复位；③ 支持把任一已跑配置「设为新基线」。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-3</span><span class="fr-name">多配置并行重放与对照读数</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>一次可并行对比多个配置（离线为同步选分支），读数面板给成功率、token、P50 时延；配置以「相对基线 Δ」呈现，正 / 负增益用颜色与符号区分。</div>
+<div class="ac"><span class="act">AC：</span>① 至少支持 4 个配置并列；② 每个配置显示 successRate / tokens / latencyP50 与相对基线 Δ；③ 负增益（如 Verifier 在 OSWorld 族 −8.4）以负向色明确呈现、不被藏起来。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-4</span><span class="fr-name">模型 × Harness 二维交叉矩阵</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>首屏以矩阵呈现：行＝模型、列＝harness 配置、格＝得分 / 胜率；支持高亮「同一模型跨配置」与「同一配置跨模型」两条阅读路径，直观展示排名反转。</div>
+<div class="ac"><span class="act">AC：</span>① 默认视图是二维矩阵而非单模型排名（依据 AutoHarness 与 HarnessDev 69.3→33.0 的跨 executor 崩塌）；② 悬停单元格显示模型与配置两个维度的取值。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-5</span><span class="fr-name">配对消融（单模块 Lift）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>提供「配对模式」：固定其余所有字段，只切换某一个模块的有无 / 策略，直接给出该模块的配对差值（对齐 NLAH 逐模块消融与 NVIDIA ACES 的 Skill Lift＝同 agent/model/task 下有/无模块之差）。</div>
+<div class="ac"><span class="act">AC：</span>① 配对的两份配置恰好只差一个字段（用 configDiff 校验，差异字段数=1）；② 输出该模块在所选任务族上的 Lift；③ 可一次对全部 20 模块批量生成配对 Lift 条形排序，并允许负 Lift 排在显著位置。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-6</span><span class="fr-name">可靠性下尾指标族（不只看平均）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>对每个配置同时呈现 MeanLift / MaxLift / WorstLift / RR₀ / Cost / RelLift₉₅（定义与算例见 5.3）；当某配置 MeanLift 为正但 WorstLift 为负或 RR₀ 偏低时，给出「脆弱配置」警示。</div>
+<div class="ac"><span class="act">AC：</span>① 六个指标按 5.3 公式由多次运行结果计算、数值可复算；② 均值与下尾并排展示，不允许只显示 Mean/Max；③ 命中「平均好看但下尾为负 / 胜率低」时出现脆弱警示（依据 Airbnb：τ²-Telecom 上多优化器 RR₀ 仅 25–75%、WorstLift 为负）。</div></div>
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-7</span><span class="fr-name">同任务双配置逐步轨迹分叉 diff（反事实回放）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>选两个配置，左右对齐逐步回放同一条任务；相同步骤对齐、首次出现差异处高亮为「分叉点」并展开两侧 Thought / Tool / Observation 差异；分叉点之后允许逐步对比两条路径如何走向不同终局。</div>
+<div class="ac"><span class="act">AC：</span>① 两条轨迹来自同一黄金快照 / 同一任务输入（3.5）；② 分叉前步骤一一对齐、首个差异步被明确标出（发邮件决策处）；③ 差异高亮到字段级（调用工具不同 / 观测不同 / 裁决不同），不只是终局分数不同。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-8</span><span class="fr-name">失败模式转移矩阵</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>以矩阵展示「切换配置后，各失败类别的此消彼长」：行＝基线失败类、列＝新配置失败类 / 被消除，对角线为未变化。</div>
+<div class="ac"><span class="act">AC：</span>① 矩阵由两配置 run.finished.failureModes 与逐步 failure.tag 汇总；② 能读出「某模块消除了 A 类失败却引入 B 类」的转移；③ 单元格数值可下钻到对应轨迹步。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-9</span><span class="fr-name">质量—成本 Pareto 前沿</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>把各配置画成「成功率 / 质量 × token / 时延成本」散点，标出互不支配的 Pareto 前沿与候选点（最省成本达标、最稳但偏重等）；Forge 演化也在此前沿上做进化 + 交叉。</div>
+<div class="ac"><span class="act">AC：</span>① 散点坐标来自真实读数；② 被支配点与前沿点视觉区分；③ 前沿计算确定、可复算（同数据结果一致）。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F2-10</span><span class="fr-name">极简 vs 丰富对照变量对（舞台效果）</span><span class="pill p2">P2</span></div>
+<div class="fr-kv"><b>交互：</b>预置几组最直观的可消融对照：极简 4 工具 vs 18+ 工具（Pi vs Claude Code，工具过多 decision paralysis）、系统提示长短、每轮上下文清零（Ralph Loop）vs 持续压缩；同模型同任务量 success × cost × context。</div>
+<div class="ac"><span class="act">AC：</span>① 每对对照只变目标变量；② 同时给质量、成本、每轮上下文三项；③ 标注 Pi/Earendil、Ralph Loop（G. Huntley, 2025-07）与 Databricks「成本差 2×、上下文少 3×」的来源。</div></div>
+
+<div class="fr v11"><div class="fr-head"><span class="fr-id">F2-11</span><span class="fr-name">Harness × Model 适配画像（固定Harness、只换模型）</span><span class="v11-tag">v1.1 新增</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>这是与 F2-4 / F2-5 <b>方向相反</b>的第二条评测轴：<b>锁定一个 HarnessConfig 与任务集，把 seed / 工具 / 场景 / 评分器等其余变量全部冻结，只切换 model</b>，对每个模型跑同一套Harness，输出该 harness 的「合拍画像」：① 各模型在该 harness 下的得分 / 胜率与下尾；② <b>Model-Conditional Lift</b>＝相对该模型 Bare Baseline（别名裸跑基线）的增益，回答这套Harness对谁是加成、对谁无效甚至反降；③ <b>Compatibility Spread</b>＝跨模型得分的极差 / 标准差，给出最合拍 → 最不合拍排序；④ 「推荐搭配 / 可搭 / 谨慎搭配」三级标记。可一键与 F2-4 转置对照（F2-4 主读「固定模型跨 harness」，本卡主读「固定 harness 跨模型」，两者是同一批数据的两种阅读方向）。</div>
+<div class="fr-kv"><b>依据：</b>AutoHarness 证明模型排名随 harness 反转（arXiv:2603.03329）；HarnessDev 跨 executor 成绩崩塌 69.3→33.0；Harness Sensitivity is Non-Monotone（arXiv:2605.26731，432 次 run、6 模型 × 4 能力档 × 3 严格度）证明同一 harness 对不同模型的增益非单调——「一套Harness配所有模型」并不成立，必须显式测适配。指标定义见 5.3。</div>
+<div class="ac"><span class="act">AC：</span>① 锁定后用 configDiff 校验 harness 指纹全程不变（差异字段数=0）、任务集 / seed / 评分器相同，<b>唯一变量是 model</b>；② 输出每模型得分、Model-Conditional Lift、跨模型 Spread 与合拍分级，数值由数据现算可复算；③ 内置一组演示数据可读出「同一 harness 对模型 A 正增益、对模型 B 负增益（不合拍）」，且与 F2-4 矩阵同源转置、数字一致不打架；④ 下尾沿用 WorstLift / RR₀，候选测试充分时以 WorstLift 为主口径（不默认用含「赌」成分的 RelLift₉₅）。</div></div>
+
+<h2>F3 · 屏三 Evolution Forge 人控自演化</h2>
+<p>回答「怎么让每一次失败都变成一条永久规则」。<b>价值观铁律：风洞证伪 + 人控批准 + 可回滚，不做黑盒全自动。</b></p>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F3-1</span><span class="fr-name">失败聚类与归因</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>把一批失败运行按 MAST / L-MARS 失败类做矩阵聚类（成组修，不打地鼠），并把每簇归因到可改的 harness 模块（⑫ Feedforward Guidelines / ⑬ Feedback Sensors & Lints / ⑩ Lifecycle Hooks / ⑧ Context Compression / ② Tool Surface / ⑪ Permission Gate）。</div>
+<div class="ac"><span class="act">AC：</span>① 聚类依据 failure.tag 而非输出文本表面相似；② 每簇给出「建议改动哪个模块」（必为 20 模块之一）；③ 演示第 9 步可得到 Premature Victory 簇。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F3-2</span><span class="fr-name">改动卡（Change Card）生成</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>为每簇生成改动卡：自然语言说明「为什么改、改哪里」+ 确定性 diff（具体到字段 / 策略 / 中间件规则）+ 预测收益区间 + 预计影响的任务；Sensor 类改动支持多候选一起进风洞对比。</div>
+<div class="ac"><span class="act">AC：</span>① 每张改动卡包含改动点、NL 说明、确定性 diff、预测区间四项；② diff 应用后确实得到一个合法 HarnessConfig（zod 校验通过、非法改动回滚，对齐 SKILL.state 的非法 patch 回滚）；③ 演示改动卡预测 +3~6pp。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F3-3</span><span class="fr-name">风洞证伪（预测 vs 实测 + 自动回滚点）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>改动先在 gate 集验证、再到 scorecard 集记分：展示「预测翻转哪几条任务 / 实测救回几个 / 回归几个」；一旦出现回归，自动建立回滚点（EvoUndo 思想），且修复 / 筛选 / 记分使用三套互不相交数据集。</div>
+<div class="ac"><span class="act">AC：</span>① repair / gate / scorecard 三集不相交、UI 上标明当前用的是哪套（防止对着期末答案调参，源自 Airbnb PRISM）；② 同时显示救回数与回归数，回归不为 0 时显著告警并自动生成回滚点；③ 演示项为「救回 4、回归 1」。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F3-4</span><span class="fr-name">人控三态与自治度滑块</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>对每张改动卡给「拒绝 / 修改 / 批准」三态；提供自治度滑块（源自 Karpathy：自治度是滑块而非开关），从「步步批准」到「仅高风险拦截」；任何档位下，提交进版本树都必须经过人的批准动作。</div>
+<div class="ac"><span class="act">AC：</span>① 三态都有真实处理（拒绝不入树、修改可编辑 diff、批准才 commit），无僵尸按钮；② 自治度滑块改变默认卡点数量但不取消最终批准；③ Autoplay 连续演化时每一代仍停在批准门前（不黑盒放行）。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F3-5</span><span class="fr-name">Harness 版本树与证据包</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>被批准的改动成为版本树一个 commit，节点带 Evidence Pack（失败簇、预测、gate/scorecard 结果、救回 / 回归、来源）；支持分支、查看任意两版本 diff、一键回滚到任一祖先。</div>
+<div class="ac"><span class="act">AC：</span>① 每次批准生成一个 commit 且证据包字段齐全；② 任意两版本可 diff（复用 configDiff）；③ 回滚后当前配置与指标恢复到该版本、且回滚动作本身也留痕（append-only，不抹历史）。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F3-6</span><span class="fr-name">Autoplay 多代演化曲线</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>可连续演示十代 evaluate → analyze → improve，画成绩曲线（AHE：Terminal-Bench2 69.7%→77.0%），曲线上标注被风洞拦下的回归代；也可一键切换到 Harness-R1「越改越差」反例曲线（41.6→35.4）作对照。</div>
+<div class="ac"><span class="act">AC：</span>① 十代曲线与预设数据一致、非单调（含被拦回归，爬升不是直线）；② 每代仍需批准动作才推进；③ 可并排对比「有风洞 / 人控」与「naive 自改」两条曲线的不同结局。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F3-7</span><span class="fr-name">PRISM 编辑面路由预设</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>作为 Forge 的一种可复现算法预设：失败聚类后把每类修复路由到三个编辑面——改 prompt（Guide）/ 改工具边界中间件（确定性守卫）/ 两者联合，并在 Pareto 前沿做进化 + 交叉；对照 BH 爬山、GEPA、MIPROv2。</div>
+<div class="ac"><span class="act">AC：</span>① 三个编辑面可选且「工具边界中间件」对应 B 档 IO 拦截（3.3）；② 消融可验证「失败面路由」与「编辑模式约束」是唯二一拆就掉点的模块（Airbnb 消融结论）；③ 标注 arXiv:2609.05736。</div></div>
+
+<h2>F4 · 全局与工程质量需求</h2>
+<div class="table-wrap"><table><colgroup><col style="width:14%"><col style="width:18%"><col style="width:68%"></colgroup><thead><tr><th>编号</th><th>优先级</th><th>需求与验收</th></tr></thead><tbody>
+<tr><td>F4-1 主题与适配</td><td><span class="pill p1">P1</span></td><td>浅 / 深主题切换并记忆（localStorage）、桌面 1440 与移动 390 均可用、打印样式隐藏顶栏与目录。AC：两主题下文字与图表对比度足够、无横向溢出；移动端多栏自动堆叠为单栏。</td></tr>
+<tr class="v11"><td>F4-2 结果导出 <span class="v11-tag">v1.1 改</span></td><td><span class="pill p1">P1</span></td><td>导出实验结果（配置 + 指标 + 证据包）为 JSON / 可读报告。AC：导出文件可重新导入还原同一实验视图；导出包不含任何 apiKey。</td></tr>
+<tr class="v11"><td>F4-5 真实轨迹导入与 NLAH 互操作（原 Stretch 转正）<span class="v11-tag">v1.1 转正</span></td><td><span class="pill p0">P0</span></td><td>导入<b>真实 Claude Code transcript（JSONL）</b>与 <b>dsh Trajectory</b>，解析归一化到同一 16 类事件 schema（15 运行时 + harness.mutation）后可在运行透视中查看、纳入风洞对照；支持 <b>NLAH 格式双向导入导出</b>（把一份 HarnessConfig + 任务导出为 NLAH harness 供 Claude Code / Codex / dsh 使用，也可导入 NLAH harness 复现）。AC：① 各内置至少一份真实样例，解析后 model.request / tool.* 等关键字段齐全，无法识别字段标 unknown 而非静默丢弃；② 导入轨迹可在 F1 完整播放并打失败标签；③ NLAH 导出可被重新导入、配置往返一致（round-trip）；④ 外部数据一律标 imported / live 来源，不与 fixture 混标。</td></tr>
+<tr class="v11"><td>F4-6 在线模型 Provider 设置（UI / 逻辑 / 持久化照搬 docStudio）<span class="v11-tag">v1.1 新增</span></td><td><span class="pill p0">P0</span></td><td>在线档<b>不绑定 OpenAI</b>，由用户自配任意 LLM。设置页整体复用现成 docStudio 工程（client Settings 的 llm 页、shared provider 类型、server keyStore / registry）：① 厂商预设卡片（Kimi / GLM / MiniMax / MiMo / DeepSeek / Gemini / Qwen / Bedrock / OpenRouter / OpenCode / 火山 / 百炼，预填 baseUrl 与 keyPlaceholder）+ 一个 <b>Custom（OpenAI Compatible）</b>自定义端点（baseUrl 用户自填，可接任意兼容 API / 自建网关 / 聚合平台）；② 每卡片含 apiKey（password）、可编辑 baseUrl（保存去尾斜杠）、「拉取模型列表」（/models）、模型多选、默认模型、模型 fallback 链与总开关、启用开关、已配置 / 需配置徽标，卡片可排序、折叠态记忆；③ 「验证 Key / 验证模型」连通性测试；④ 持久化照搬——ProviderConnection 列表经服务端设置接口存储（docStudio 为 user_settings 表 + keyStore 内存缓存），apiKey 以引用 apiKeyRef 持有，运行时按所选 baseUrl 走 OpenAI 兼容协议。AC：① Custom 填任意兼容 baseUrl + key + model 后可保存并被在线档选用；② 拉模型 / 设默认 / fallback 顺序可用，刷新后配置仍在；③ apiKey 不进入任何 HarnessEvent、控制台日志、导出包与 model.request；④ 不内置任何厂商 key、不写死单一端点；未配置时在线档不可选并引导到本页。</td></tr>
+<tr><td>F4-3 状态诚实性</td><td><span class="pill p0">P0</span></td><td>所有可点元素必有真实行为（无僵尸按钮）；加载 / 空 / 错误态齐备；回放器指纹不命中时显式提示回退到最近分支而非静默替换。AC：逐屏巡检无死按钮；离线断网下无报错白屏。</td></tr>
+<tr><td>F4-4 不触真危险动作</td><td><span class="pill p0">P0</span></td><td>Demo 内一切「执行 / 外发 / 花钱 / 改文件」均为 fixture 模拟或只读，不在用户真实系统执行副作用。AC：离线档无任何真实写盘 / 网络外呼（除用户主动配置的在线模型请求）。</td></tr>
+</tbody></table></div>
+
+<section class="v11" style="padding:8px 16px 12px;border-radius:12px">
+<h2>F5 · 领域风洞 Domain Wind Tunnel（首发法律包）<span class="v11-tag">v1.1 新增整节</span></h2>
+<p>通用风洞问「哪个模块让任务做得更好」，领域风洞问「在高风险行业里，什么叫合格、什么算越界」。法律包<b>复用同一三屏母版、只换领域语言与变量集</b>：理论主轴是「验证硬度光谱」与「wrappers ENFORCE / prompts REQUEST（治理是架构问题不是智能问题）」；法律是「硬壳软核」——引用存在性 / 期限 / 管辖 / 数字可确定性校验（硬），论点成立 / 争点周全只能概率判断（软），最终责任门是律师。v1.1 为<b>离线可复现 MVP</b>（3–5 份埋雷案卷 + 1 份干净对照），不接真实权威库生产 API、不出具法律效力文件。</p>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F5-1</span><span class="fr-name">领域模块板：法律七控件（Legal Controls） + 中美两条接地路线开关</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>在通用 20 模块之外叠加一层「领域模块」开关，每个显式标注【硬强制 · wrapper】或【软引导 · prompt】：① 权威库 MCP 直连（中国路线：产出前压缩可引用空间）② 引用忠实度审计（美国路线：产出后逐句核验）③ 期限 / 数字对账器 ④ 管辖 / 时效过滤 ⑤ 争点闭合放行门（Release Gate）⑥ 风险分级升级门 ⑦ 哈希审计链；另含领域知识层（知识即数据、不写进 prompt）。</div>
+<div class="ac"><span class="act">AC：</span>① 七个领域开关可独立 / 组合切换并生成扩展配置指纹；② 硬强制门与软引导视觉可区分（复用 F2-1 enforced 标记）；③ 中美两路线可一键单选对照；④ 每个开关附证据 tooltip（审计链 0%→87.8%→100%、Parthenon +13.8/+10.2/+7.4 到 82.0/89.9/90.2，arXiv:2606.04602）并标 arXiv / 来源。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F5-2</span><span class="fr-name">屏一 Autopsy 事故尸检台（镜像运行透视）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>载入一份埋雷案卷让裸模型产出法律备忘录，trace 被拆成<b>原子断言</b>逐条标色：红＝判例不存在 / 不可达（citation_unreachable，直接重演 Mata v. Avianca 的 6 个假判例）、无据数字、期限算错（未扣节假日）、管辖错位、漏争点、把「法律信息」写成「法律意见」（越界）；末尾出「尸检报告」并对照会触碰 ABA Formal Opinion 512 的哪几条义务（Rule 1.1 / 1.6 / 3.3 / 5.3）。</div>
+<div class="ac"><span class="act">AC：</span>① 断言标签集合对齐 L-MARS 五类（supported / partially_supported / unsupported / citation_unreachable / no_citation，arXiv:2509.00761）与阶段失败表（arXiv:2606.19812）；② Mata 案卷可稳定复现 6 个假判例被标红；③ 尸检报告末尾列出命中的 ABA 512 义务条目；④ 干净对照案卷不被误标（证明 harness 不误杀正常产出）。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F5-3</span><span class="fr-name">屏二 领域风洞：审计阶梯亲手复现（核心 aha）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>固定模型与案卷集，逐步拨开关，右侧实时画「假引用率 / 无据断言率 / 严格全通过率」三条曲线：Bare Baseline 跑（别名裸跑） → 只在 prompt 写「请引用真实判例」（软引导，假引用只降一部分且不稳，对应审计链 87.8%）→ 再扳上确定性「引用存在性校验门」（硬强制，假引用当场清零，对应 wrapper 100%）。一键复现 Parthenon、L-MARS（商业法律 AI 仍 17–33% 幻觉引用、严格引用 F1 0.131→0.254）论文数字。</div>
+<div class="ac"><span class="act">AC：</span>① 三态（裸 / 软引导 / 硬强制）切换时三条曲线随之变化且数字与报告一致、标来源；② 能亲手得到「软引导压不到零、硬门一扳归零」的对比；③ 中国 MCP 直连与美国产出后审计两种路线结果可对照；④ 论文复现数字标「脚本复现」、案卷示意标「示意」，不混为实测。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F5-4</span><span class="fr-name">屏三 Compliance Forge 合规演化炉 + 合规牌照卡</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>把失败在人批准下转成<b>与具体案件无关</b>的程序 / 工具 / 知识沉淀（「凡时效抗辩必查假日历」「凡判例必验存在性」），起草 / 评分 / 改规则三角色信息隔离，防背答案、防客户数据泄漏（Parthenon 反泄漏学习环）；终态输出一张「Agent 合规牌照卡」，把技术指标翻译成监管语言（映射 ABA 512 六义务与中国生成式 AI 服务备案要求）。</div>
+<div class="ac"><span class="act">AC：</span>① 每条沉淀规则经人批准才入版本树、且不含具体案件当事人信息；② 牌照卡列出各硬门是否启用、对应义务与残留风险；③ 复用 F3 版本树 / 证据包，不另写演化逻辑。</div></div>
+</section>
+
+<section class="v11" style="padding:8px 16px 12px;border-radius:12px">
+<h2>F6 · 安全红队舱 Red-Team Chamber <span class="v11-tag">v1.1 新增整节</span></h2>
+<p>给 agent 做「出厂前碰撞测试」：主风洞比「哪个模块让任务更好」，红队舱比「哪个控制件让攻击更难得手、且代价最小」。它是三屏在安全轴上的镜像，共享「固定模型任务、受控消融、人控批准」内核；<b>定位为 APASS / Lakera 等运行时防护的上游设计时工具，不与之竞争</b>——上线前先把控制策略调好，产出策略下发给运行时执行。第一性原则：External Policy, Not Agent Self-Governance（策略必须在 agent 外部强制，不能让其自我治理）。v1.1 为离线 MVP，攻击用例库可审计、可扩展。</p>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F6-1</span><span class="fr-name">面板 A 攻击火线 Kill-Chain（镜像运行透视）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>在 agent 的每个 IO 边界（网页 / 邮件 / 文件 / 工具返回 / 下游 agent）注入攻击 payload（间接提示注入、欠规范授权 url_relay / destination_hijack / content_hijack、过度拿权），实时画出攻击链「进入 → 潜伏 → 提权 → 动作 → 外发」在哪一层被拦 / 被穿透；某层一旦攻破，按此刻可触达的工具 / 数据 / 资金范围染色「爆炸半径」。</div>
+<div class="ac"><span class="act">AC：</span>① 攻击链五层可逐步回放、被拦 / 穿透层明确标注；② 爆炸半径随已获权限实时收窄 / 扩大染色；③ 内置「o3 改写自己 kill 脚本」案例（Palisade）说明内部控制件可被绕过、需带外冗余 chokepoint；④ 攻击用例对齐 OWASP Agentic Top10 / AgentDojo / AgentRedBench 分类并标注。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F6-2</span><span class="fr-name">面板 B 控制件消融台：安全七控件（Security Controls） × 三维 Pareto（镜像 Wind Tunnel，核心）</span><span class="pill p0">P0</span></div>
+<div class="fr-kv"><b>交互：</b>左侧「安全七控件（Security Controls）」逐个 / 组合开关：① 输入来源隔离 ② 工具边界网关 ③ 最小权限与短时凭证 ④ 执行沙箱 ⑤ 人控审批门（EXECUTE/ASK/REFUSE 三态）⑥ 出站 DLP ⑦ 独立带外熔断与存证；固定模型任务用自适应攻击（而非固定用例，AutoDojo 证明静态红队高估防御）持续加压；右侧三条随动曲线——攻击成功率 ASR、任务成功率 / 过拦过拒率、人工打断次数与延迟，最终在 <b>ASR↓ × 任务效用 × 人工负担↑</b> 三维画 Pareto 前沿并标候选点；下尾沿用 WorstLift / RR₀ / RelLift₉₅（第 6 章），防「平均安全、某次被打穿」。</div>
+<div class="ac"><span class="act">AC：</span>① 七开关可消融、配置指纹可追溯；② 三维 Pareto 由数据现算、可复现，能读出「最省人工仍达标」与「最稳但偏重」候选；③ 复现两个反直觉点：只开输入过滤被自适应攻击绕过、再开「最小权限 + 出站 DLP」后即便注入成功爆炸半径归零；「步步确认」打断率 100% 触发批准疲劳，而沙箱可把权限弹窗降约 84%（Anthropic）；④ 关键数字带来源：ToolPrivBench OPUR 64.9%、Task Shield ASR 2.07% 同时保 69.79% 效用、Constitutional Classifiers 过拒 +0.38%。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F6-3</span><span class="fr-name">面板 C 策略合成与人控批准导出（镜像 Forge）</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>在 Pareto 选定一点后生成「最小权限 + 必要护栏 + 最省人工卡点」策略（哪几个工具收窄到什么 scope、哪些不可逆动作必须 ASK、哪些目的地默认 REFUSE、带外熔断阈值、预算 / 商户白名单 / 单笔上限）；人逐条批准 / 改写 / 可回滚后，一键导出为运行时策略：OPA Rego、Claude 权限配置、APASS 式三态路由表、Okta 短时凭证范围、x402 / Agent Wallet 式钱包策略。</div>
+<div class="ac"><span class="act">AC：</span>① 导出策略与所选 Pareto 点一一对应、字段齐全；② 每条策略经人批准才可导出（无自动下发）；③ 经济约束（预算上限 / 白名单 / 单笔阈值 / 超额人审）可表达（对齐 Cloudflare Agent Wallet、APASS / AgentPayGuard）；④ 标注 APASS 接入规模为「厂商一方披露」。</div></div>
+
+<div class="fr"><div class="fr-head"><span class="fr-id">F6-4</span><span class="fr-name">攻击用例库、闭源降级与诚实边界</span><span class="pill p1">P1</span></div>
+<div class="fr-kv"><b>交互：</b>维护可审计 / 可扩展的攻击用例库（区分复现实验数字与厂商宣称）；对完全闭源、连 IO 边界都不可拦截的 C 档黑盒 agent，UI 明确降级为「只能从协议侧 / 身份侧外部约束」（对齐 3.3 三档），不展示模块级消融结论。</div>
+<div class="ac"><span class="act">AC：</span>① 每条攻击用例可追溯到分类来源；② C 档对象不出现安全七控件消融、只给身份 / 协议侧建议；③ 全程展示固定诚实声明「测过≠绝对安全，策略上线后仍需运行时监控与用例回流」。</div></div>
+</section>
+
+<h1>6 数据模型与指标口径</h1>
+
+<h2>Append-only 事件契约（可信度根基）</h2>
+<p>遵循 DeepSeek Harness 的 <b>「Model-visible means logged」</b>：凡到达模型的内容都必须能从 append-only 事件流完整重建，模型历史只是事件流的投影，不允许旁路输入；语义对齐 dsh Trajectory / OpenHands EventLog / OpenTelemetry GenAI。事件 schema 用 zod 定义、前后端共用（shared/events.ts），事件包络统一含 <code>id / ts / runId / scenarioId / author</code>，其中 <code>author</code> 声明作者（<code>harness</code>=被测 Harness 运行时产生，<code>narrator</code>=叙述者事后标注，详见 2.2.5 节事件作者）。v1.1 落地以下 15 运行时类 + harness.mutation（共 16 类，v1.1.1 已补齐）：</p>
+<div class="table-wrap"><table><colgroup><col style="width:23%"><col style="width:54%"><col style="width:23%"></colgroup><thead><tr><th>事件类型</th><th>关键字段</th><th>主要服务于</th></tr></thead><tbody>
+<tr><td><code>run.started</code></td><td>model、task</td><td>运行元信息</td></tr>
+<tr><td><code>model.request</code></td><td>step、blocks[](6 层 context block：layer/sourceComponent/tokens/positionIndex)、estTokens</td><td>运行透视分层栈 / 位置热力</td></tr>
+<tr><td><code>model.response</code></td><td>step、thought、stopReason</td><td>主泳道</td></tr>
+<tr><td><code>tool.call / tool.result</code></td><td>step、tool、argsSummary / tokens、summary</td><td>主泳道、工具边界</td></tr>
+<tr><td><code>shaper.fire</code></td><td>step、order(1–5)、shaper、freedTokens、note</td><td>五层压缩点火</td></tr>
+<tr><td><code>hook.decision</code></td><td>hook、verdict(allow/deny/rewrite)、reason</td><td>介入标记</td></tr>
+<tr><td><code>permission.request / granted</code></td><td>scope、riskLevel(low/medium/high)、via</td><td>权限门、自治度</td></tr>
+<tr><td><code>verifier.verdict</code></td><td>verifier、verdict(pass/reject)、failureTag、reason</td><td>重语义验证的驳回、premature victory</td></tr>
+<tr><td><code>sensor.lint</code></td><td>lint、verdict(pass/reject)、reason</td><td>轻量确定性检查（如定义口径）</td></tr>
+<tr><td><code>agent.fork / join</code></td><td>childId、purpose / summary</td><td>子 Agent 标记</td></tr>
+<tr><td><code>compact.boundary</code></td><td>strategy、beforeTokens、afterTokens</td><td>压缩边界</td></tr>
+<tr><td><code>failure.tag</code></td><td>mast 标签、confidence、note（author=narrator：剧本叙述者事后标注，不计入 Harness 行为评估）</td><td>失败聚类 / 转移矩阵</td></tr>
+<tr><td><code>run.finished</code></td><td>success、tokens、latencyP50、failureModes</td><td>对照读数</td></tr>
+</tbody></table></div>
+<div class="callout c-gray"><p><span class="ct">待补事件</span>调研报告数据契约还要求 <code>harness.mutation</code>（一次Harness 改动的提出 / 证伪 / 批准 / 回滚），已在 v1.1.1 补齐（shared/events.ts），W3 Forge 直接消费，以支撑版本树与证据包的 append-only 留痕。</p></div>
+
+<h2>HarnessConfig：20 字段配置 DSL</h2>
+<p>harness 被建模为一个 20 字段、可序列化、可哈希、可 diff 的值（对齐 HarnessX「harness 是一等值 H=(M,C)」与 Prime Agent 的 H=(ρ,G,K,M)）。四组分类与 20 个标准模块一一对应（shared/config.ts）：</p>
+<div class="table-wrap"><table><colgroup><col style="width:18%"><col style="width:82%"></colgroup><thead><tr><th>组</th><th>字段（可选值摘要）</th></tr></thead><tbody>
+<tr><td>运行内核</td><td>loopControl(basic/plan-act/reflexion)、toolset(minimal/standard/extended)、filesystem(none/file-backed-state)、sandbox(off/只读并行/写屏障)、subAgents(off/上下文隔离)</td></tr>
+<tr><td>状态与记忆</td><td>planner(off/todo-list)、memory(none/flat/layered)、compression(off/budget/five-layer)、skills(off/渐进披露)</td></tr>
+<tr><td>约束与安全</td><td>hooks、permissions(open/ask-write/deny-first)、guides(none/style-rules/domain-checklist)、sensors(none/lint/verifier/verifier+critic)、selfVerify(premature-victory 检测)、globalPolicy</td></tr>
+<tr><td>进化与韧性</td><td>observability(off/trace/trace+mast)、eval(golden-set)、humanInLoop(none/approval-gates/slider)、resume(checkpoint)、optimizer(wind-tunnel-search)</td></tr>
+</tbody></table></div>
+<ul>
+<li><strong>fingerprint：</strong>把 20 字段按固定序拼接后做哈希，得到 8 位配置指纹；回放器据此选择对应预录分支，保证「同指纹 = 同轨迹」。</li>
+<li><strong>configDiff：</strong>输出两份配置逐字段的 [旧值, 新值]；配对消融（F2-5）用它校验「恰好只差一个字段」，轨迹 diff（F2-7）与版本树 diff（F3-5）复用同一函数。</li>
+<li><strong>合法性：</strong>任何改动卡应用后必须通过 zod 校验得到合法 HarnessConfig，非法 patch 回滚重试（对齐 SKILL.state，arXiv:2608.26263）。</li>
+</ul>
+
+<h2>评测指标定义与计算口径</h2>
+<h3>结果指标（每次运行）</h3>
+<div class="formula">successRate（任务成功率/质量分） · tokens（总 token） · latencyP50（时延） · failureModes（各失败类计数）</div>
+<h3>消融 / 可靠性指标（多次运行，源自 Airbnb PRISM，arXiv:2609.05736）</h3>
+<div class="table-wrap"><table><colgroup><col style="width:20%"><col style="width:50%"><col style="width:30%"></colgroup><thead><tr><th>指标</th><th>定义</th><th>回答什么</th></tr></thead><tbody>
+<tr><td>Lift（scorecard 提升；留出为别名）</td><td>在<b>没参与优化的 scorecard 集（别名 holdout / 留出）</b>上，候选配置相对基线的得分差。「留出」即修复、选配置时都不许看这套题，只在最终记分用，防止对着期末答案调参</td><td>这套改动在新题上是否真的更好</td></tr>
+<tr><td>MeanLift / MaxLift</td><td>多次运行 Lift 的平均 / 最好一次</td><td>平均收益 / 运气最好的上限</td></tr>
+<tr><td>WorstLift</td><td>多次运行里最差一次的 Lift（可为负＝改完更差）</td><td>最坏的单次运行会多糟</td></tr>
+<tr><td>RR₀</td><td>多次运行中 Lift&gt;0 的占比（可重复性 / 胜率）</td><td>这次提升稳不稳、是不是偶发</td></tr>
+<tr><td>Cost</td><td>搜索 / 实验过程消耗的模型调用与 token 成本</td><td>为提升付了多少代价</td></tr>
+<tr><td>RelLift₉₅(B)</td><td>预算 B 下、只凭「记分前可见的 gate 集」挑一个配置，被选配置在 scorecard 集上 Lift 分布的第 5 百分位（倒霉情形还剩多少增益）；真实 run 少时用 5000 次 bootstrap 估计，不新增真实 run、不额外花钱</td><td>把「按验证集择优」这个动作本身的风险也算进去后的保守下界</td></tr>
+<tr><td>Skill Lift（配对）</td><td>同 agent/model/task/workspace/grader 下，有 / 无某模块的配对差（NVIDIA ACES，arXiv:2608.20614）</td><td>单个模块的纯净边际作用</td></tr>
+</tbody></table></div>
+
+<section class="v11" style="padding:8px 16px 12px;border-radius:12px">
+<h3>适配度指标（固定 harness、变换 model，服务 F2-11）<span class="v11-tag">v1.1 新增</span></h3>
+<p>第二条评测轴锁定 HarnessConfig 与任务集（configDiff=0、seed / 工具 / 评分器全部冻结），只换模型，衡量「这套Harness与不同模型合不合拍」：</p>
+<div class="table-wrap"><table><colgroup><col style="width:24%"><col style="width:50%"><col style="width:26%"></colgroup><thead><tr><th>指标</th><th>定义</th><th>回答什么</th></tr></thead><tbody>
+<tr><td>Model-Conditional Lift（模型条件增益）</td><td>固定 harness h、模型 m，在 scorecard 集上 score(h,m) − score(Bare Baseline, m)；正＝这套Harness对 m 是加成，负＝不合拍、反而拖累</td><td>这套Harness对「这一个」模型是帮忙还是帮倒忙</td></tr>
+<tr><td>Compatibility Spread（适配离散度）</td><td>同一 h 跨全部被测模型得分的极差（max−min）与标准差</td><td>这套Harness「挑不挑模型」、可迁移性强不强</td></tr>
+<tr><td>Rank Robustness（排名稳健度）</td><td>该 harness 下的模型排序与其 Bare Baseline 排序（别名裸跑）的一致度（排名反转对数 / Kendall τ）；AutoHarness 里 Flash+harness 反超 Pro 就是一次反转</td><td>换Harness会不会改变模型强弱排名</td></tr>
+<tr><td>Cross-Model WorstLift / RR₀</td><td>把可靠性下尾的「多次运行」维度换成「多个模型」：最差一个模型上的条件增益、以及条件增益为正的模型占比</td><td>换到一个没专门测过的模型会不会崩</td></tr>
+</tbody></table></div>
+<div class="formula">合拍分级：推荐搭配＝各模型 Model-Conditional Lift 均为正且 Cross-Model WorstLift ≥ 0；可搭＝平均为正但 Spread 偏大；谨慎搭配＝存在模型为负（明确点名是哪个模型）</div>
+<p class="legend-note">与 F2-4 同源不重算：F2-4 是「行=模型、列=harness」矩阵的<b>纵向</b>读法（固定模型看不同 harness），F2-11 是<b>横向</b>读法（固定一列 harness 看不同模型），两者来自同一批 run，禁止各算一套导致数字打架。理论支点：AutoHarness（arXiv:2603.03329）、HarnessDev 跨 executor 崩塌 69.3→33.0、Harness Sensitivity is Non-Monotone（arXiv:2605.26731，432-run / 6 模型 × 4 能力档 × 3 严格度，证明同一 harness 对不同模型增益非单调）。</p>
+</section>
+
+<h3>端到端算例（数字可复现：随机种子 42、重采样 5000 次）</h3>
+<p>某候选配置相对基线，在 scorecard 集上 8 次独立运行的 Lift（单位 pp）为：</p>
+<div class="formula">Lift = [ +6, +4, +8, −3, +5, +7, +2, +3 ]</div>
+<div class="table-wrap"><table><colgroup><col style="width:26%"><col style="width:18%"><col style="width:56%"></colgroup><thead><tr><th>指标</th><th>取值</th><th>怎么算 / 怎么读</th></tr></thead><tbody>
+<tr><td>MeanLift</td><td>+4.0 pp</td><td>(6+4+8−3+5+7+2+3)/8 = 32/8</td></tr>
+<tr><td>MaxLift / WorstLift</td><td>+8 / −3 pp</td><td>最好一次 +8；最差一次反而掉 3 分</td></tr>
+<tr><td>RR₀</td><td>87.5%</td><td>8 次里 7 次为正</td></tr>
+<tr><td>RelLift₉₅（bootstrap）</td><td>≈ +2.1 pp</td><td>对 8 个值<b>有放回重采样</b> 8 个求均值、重复 5000 次得到「均值分布」，取第 5 百分位 = +2.12（P50=+4.0、P95=+5.75，重采样均值&lt;0 仅 0.1%）</td></tr>
+</tbody></table></div>
+<div class="callout c-accent"><p><span class="ct">为什么需要 bootstrap、WorstLift 与 RelLift₉₅ 怎么选</span>真实 run 往往只有个位数到十几个，直接取「第 5 百分位」极不稳；bootstrap 对现有配对差有放回重采样来稳定估计均值的抽样分布，<b>不增加真实 run、不多花钱</b>。WorstLift 是「单次运行」的极端值，最悲观、对 run 数敏感；RelLift₉₅ 是「平均增益」的下尾，回答「整套配置在倒霉情形下总体还剩多少增益」，本例虽有一次 −3，平均下尾仍为 +2.1。<b>口径选择：</b>当候选多、每个候选测试充分完整时，可直接以 WorstLift 为决策口径（更严格、无「赌」的成分）；当 run 预算紧、需要在「择优风险」与成本间权衡时用 RelLift₉₅。产品两者并列展示，把选择权交给用户，不替用户赌。</p></div>
+
+<h2>防过拟合：repair / gate / scorecard 三数据集隔离</h2>
+<div class="flow">
+<div class="step"><b>repair 修复集</b>只用于看失败、生成改动卡（学习 / 拟合）</div>
+<div class="step"><b>gate 筛选集</b>只用于在多个候选间择优（记分前可见）</div>
+<div class="step"><b>scorecard 集</b>只用于最终记分，优化过程全程不可见</div>
+</div>
+<p>三套互不相交，防止「对着期末答案调参」；RelLift₉₅ 中的「只凭 gate 择优、到 scorecard 才见分晓」正是对这套隔离的量化。UI 在任何实验 / 演化界面都要标明当前跑的是哪一套数据集。</p>
+<h1>7 非功能需求（NFR）</h1>
+<div class="table-wrap"><table><colgroup><col style="width:18%"><col style="width:60%"><col style="width:22%"></colgroup><thead><tr><th>维度</th><th>要求</th><th>验收方式</th></tr></thead><tbody>
+<tr><td>确定性 / 可复现</td><td>离线档同一「场景 × 配置指纹」每次回放结果完全一致；指标由数据现算、可复算；论文预设数字与报告一致</td><td>连跑两次结果 diff 为空；check:paper 脚本通过（scripts/check-paper-numbers.ts）</td></tr>
+<tr><td>离线优先 / 零成本</td><td>默认不依赖网络与 API Key 即可完整演示；fixture 数据随工程本地加载，不引用会过期的外链资源</td><td>断网冷启动完整走通 12 步演示</td></tr>
+<tr><td>性能</td><td>轨迹步进 / 切换配置的反馈在 100ms 级（离线为本地数据计算）；三屏切换无白屏；ECharts 图表随数据增量更新不卡顿</td><td>最大 fixture（十代、多配置）下交互流畅、无长任务阻塞主线程</td></tr>
+<tr><td>响应式 / 可访问</td><td>桌面 1440 与移动 390 均可读可操作，多栏在窄屏堆叠；浅 / 深主题；图表不只靠颜色区分（辅以形状 / 标签）；可打印</td><td>shot.py 桌面 + 移动双视口截图核对；键盘可操作主导航</td></tr>
+<tr><td>演示安全</td><td>离线档无真实副作用（不写用户文件、不外发、不花钱）；在线档请求仅发往用户自配 endpoint，密钥只存本地、不进事件流与日志（对齐沙箱 Credential Vault 原则）</td><td>代码审计无离线外呼；密钥字段不进入 model.request / 日志</td></tr>
+<tr><td>类型安全 / 可维护</td><td>前后端共用 zod 事件与配置 schema，TS strict 通过；新增场景 / 预设为数据驱动（加 JSON 即可），不改三屏主逻辑</td><td><code>npm run typecheck</code> 零错误；新增一个 fixture 场景无需改组件</td></tr>
+<tr><td>诚实标注</td><td>论文复现 / 示意 fixture / 在线实测三类来源处处可辨；不把 mock 标成实测；闭源档位不过度承诺可消融范围</td><td>逐屏巡检来源徽标；无「实测」字样出现在 fixture 数据上</td></tr>
+</tbody></table></div>
+
+<h1>8 技术方案</h1>
+<h2>技术栈（与既有作品及现有脚手架一致）</h2>
+<div class="table-wrap"><table><colgroup><col style="width:22%"><col style="width:30%"><col style="width:48%"></colgroup><thead><tr><th>层</th><th>选型</th><th>用途</th></tr></thead><tbody>
+<tr><td>前端框架</td><td>React 18 + TypeScript + Vite</td><td>三屏单页应用；严格类型，Vite 快速构建</td></tr>
+<tr><td>状态管理</td><td>Zustand</td><td>当前运行 / 选中配置 / 播放步号 / 版本树等全局状态（src/stores）</td></tr>
+<tr><td>数据校验</td><td>Zod</td><td>事件流、context block、配置合法性前后端共用校验</td></tr>
+<tr><td>可视化</td><td>ECharts 5 + 自研 SVG</td><td>模型×harness 矩阵、爬升曲线、Pareto、转移矩阵用 ECharts；轨迹时间轴、模型可见分层栈、shaper 点火用自研 SVG（确定性、可步进控制）</td></tr>
+<tr><td>后端 / 回放</td><td>Node + tsx（server/index.ts、replayer.ts）</td><td>提供 fixture 回放接口与可选在线最小真实 harness</td></tr>
+<tr><td>数据与脚本</td><td>data/scenarios、data/forge；scripts（dev / gen-fixture / check-paper-numbers）</td><td>场景与多代演化数据数据驱动；一键生成 fixture、校验论文数字</td></tr>
+</tbody></table></div>
+
+<h2>目录结构与模块职责</h2>
+<div class="formula v11">src/screens/{Demo,MRI,WindTunnel,Forge}   四屏（导览 + 三屏），三模式（通用/法律/安全）复用同一组件
+src/stores · src/lib · src/api.ts          全局状态、纯函数工具、前后端接口
+shared/config.ts                            20 字段 DSL、指纹、diff
+shared/events.ts                            16 类事件 zod schema（15 运行时 + harness.mutation）、场景 / 指标类型
+shared/mast.ts                              MAST/L-MARS 失败标签与解释
+shared/provider.ts                          Provider 类型与预设（照搬 docStudio，含 Custom 兼容端点）
+shared/presets.ts                           3 个论文复现预设
+server/replayer.ts                          按配置指纹选分支的确定性回放器
+server/importers/{claude,dsh,nlah}.ts       真实 transcript / Trajectory / NLAH 导入归一化（F4-5）
+server/providers/* · keyStore.ts            Provider 注册、OpenAI 兼容客户端、密钥引用存储（照搬 docStudio，F4-6）
+data/scenarios/* · data/forge/*             通用 golden 场景分支与多代演化 fixture
+data/domain/legal/*                         埋雷案卷、原子断言答案、领域模块、监管映射（F5）
+data/redteam/*                              攻击用例库、安全七控件定义、三维 Pareto 读数（F6）</div>
+
+<h2>关键数据流</h2>
+<div class="flow">
+<div class="step"><b>选定 模型×场景×配置</b>配置指纹 fingerprint</div>
+<div class="step"><b>Replayer 选分支</b>命中预录分支 / 回退最近分支并提示</div>
+<div class="step"><b>append-only 事件流</b>zod 校验后入 store</div>
+<div class="step"><b>三屏同一数据投影</b>运行透视取逐步、风洞取汇总、Forge 取失败簇</div>
+<div class="step"><b>改动→证伪→批准</b>新配置回灌风洞、commit 入版本树</div>
+</div>
+<p class="legend-note">三屏共享同一份事件流，只是投影方式不同，避免各屏各算一套、数字互相打架（呼应报告「状态只设一个权威来源」）。</p>
+
+<h2>双轨实现要点</h2>
+<ul>
+<li><b>离线档：</b>gen-fixtures 生成「场景 × 配置」的分支轨迹与指标；replayer 以指纹为主键、汉明距离为兜底返回分支与 ReplayMeta（exactMatch / nearestTo / source），保证 100% 可复现。</li>
+<li class="v11"><b>在线档：</b>实现最小真实 harness（主循环 + 3–4 个工具、可切 compression / verifier 策略），用<b>用户在 F4-6 自配的 Provider / 模型</b>（按其 baseUrl 走 OpenAI 兼容协议）真跑，事件仍走同一 zod schema，因此三屏（含 F5 / F6）无需为在线档另写视图。<span class="v11-tag">v1.1 改</span></li>
+<li class="v11"><b>真实轨迹导入（F4-5）：</b>新增 server/importers：Claude Code transcript（JSONL）解析器、dsh Trajectory 解析器、NLAH 读写器，统一归一化到 16 类事件 schema（15 运行时 + harness.mutation）；无法识别的字段保留 raw 并标 unknown，不静默丢弃。<span class="v11-tag">v1.1 新增</span></li>
+<li class="v11"><b>领域 / 安全包（F5 / F6）：</b>三屏主逻辑不按领域分叉，差异全部数据化——data/domain/legal（埋雷案卷 + 原子断言标准答案 + 领域模块定义 + 监管映射）、data/redteam（攻击用例库 + 安全七控件定义 + 三维 Pareto 读数），加一个「模式」字段驱动模块板变量集、指标与终态产物（牌照卡 / 策略导出）的切换。<span class="v11-tag">v1.1 新增</span></li>
+</ul>
+
+<section class="v11" style="padding:8px 16px 12px;border-radius:12px">
+<h2>在线模型 Provider 设置（整体照搬 docStudio，F4-6）<span class="v11-tag">v1.1 新增</span></h2>
+<p>在线档「可接用户自配任意 LLM API」的配置界面、交互逻辑与持久化<b>不重新设计，直接迁移现成 docStudio 工程</b>（本机 <code>/Users/wukun/Documents/tmp/docStudio</code>，包名 doc-studio）的 LLM 设置实现。对应关系：</p>
+<div class="table-wrap"><table><colgroup><col style="width:26%"><col style="width:34%"><col style="width:40%"></colgroup><thead><tr><th>能力</th><th>docStudio 源实现</th><th>风洞迁移要点</th></tr></thead><tbody>
+<tr><td>Provider 数据模型</td><td>shared/src/types/provider.ts：ProviderConnection（providerId / baseUrl? / apiKeyRef / modelIds / defaultModelId / modelFallbacks / enabled）+ 12 家预设 PRESET_MODEL_PROVIDERS（均为 OpenAI 兼容 baseUrl）</td><td>拷为 shared/provider.ts；新增一个 <b>Custom（OpenAI Compatible）</b>，baseUrl 留空由用户填，从而可接任意兼容端点 / 自建网关 / 聚合平台</td></tr>
+<tr><td>配置 UI 与交互</td><td>client/src/components/Settings.tsx 的 llm 页：可折叠 Provider 卡片、apiKey(password)、可编辑 baseUrl、「拉取模型列表」、模型多选 / 默认 / fallback、启用开关、已配置 / 需配置徽标、拖拽排序、验证 Key / 模型</td><td>原样复用交互与校验；保存时 baseUrl 去尾斜杠；折叠 / 排序等纯 UI 偏好存 localStorage</td></tr>
+<tr><td>密钥与持久化</td><td>server/src/security/keyStore.ts（内存 Map + 设置存储 fallback，只暴露 apiKeyRef）、providers/registry.ts 与 openai.ts（按 baseUrl 发 OpenAI 兼容请求、模型 fallback 链）</td><td>ProviderConnection 列表经 server 本地设置接口持久化（本地 demo 用内存 / 本地 JSON 即可，不引云端账号库）；明文 key 不回传前端、不进事件流 / 日志 / 导出</td></tr>
+</tbody></table></div>
+<div class="callout c-gray"><p><span class="ct">边界</span>风洞只迁移 docStudio 的 <b>LLM Provider</b> 部分；其 Search / Knowledge（Tavily、embedding / reranker）、Office 插件、连接器（MSGraph / GitHub）等与本产品无关，不迁移。在线最小 harness 运行时从已启用 Provider 中取默认模型（或用户在风洞内临时选择）发起请求。</p></div>
+</section>
+
+<h1>9 里程碑与排期（三周出可演示 V1.1）</h1>
+<div class="table-wrap"><table><colgroup><col style="width:12%"><col style="width:48%"><col style="width:40%"></colgroup><thead><tr><th>周</th><th>交付内容</th><th>完成定义 DoD（验收）</th></tr></thead><tbody>
+<tr class="v11"><td><b>W1</b></td><td>地基 + 屏一运行透视 + 在线配置：事件 schema 与确定性回放器；屏一运行透视（分层栈、五层 shaper、时间轴、介入标记、失败标签 / critical step）；<b>F4-6 照搬 docStudio 的 Provider 设置</b>（预设 + Custom、拉模型 / 验证 / 持久化，在线档可真跑）；<b>F4-5 真实轨迹解析器</b>（Claude transcript / dsh / NLAH）骨架</td><td>断网可回放任一 fixture；运行透视六分层 token 与 estTokens 自洽、五层 shaper 按序点火；可添加一个 Custom 兼容端点并被在线档选用、刷新仍在、key 不入日志；一份真实 transcript 可导入并在运行透视播放；typecheck 通过</td></tr>
+<tr class="v11"><td><b>W2</b></td><td>通用风洞核心 + 适配画像 + 法律包：屏二模块板、3 个论文预设、模型×harness 矩阵、配对消融、可靠性下尾、<b>F2-11 固定 harness 变 model 适配画像</b>、轨迹 diff、转移矩阵 / Pareto；法律包 F5-1~F5-3（领域模块板、Autopsy 尸检台、审计阶梯亲手复现）+ 3–5 份埋雷案卷与 1 份干净对照；<b>周末出第一版演示视频（通用 + 法律）</b></td><td>20 模块可拨且指纹 / diff 正确、配对严格只差一个字段；F2-11 锁定后 configDiff=0、唯一变量为 model，适配指标可复算并能读出「对 A 合拍 / 对 B 不合拍」；法律裸→软引导→硬强制三态曲线与报告数字一致、Mata 6 假判例被标红；check:paper 通过</td></tr>
+<tr class="v11"><td><b>W3</b></td><td>Forge + 安全包 + 收口：屏三 Forge（聚类归因、改动卡、三数据集证伪、人控三态 + 自治度滑块、版本树 + 证据包、Autoplay，补 harness.mutation）；安全包 F6-1~F6-3（攻击火线、安全七控件三维 Pareto、策略人批导出）+ F6-4 闭源降级与攻击库；F5-4 合规牌照卡；三模式 12 步一键串讲演示</td><td>改动卡应用后合法、救回 / 回归同显且回归自动建回滚点、每代必停批准门；安全 ASR × 效用 × 人工三维 Pareto 可复现、策略可导出 OPA / 权限 / 三态 / 凭证；通用 / 法律 / 安全三模式均可完整演示；shot.py 桌面 + 移动双视口、浅深主题通过</td></tr>
+<tr class="v11"><td><b>Stretch（延后，不在 v1.1）</b></td><td>真实沙箱快照分叉对接 microVM；金融 / 医疗领域包；在线档从最小 harness 扩到完整 agent；F2-10 舞台对照增强；对接真实权威库 MCP 生产 API、生产级自适应攻击生成器</td><td>—（v1.1 验收不依赖这些项）</td></tr>
+</tbody></table></div>
+<div class="callout c-gray v11"><p><span class="ct">里程碑顺序的理由</span>先运行透视（让人「看见」）→ 再风洞（核心差异化，W2 末即可独立成片对外讲）→ 最后 Forge（闭环价值观）。法律包与风洞同构、随 W2 落地（审计阶梯正是受控消融的领域版），安全包随 W3 的人控闭环落地（策略合成正是人批演化的安全版）。即使 W3 延期，W2 末「通用透视 + 受控消融 + 法律审计阶梯」已是完整、可演示、能立住论点的产品。<span class="v11-tag">v1.1 改</span></p></div>
+<h1>10 成功度量</h1>
+<h2>北极星指标</h2>
+<div class="callout c-accent"><p><span class="ct">North Star</span><b>用户能在一次会话内，定位至少一个「反直觉的 harness 模块作用」，并产出一条经过风洞验证、本人批准的配置改动。</b>这同时验证了「看得见（运行透视）→ 测得准（风洞）→ 改得对（Forge）」的完整闭环，而不只是点了几个页面。</p></div>
+<h2>演示成功判定与质量护栏</h2>
+<div class="table-wrap"><table><colgroup><col style="width:24%"><col style="width:44%"><col style="width:32%"></colgroup><thead><tr><th>类别</th><th>指标 / 判定</th><th>目标</th></tr></thead><tbody>
+<tr><td>演示流畅度</td><td>12 步一键演示无人工干预走完；34% 对 77% 钩子、分叉 diff、回滚点三个记忆点被观众复述</td><td>约 2 分钟；关键记忆点命中率高</td></tr>
+<tr><td>确定性护栏</td><td>离线档同一指纹重复回放结果一致率</td><td>100%</td></tr>
+<tr><td>诚实护栏</td><td>所有数字 / 轨迹带来源标注的覆盖率；负增益（模块掉分、回归）不隐藏</td><td>100% 覆盖；负增益必现</td></tr>
+<tr><td>闭环有效性</td><td>Forge 产出的改动在 scorecard 集上「救回数 − 回归数」为正、且经人批准</td><td>演示路径稳定为正（救回 4 / 回归 1）</td></tr>
+</tbody></table></div>
+<h2>反指标（明确不追求）</h2>
+<ul>
+<li>不追求支持任务 / 工具的数量——每族 1–2 个 golden 做深，胜过一堆浅场景。</li>
+<li>不把 mock 演示效果当真实能力指标；在线实测单独统计、单独标注。</li>
+<li>不以「自动改了多少代」为成功——黑盒自动循环是被 Harness-R1 证伪的反模式，人控批准率与回滚安全性才是。</li>
+</ul>
+
+<h1>11 风险、备选与开放问题</h1>
+<div class="table-wrap"><table><colgroup><col style="width:24%"><col style="width:40%"><col style="width:36%"></colgroup><thead><tr><th>风险</th><th>描述</th><th>缓解</th></tr></thead><tbody>
+<tr><td>认知风险：被当成「又一个可观测平台」</td><td>运行透视与 LangSmith 等观感相似，差异化若不前置会被秒判</td><td>开场 30 秒用「34 对 77 + 拨开关改变成绩」立住「能实验、能演化」而非只看 trace；运行透视明确降级为屏一</td></tr>
+<tr><td>Mock 被质疑造假</td><td>离线 fixture 若不标注，会被认为是写死的漂亮数据</td><td>双轨 + 三类来源全标注 + 论文数字 citation；提供在线档做真实验证；数字可由脚本复算</td></tr>
+<tr><td>自动演化可靠性陷阱</td><td>观众 / 用户可能期待「一键自优化」，而这恰被 Harness-R1 证伪（41.6→35.4）</td><td>坚持风洞证伪、人控批准、可回滚；把 Harness-R1 做成第 11 步对照反例，价值观即卖点</td></tr>
+<tr class="v11"><td>范围膨胀</td><td>三套风洞 + 真实轨迹 + 自配模型同进 v1.1，易拖垮三周排期</td><td>法律 / 安全只做「复用三屏母版 + 数据化挂载」的离线 MVP（法律 3–5 份埋雷案卷、安全一组攻击用例），不接生产权威库 API、不做真实渗透 / 法律效力文件；通用四族每族 1–2 golden；C 档只预留不实现；金融 / 医疗进第 12 章深化路线</td></tr>
+<tr><td>闭源接入受限</td><td>对完全黑盒 harness 无法做模块级消融</td><td>三档接入诚实分级，B 档 IO 拦截覆盖主流闭源 agent，C 档明确不承诺模块级结论</td></tr>
+</tbody></table></div>
+<h2>备选方案</h2>
+<ul>
+<li><b>备选 B：只做上下文透视小工具。</b>实现轻、但 2026 年上下文查看小工具已拥挤且被动，<b>降级为本产品屏一</b>，不单独立项。</li>
+<li class="v11"><b>备选 C：Harness Swap（一键换 harness）。</b>作为风洞的导出 / 应用能力并入 F4-5（NLAH 导出到 Claude Code / Codex / dsh），不做独立产品。<span class="v11-tag">v1.1 改</span></li>
+</ul>
+<h2>开放问题（不阻塞 v1.1，记录待决）</h2>
+<ul>
+<li class="v11">在线档模型来源已定为<b>用户自配（F4-6，照搬 docStudio）</b>，不再纠结接哪家；剩余待决：预设厂商清单的取舍，以及 Custom（OpenAI 兼容）端点在非标准响应下的校验 / 报错严格度。<span class="v11-tag">v1.1 改</span></li>
+<li>真实沙箱快照分叉的对接时机（离线用预录分支等价，在线 / Stretch 再接 microVM API）。</li>
+<li>可靠性指标默认排序：产品并列展示；当候选充分时默认按 WorstLift 排序（贴合「测试充分就用最严口径」的判断），RelLift₉₅ 作为 run 预算紧张时的辅助，具体默认值待 W2 试用后定。</li>
+</ul>
+
+<section class="v11" style="padding:4px 16px 14px;border-radius:12px">
+<h1>12 演进路线：三套 MVP 之后如何深化 <span class="v11-tag">v1.1 重写</span></h1>
+<p>三屏母版（透视 → 受控实验 → 人控演化）在 <b>v1.1 一次交付三套同构 MVP</b>：通用风洞做深，法律领域包（F5）与安全红队舱（F6）以「数据化挂载」做到离线可完整演示。后续不再是「补做法律 / 安全」，而是沿「让离线 MVP 变真实 → 扩展新领域 → 设计时与运行时闭环」三条线深化。</p>
+<div class="tl">
+ <div class="tl-row"><div class="tl-time">v1.1 · 三周</div><div class="tl-axis"><span class="tl-dot"></span></div><div class="tl-body"><b>三套同构 MVP（本 PRD）</b><br/>通用风洞（四族知识任务 + coding 对照，做深）＋法律包 F5（埋雷案卷 / 审计阶梯 / 牌照卡，离线）＋安全舱 F6（攻击库 / 安全七控件三维 Pareto / 策略导出，离线）；同时交付真实轨迹互操作 F4-5、自配 Provider F4-6、双向评测 F2-11。</div></div>
+ <div class="tl-row"><div class="tl-time">V1.1</div><div class="tl-axis"><span class="tl-dot"></span></div><div class="tl-body"><b>从离线走向真实</b><br/>法律接真实权威库 MCP（北大法宝 / 威科等）做产出前压缩、接真实引用核验 API；安全接 AutoDojo 式自适应攻击生成器、真实沙箱快照分叉，并把 F6-3 策略真正下发到运行时（OPA / APASS / Okta）形成回路；在线档从最小 harness 扩到完整 agent。</div></div>
+ <div class="tl-row"><div class="tl-time">V2</div><div class="tl-axis"><span class="tl-dot"></span></div><div class="tl-body"><b>领域扩展与适配深化</b><br/>按验证硬度光谱加金融（可对账、最硬）、医疗（准入门最强）领域包；F2-11 适配画像扩展到多 executor 稳健性（对齐 HarnessDev 69.3→33.0 的跨执行器崩塌维度）。</div></div>
+ <div class="tl-row"><div class="tl-time">V3</div><div class="tl-axis"><span class="tl-dot"></span></div><div class="tl-body"><b>平台化与运行时回流</b><br/>harness 配置 / NLAH 互操作生态、运行时防护日志回流成新对抗用例与新埋雷案卷（设计时 ↔ 运行时闭环），红队舱成为 APASS / Lakera 等运行时防护的持续上游。</div></div>
+</div>
+
+<h3>法律 / 安全两包：v1.1 已交付什么、后续深化什么（详见调研报告第 8、9 章）</h3>
+<div class="grid2">
+<div class="minicard"><h4>法律包（F5）</h4><ul>
+<li><b>v1.1 已含（离线）：</b>领域模块板（硬强制 / 软引导标注）、Autopsy 原子断言标色、审计阶梯 0%→87.8%→100% 亲手复现、合规牌照卡；3–5 份埋雷案卷 + 干净对照</li>
+<li><b>后续深化：</b>接真实权威库 MCP（中国路线：北大法宝 / 威科 / 通义法睿 / iCourt）与产出后引用忠实度审计（美国路线：Harvey / Lexis+ / Westlaw）；Parthenon 式反泄漏学习环真实跑通；覆盖更多案由与监管映射</li>
+<li>关键基准：L-MARS 商业法律 AI 17–33% 幻觉引用、严格引用 F1 0.131→0.254；Mata v. Avianca 6 个假判例罚 $5000、ABA Opinion 512 禁止盲信</li>
+</ul></div>
+<div class="minicard"><h4>安全包（F6）</h4><ul>
+<li><b>v1.1 已含（离线）：</b>攻击火线 Kill-Chain 与爆炸半径染色、安全七控件消融 × ASR / 效用 / 人工三维 Pareto、人批策略导出（OPA / 权限 / 三态 / 凭证 / 钱包）、闭源 C 档降级</li>
+<li><b>后续深化：</b>自适应攻击生成器、真实沙箱与快照分叉、策略下发运行时并回流日志；对接身份信任基础设施（APASS / Okta NHI / Google AP2）</li>
+<li>第一性原则不变：External Policy, Not Agent Self-Governance；「测过 ≠ 绝对安全」</li>
+</ul></div>
+</div>
+<p class="legend-note">验证硬度光谱（从硬到软，决定领域扩展次序）：金融（可对账，最硬）→ 法律（硬壳软核：条文硬、适用软）→ 网络安全 → 科研 / 客服 → 医疗（最软、但准入门最强）。</p>
+
+<h3>安全包对接的运行时生态（V1.1+ 落地对象，证据汇总）</h3>
+<div class="table-wrap"><table><colgroup><col style="width:34%"><col style="width:66%"></colgroup><thead><tr><th>证据 / 对象</th><th>结论</th></tr></thead><tbody>
+<tr><td>Palisade（OpenAI）</td><td>o3 会改写 kill 脚本绕过，必须带外冗余 chokepoint，不能只靠模型自觉</td></tr>
+<tr><td>ToolPrivBench / Task Shield</td><td>OPUR 64.9%；Task Shield 把 ASR 压到 2.07% 同时保住 69.79% 任务效用</td></tr>
+<tr><td>Anthropic 沙箱 / Constitutional Classifiers / AutoDojo</td><td>权限弹窗 −84%；过拒仅 +0.38%；但静态红队会高估防御，必须动态对抗</td></tr>
+<tr><td>蚂蚁 APASS（2026-09-11 外滩大会）</td><td>KYA 身份 / 行为两链、四能力（规模为厂商披露），配套 SingGuard-NSFA、灵营 LingYing、ACT、AgentPayGuard；属运行时防护，红队舱做其上游设计时</td></tr>
+</tbody></table></div>
+<div class="callout c-gray"><p><span class="ct">诚实边界</span>「测过」不等于「绝对安全」；对闭源黑盒同样退到协议 / 身份侧（C 档）。红队舱的价值是把「刹车与护栏」也变成可消融、可对比、可人调的 harness 模块，而非承诺零风险。</p></div>
+</section>
+
+<h1>附录</h1>
+<h2>A. 术语表</h2>
+<div class="table-wrap"><table><colgroup><col style="width:24%"><col style="width:76%"></colgroup><tbody>
+<tr><td>Harness（Harness / 脚手架）</td><td>模型之外、把模型变成能可靠完成任务的 Agent 的全部执行脚手架：主循环、工具面、记忆、上下文管理、校验器、权限 / 沙箱、人控、可观测与自演化</td></tr>
+<tr><td>ACI</td><td>Agent-Computer Interface，面向 Agent 的接口；SWE-agent 证明只改 ACI 就能大幅提分</td></tr>
+<tr><td>Enforced vs Guide（正典；别名 wrapper / 硬强制 / Soft Guide / REQUEST）</td><td>Enforced＝模型外确定性强制门（强制，代表：④ Sandbox、⑪ Permissions、⑬ Sensors）；Guide＝写进 prompt 的概率性引导（请求，代表：⑫ Guides）。VeritasBench：请求 87.8% vs 强制 100%</td></tr>
+<tr><td>Shaper</td><td>上下文塑形器，五层：Budget→Snip→Microcompact→Context Collapse→Auto-compact</td></tr>
+<tr><td>失败检测标签（通用；12 标签 + other，对齐 MAST） / L-MARS 原子断言（法律域 5 类）</td><td>MAST：通用失败标签，原论文共 14 类（FM-1.1～FM-3.3，分 FC1/FC2/FC3 三组）；自家 12 标签中 6 个自下而上从场景 Trap 长出（2.6.4 全覆盖），6 个经 MAST 14 类复查补齐（2.5.4 全绿）；<code>other</code> 只剩 FM-1.2、FM-2.1、FM-2.4、FM-2.5 四种多智能体协作特有模式；此前文案中的“#14”系误写（原论文无流水编号），已更正为 FC3；L-MARS：法律原子断言 supported / partially_supported / unsupported / citation_unreachable / no_citation（shared/legal.ts）。critical failure step＝第一个不可恢复错误</td></tr>
+<tr><td>HITL（Human-in-the-Loop，人在回路）</td><td>任何进入版本树的改动必须经过人的批准动作（Approve / Modify / Reject 三态，F3-4 自治度滑块只改变卡点数量，不取消最终批准）。模块 ⑱，事件侧无独立类型，落点为版本树 commit 门</td></tr>
+<tr><td>配对消融 / Skill Lift</td><td>固定其余一切、只切换一个模块的有无（configDistance＝1），取配对差，得到该模块的纯净边际作用</td></tr>
+<tr><td>SWE-bench Verified（修代码任务族）</td><td>公开代码修复评测集：给 Issue＋代码库，跑单测判分（过 / 挂二元、免费、确定性）；NLAH 用了其中 125 题，Basic＝75.2%</td></tr>
+<tr><td>OSWorld（跨应用桌面任务族，论文原名）</td><td>公开电脑操作评测集：在真实桌面里点鼠标敲键盘、跨应用干活，只查终态文件 / 配置；NLAH 用了其中 36 题子集，Basic＝41.7%；本 Demo 的 CRM 导出任务即属此类</td></tr>
+<tr><td>Multi-Candidate（多候选，论文打包名）</td><td>对应自家⑤ Sub-Agent Isolation（context-isolated）＋⑬ sensors（verifier+critic）两个开关一起开：多个隔离子 Agent 并行各做一份完整答案，再由评审挑一份发出（挑的是答案，不是挑收件人）；在修代码和跨应用两个任务族上都为负增益，Demo 风洞表第 4 行即此</td></tr>
+<tr><td>Change Card（改动卡；别名 Modification Card 已废弃）</td><td>失败簇的修复提案：改动点（必为 20 模块之一）+ NL 说明 + 确定性 diff + 预测区间（F3-2）</td></tr>
+<tr><td>法律七控件（Legal Controls） / 安全七控件（Security Controls）</td><td>F5 / F6 各自的 7 开关集合，禁裸称“七件套”。Kill-Chain 正典 5 段：Ingress → Lurk → Privilege Escalation → Action Execution → Exfiltration</td></tr>
+<tr><td>Bare Baseline（裸基准；别名 Basic / base / 裸跑）</td><td>20 模块全取默认值（BASE_CONFIG）。Optimizer（⑳）别名 Self-Evolution 仅为 NLAH 论文侧称谓</td></tr>
+<tr><td>16 类事件（15 运行时 + harness.mutation）</td><td>运行时 15 类 + 演化事件 harness.mutation（commit 留痕，F3-5）。来源 4 种：fixture / paper-reproduction / live / imported；最近邻回退是 exactMatch＝false 的渲染态，不是第 5 种来源</td></tr>
+<tr><td>Scorecard 集（正典；别名 Holdout / 留出）</td><td>优化过程不可见、只用于最终记分的数据集。三数据集：repair（修复）/ gate（筛选）/ scorecard（留出记分）</td></tr>
+<tr><td>Pareto 前沿</td><td>一组候选中「不存在另一个在所有维度都不差、且至少一维更好」的那些点；用于质量 × 成本权衡</td></tr>
+<tr><td>反事实回放</td><td>同一任务同一初始快照，换一个 harness 配置重放并逐步对齐，观察「如果当时配法不同会怎样」</td></tr>
+<tr><td>Snapshot-fork</td><td>快照—分叉：从同一黄金快照克隆多份分别跑不同配置，跑完即弃 / 可回滚</td></tr>
+</tbody></table></div>
+
+<h2>B. 证据索引（关键结论 → 一手出处）</h2>
+<div class="table-wrap"><table><colgroup><col style="width:30%"><col style="width:14%"><col style="width:56%"></colgroup><thead><tr><th>名称</th><th>编号</th><th>在本 PRD 支撑的结论</th></tr></thead><tbody>
+<tr><td>SWE-agent</td><td>arXiv:2405.15793</td><td>只改 ACI 即可大幅提分（问题 1）</td></tr>
+<tr><td>ReAct</td><td>arXiv:2210.03629</td><td>推理—行动主循环范式</td></tr>
+<tr><td>MAST</td><td>arXiv:2503.13657</td><td>14 类失败标签、κ=0.88</td></tr>
+<tr><td>NLAH 逐模块消融</td><td>arXiv:2603.25723</td><td>模块正负增益、Verifier 在 OSWorld −8.4（F2 预设）</td></tr>
+<tr><td>AutoHarness（DeepMind）</td><td>arXiv:2603.03329</td><td>模型排名随 harness 反转（F2-4）</td></tr>
+<tr><td>Interplay of Harness & Post-Training</td><td>arXiv:2606.25447</td><td>harness 与后训练互相依赖</td></tr>
+<tr><td>Airbnb Beyond Prompts / PRISM</td><td>arXiv:2609.05736</td><td>非 coding 增益 +14.2/+14.9/+10.1；可靠性下尾指标、三数据集、编辑面路由（第 6 章 / F3-7）</td></tr>
+<tr><td>AHE</td><td>arXiv:2604.25850</td><td>十代 69.7→77.0（F3-6）</td></tr>
+<tr><td>Harness-R1</td><td>arXiv:2608.02276</td><td>naive 自改 41.6→35.4 反例（价值观铁律）</td></tr>
+<tr><td>NVIDIA ACES</td><td>arXiv:2608.20614</td><td>947 配对中 87 负增益、Skill Lift 定义</td></tr>
+<tr><td>AgentRx</td><td>arXiv:2602.02475</td><td>critical failure step</td></tr>
+<tr><td>Claude Code 拆解 / 五层压缩</td><td>arXiv:2604.14228</td><td>五层 shaper（F1-5）</td></tr>
+<tr><td>SKILL.state</td><td>arXiv:2608.26263</td><td>非法 patch 回滚重试</td></tr>
+<tr><td>HarnessX / Harness-Bench / HarnessDev 等</td><td>2606.14249 / 2605.27922 / 2609.01437</td><td>harness 作为一等值、跨 executor 崩塌 69.3→33.0</td></tr>
+<tr><td>Parthenon / L-MARS / VeritasBench</td><td>arXiv:2606.04602 / 2509.00761 / GitHub Chesterguan</td><td>法律域 harness 增益、幻觉引用、强制审计链（V2）</td></tr>
+<tr><td>AgentDojo / AutoDojo / ToolPrivBench / Task Shield</td><td>2406.13352 / 2606.15057 / 2606.20023 / 2607.13594</td><td>动态红队、越权率、防护效用权衡（V3）</td></tr>
+<tr><td>OpenAI Agents API</td><td>2026-09-10 公测</td><td>harness 被托管黑盒化、版本回归刚需（问题 3）</td></tr>
+<tr><td>蚂蚁 APASS</td><td>2026-09-11 外滩大会</td><td>运行时 Agent 安全产品（V3 定位参照，规模为厂商披露）</td></tr>
+</tbody></table></div>
+<p class="legend-note">完整文献与产品清单（含 WorkBuddy Bench、HoH、Prime Agent、Wiki Skill、LongHorizon、Terminal 综述、Inside the Scaffold 等）见调研报告 v0.5 附录，本 PRD 仅列直接支撑产品决策者。</p>
+
+<h2>C. 与作者既有 Demo 的资产复用</h2>
+<p>本产品与作者既有 14 个 demo 共享同一母题：<b>打开 AI 黑盒、过程可信、人保留控制权</b>。可直接复用的资产：</p>
+<div class="table-wrap"><table><colgroup><col style="width:28%"><col style="width:72%"></colgroup><tbody>
+<tr><td>agentEvalPlatform</td><td>开发者侧「数字孪生」评测范式 → 风洞离线回放与对照读数</td></tr>
+<tr><td>loadingUI</td><td>SSE mock 与思考态呈现 → 运行透视轨迹播放与介入动画</td></tr>
+<tr><td>GraphMe</td><td>抽象结构可视化 → 版本树、模型×harness 矩阵</td></tr>
+<tr><td>docStudio</td><td>句级溯源 → 事件来源组件与引用 citation</td></tr>
+<tr><td>patentExaminator</td><td>离线 golden + 真模型双轨 → 本产品双轨架构</td></tr>
+<tr><td>difficulty-router</td><td>旁路建议与置信校准 → 脆弱配置警示、预测收益区间</td></tr>
+<tr><td>appUIRefiner / agentOS</td><td>风险分级与「不假装生效」→ 三档接入诚实分级、来源标注</td></tr>
+<tr><td>ai-skills</td><td>可移植工件 → 改动卡 / 配置 / 证据包的导出复用</td></tr>
+</tbody></table></div>
+
+<h2>D. PRD 章节 ↔ 调研报告 v0.5 章节对照</h2>
+<div class="table-wrap"><table><colgroup><col style="width:42%"><col style="width:58%"></colgroup><thead><tr><th>本 PRD</th><th>调研报告 v0.5 主要来源章节</th></tr></thead><tbody>
+<tr><td>1 产品概述（背景 / 空白 / 价值）</td><td>1 共识、3 四条量化证据、5 空白对照表、6 提案</td></tr>
+<tr><td>2 用户任务与场景</td><td>2 非 coding 任务族、4 失败与验证信号、7.1 演示</td></tr>
+<tr><td>3 方案总览（三档接入 / 双轨 / 快照）</td><td>4 组件地图、4.6 沙箱、9 闭源接入、OpenAI Agents API</td></tr>
+<tr class="v11"><td>4 功能需求三屏 + F2-11 适配画像 + F4-5/F4-6</td><td>6 三屏设计、7.1 12 步分镜、3 各论文机制；F2-11 对应 AutoHarness / HarnessDev / Non-Monotone；F4-6 对应 docStudio 工程</td></tr>
+<tr class="v11"><td>4 F5 法律领域风洞 / F6 安全红队舱</td><td>8 垂直领域（法律，含中美路线、L-MARS / Parthenon / ABA 512）、9 安全与可控（安全七控件、Palisade / Task Shield / APASS）</td></tr>
+<tr><td>5 数据模型与指标</td><td>4.7 数据契约、Airbnb PRISM 指标、ACES、AgentRx、适配度指标</td></tr>
+<tr><td>8 排期 / 9 度量 / 10 风险</td><td>7.3 三周排期、10 风险与边界</td></tr>
+<tr class="v11"><td>11 演进路线（三套 MVP 之后的深化）</td><td>8 / 9 章的真实化与扩展、验证硬度光谱、运行时生态对接</td></tr>
+<tr><td>12 附录</td><td>11 附录证据、作者 demo 谱系</td></tr>
+</tbody></table></div>
+</article>
+<script>
+(function(){
+ var root=document.body;
+ function apply(t){root.classList.toggle('dark',t==='dark');
+   var b=document.getElementById('themeBtn'); if(b)b.textContent=(t==='dark'?'浅色':'深色');}
+ var saved=localStorage.getItem('hwt-prd-theme');
+ apply(saved||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
+ document.getElementById('themeBtn').addEventListener('click',function(){
+   var t=root.classList.contains('dark')?'light':'dark';localStorage.setItem('hwt-prd-theme',t);apply(t);});
+ var tocList=document.getElementById('tocList');
+ document.getElementById('tocToggle').addEventListener('click',function(){tocList.hidden=!tocList.hidden;});
+ var hlBtn=document.getElementById('hlBtn');
+ function applyHl(off){root.classList.toggle('no-hl',off);if(hlBtn)hlBtn.textContent=(off?'显示 v1.1 高亮':'隐藏 v1.1 高亮');}
+ var hlSaved=localStorage.getItem('hwt-prd-hl');
+ applyHl(hlSaved==='off');
+ hlBtn.addEventListener('click',function(){var off=!root.classList.contains('no-hl');localStorage.setItem('hwt-prd-hl',off?'off':'on');applyHl(off);});
+ var hs=document.querySelectorAll('article h1, article h2'),ul=document.getElementById('tocList'),frag=document.createDocumentFragment();
+ hs.forEach(function(h,i){h.id='s'+i;var a=document.createElement('a');
+   a.href='#s'+i;a.className=h.tagName==='H1'?'lv1':'lv2';a.textContent=h.textContent;
+   a.addEventListener('click',function(e){e.preventDefault();
+     document.getElementById('s'+i).scrollIntoView({behavior:'smooth',block:'start'});});
+   frag.appendChild(a);});
+ ul.appendChild(frag);
+})();
+</script>
+</body></html>
