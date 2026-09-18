@@ -45,7 +45,7 @@ export const COMPONENT_GROUPS: { group: string; fields: ConfigField[] }[] = [
 export const COMPONENT_META: Record<ConfigField, { label: string; options: { value: string; label: string }[]; evidence?: string; enforced?: boolean }> = {
   loopControl: { label: '① Loop Control Flow', options: [{ value: 'basic', label: 'basic' }, { value: 'plan-act', label: 'plan-act' }, { value: 'reflexion', label: 'reflexion' }], evidence: 'Plan/Act separation is the industry convergent pattern' },
   toolset: { label: '② Tool Surface', options: [{ value: 'minimal', label: 'minimal' }, { value: 'standard', label: 'standard' }, { value: 'extended', label: 'extended' }], evidence: 'Restrict tool surface by operational mode' },
-  filesystem: { label: '③ File System & State', options: [{ value: 'none', label: 'none' }, { value: 'file-backed-state', label: 'file-backed-state' }], evidence: 'NLAH: +1.6 / +5.5pp, positive across both task families, most robust gain' },
+  filesystem: { label: '③ File System & State', options: [{ value: 'none', label: 'none' }, { value: 'file-backed-state', label: 'file-backed-state' }], evidence: 'NLAH v2: +2.6 / +13.9pp, strongest cross-app gain' },
   sandbox: { label: '④ Execution Sandbox', options: [{ value: 'off', label: 'off' }, { value: 'readonly-parallel', label: 'readonly-parallel' }, { value: 'write-barrier', label: 'write-barrier' }], evidence: 'dsh: fail-closed, read-only parallel execution with write barriers', enforced: true },
   subAgents: { label: '⑤ Sub-Agent Isolation', options: [{ value: 'off', label: 'off' }, { value: 'context-isolated', label: 'context-isolated' }], evidence: 'Cognition: spawn sub-agents strictly for context isolation' },
   planner: { label: '⑥ Task Planner', options: [{ value: 'off', label: 'off' }, { value: 'todo-list', label: 'todo-list' }] },
@@ -55,14 +55,14 @@ export const COMPONENT_META: Record<ConfigField, { label: string; options: { val
   hooks: { label: '⑩ Lifecycle Hooks', options: [{ value: 'off', label: 'off' }, { value: 'lifecycle', label: 'lifecycle' }], evidence: 'Claude Code: ~30 deterministic lifecycle hooks' },
   permissions: { label: '⑪ Permission Gate', options: [{ value: 'open', label: 'open' }, { value: 'ask-write', label: 'ask-write' }, { value: 'deny-first', label: 'deny-first' }], evidence: 'deny-first is a deterministic gate; prompt guidance is only probabilistic', enforced: true },
   guides: { label: '⑫ Feedforward Guidelines', options: [{ value: 'none', label: 'none' }, { value: 'style-rules', label: 'style-rules' }, { value: 'domain-checklist', label: 'domain-checklist' }], evidence: 'Guides feed forward before action; probabilistic' },
-  sensors: { label: '⑬ Feedback Sensors & Lints', options: [{ value: 'none', label: 'none' }, { value: 'lint', label: 'lint' }, { value: 'verifier', label: 'verifier' }, { value: 'verifier+critic', label: 'verifier+critic' }], evidence: 'NLAH: SWE −0.8pp, OSWorld −8.4pp (combined with ask-write perms); standalone +0.8pp when scope is pre-locked', enforced: true },
+  sensors: { label: '⑬ Feedback Sensors & Lints', options: [{ value: 'none', label: 'none' }, { value: 'lint', label: 'lint' }, { value: 'verifier', label: 'verifier' }, { value: 'verifier+critic', label: 'verifier+critic' }], evidence: 'NLAH v2: SWE +0.2pp, OSWorld +8.4pp (revised positive when kept close to the acceptance gate)', enforced: true },
   selfVerify: { label: '⑭ Self-Verification Circuit', options: [{ value: 'off', label: 'off' }, { value: 'premature-victory-check', label: 'premature-victory check' }] },
   globalPolicy: { label: '⑮ Global Safety Policy', options: [{ value: 'none', label: 'none' }, { value: 'policy-enforced', label: 'policy-enforced' }] },
   observability: { label: '⑯ Observability & Trace', options: [{ value: 'off', label: 'off' }, { value: 'trace', label: 'trace' }, { value: 'trace+mast', label: 'trace+mast annotation' }] },
   eval: { label: '⑰ Golden Evaluation Set', options: [{ value: 'off', label: 'off' }, { value: 'golden-set', label: 'golden-set' }] },
   humanInLoop: { label: '⑱ Human-in-the-Loop Gate', options: [{ value: 'none', label: 'none' }, { value: 'approval-gates', label: 'approval-gates' }, { value: 'slider', label: 'autonomy-slider' }] },
   resume: { label: '⑲ Checkpoint & Resume', options: [{ value: 'off', label: 'off' }, { value: 'checkpoint', label: 'checkpoint' }] },
-  optimizer: { label: '⑳ Optimizer', options: [{ value: 'off', label: 'off' }, { value: 'wind-tunnel-search', label: 'wind-tunnel-search' }], evidence: 'NLAH: Self-Evolution yields +4.8pp gain on SWE benchmark' },
+  optimizer: { label: '⑳ Optimizer', options: [{ value: 'off', label: 'off' }, { value: 'wind-tunnel-search', label: 'wind-tunnel-search' }], evidence: 'NLAH v2: Self-Evolution yields +5.8pp gain on SWE benchmark' },
 }
 
 export const BASE_CONFIG: HarnessConfig = {

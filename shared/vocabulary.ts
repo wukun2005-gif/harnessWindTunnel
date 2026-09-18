@@ -156,7 +156,7 @@ export const BASELINE_LABEL = 'Bare Baseline' as const
 export const BASELINE_ALIAS = ['Basic', 'Baseline', 'base', '裸基准'] as const
 
 // ─── Optimizer (module ⑳): canonical "Optimizer" ───
-// "Self-Evolution" is the NLAH paper nickname for its gain (+4.8pp), not a
+// "Self-Evolution" is the NLAH paper nickname for its gain (+5.8pp v2), not a
 // second module. UI shows Optimizer; Self-Evolution appears only inside the
 // NLAH evidence string / branch nickname.
 export const OPTIMIZER_LABEL = 'Optimizer' as const

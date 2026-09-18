@@ -101,6 +101,33 @@
       "file": "verifier.jsonl"
     },
     {
+      "branchId": "compress",
+      "fingerprint": "aed16286",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "off",
+        "memory": "none",
+        "compression": "budget",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "compress.jsonl"
+    },
+    {
       "branchId": "multicand",
       "fingerprint": "0b96ad27",
       "config": {
@@ -157,7 +184,7 @@
   ],
   "metrics": {
     "d0c96e06": {
-      "successRate": 46.2,
+      "successRate": 44.4,
       "tokens": 87000,
       "latencyP50": 132000,
       "failureModes": {
@@ -166,24 +193,35 @@
       },
       "source": {
         "kind": "fixture",
-        "label": "Illustrative baseline (Δ from NLAH: Verifier −8.4 / File-backed State +5.5, OSWorld family)"
+        "label": "Illustrative baseline (Δ from NLAH v2: Compression −8.3 / File-backed State +13.9, OSWorld family)"
       }
     },
     "526a3aeb": {
-      "successRate": 51.7,
+      "successRate": 58.3,
       "tokens": 91000,
       "latencyP50": 128000,
       "failureModes": {},
       "source": {
         "kind": "paper-reproduction",
         "label": "Paper reproduction · script",
-        "citation": "Natural-Language Agent Harnesses, arXiv:2603.25723"
+        "citation": "Natural-Language Agent Harnesses, arXiv:2603.25723v2 (Table 5)"
       }
     },
     "6f9b6177": {
-      "successRate": 37.8,
-      "tokens": 132000,
-      "latencyP50": 198000,
+      "successRate": 52.8,
+      "tokens": 124000,
+      "latencyP50": 171000,
+      "failureModes": {},
+      "source": {
+        "kind": "paper-reproduction",
+        "label": "Paper reproduction · script",
+        "citation": "Natural-Language Agent Harnesses, arXiv:2603.25723v2 (Table 5): Verifier +8.4pp OSWorld"
+      }
+    },
+    "aed16286": {
+      "successRate": 36.1,
+      "tokens": 138000,
+      "latencyP50": 201000,
       "failureModes": {
         "long-horizon-decay": 1,
         "step-repetition": 1,
@@ -192,11 +230,11 @@
       },
       "source": {
         "kind": "fixture",
-        "label": "Δ −8.4pp from NLAH Verifier (OSWorld family); baseline illustrative"
+        "label": "Δ −8.3pp illustrative (NLAH v2 direction: aggressive compression summaries drift from the evaluator)"
       }
     },
     "0b96ad27": {
-      "successRate": 43.1,
+      "successRate": 47.2,
       "tokens": 118000,
       "latencyP50": 176000,
       "failureModes": {
@@ -205,7 +243,7 @@
       },
       "source": {
         "kind": "fixture",
-        "label": "Δ −3.1pp illustrative (NLAH direction: Multi-Candidate negative across both task families)"
+        "label": "Δ +2.8pp illustrative (NLAH v2: Multi-Candidate small OSWorld gain, −1.6pp on SWE)"
       }
     },
     "56d19367": {

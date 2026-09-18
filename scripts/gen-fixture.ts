@@ -250,7 +250,7 @@ const scenarios: Scenario[] = [
     branches: [
       {
         branchId: 'base', config: cfg(),
-        metrics: { ...fx(46.2, 87_000, 132_000, { 'scope-violation': 1, 'reasoning-action-mismatch': 1 }), source: S('fixture', 'Illustrative baseline (Δ from NLAH: Verifier −8.4 / File-backed State +5.5, OSWorld family)') },
+        metrics: { ...fx(44.4, 87_000, 132_000, { 'scope-violation': 1, 'reasoning-action-mismatch': 1 }), source: S('fixture', 'Illustrative baseline (Δ from NLAH v2: Compression −8.3 / File-backed State +13.9, OSWorld family)') },
         build(rec) {
           rec.start(MODEL, "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM")
           rec.req(ctx({ history: 1300 }), "First pull this quarter's churned-customer list")
@@ -273,7 +273,7 @@ const scenarios: Scenario[] = [
       },
       {
         branchId: 'filestate', config: cfg({ filesystem: 'file-backed-state' }),
-        metrics: { ...fx(51.7, 91_000, 128_000), source: S('paper-reproduction', 'Paper reproduction · script', 'Natural-Language Agent Harnesses, arXiv:2603.25723') },
+        metrics: { ...fx(58.3, 91_000, 128_000), source: S('paper-reproduction', 'Paper reproduction · script', 'Natural-Language Agent Harnesses, arXiv:2603.25723v2 (Table 5)') },
         build(rec) {
           rec.start(MODEL, "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM")
           rec.req(ctx({ history: 1300 }), "First pull this quarter's churned-customer list")
@@ -295,7 +295,7 @@ const scenarios: Scenario[] = [
       },
       {
         branchId: 'verifier', config: cfg({ permissions: 'ask-write', sensors: 'verifier' }),
-        metrics: { ...fx(37.8, 132_000, 198_000, { 'long-horizon-decay': 1, 'step-repetition': 1, 'unaware-of-stopping': 1, 'task-derailment': 1 }), source: S('fixture', 'Δ −8.4pp from NLAH Verifier (OSWorld family); baseline illustrative') },
+        metrics: { ...fx(52.8, 124_000, 171_000), source: S('paper-reproduction', 'Paper reproduction · script', 'Natural-Language Agent Harnesses, arXiv:2603.25723v2 (Table 5): Verifier +8.4pp OSWorld') },
         build(rec) {
           rec.start(MODEL, "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM")
           rec.req(ctx({ history: 1300 }), "First pull this quarter's churned-customer list")
@@ -311,18 +311,40 @@ const scenarios: Scenario[] = [
           rec.perm('mail.send(412)', 'high')
           rec.granted('mail.send(412)', 'approval-gates (human approval)')
           rec.verifier('outbound-verifier', 'reject', 'Recipient scope cannot be proven automatically: 412 candidates do not match this-quarter churn scope')
-          rec.req(ctx({ history: 8800, toolResult: { source: 'verifier log feedback', tokens: 900, preview: 'Rejection reason fed back into context…' } }), 'Retry per the rejection: attach proof of scope')
-          rec.verifier('outbound-verifier', 'reject', 'Proof still incomplete; exhaustive validation keeps inflating steps and context')
-          rec.tag('step-repetition', 0.88, 'Same scope-proof step retried after each rejection without new evidence')
+          rec.req(ctx({ history: 7200, toolResult: { source: 'verifier log feedback', tokens: 700, preview: 'Rejection fed back; re-query with a strict this-quarter filter' } }), 'Rejection is close to the acceptance gate: narrow the scope and retry once')
+          rec.tool('crm.query', 'churned this quarter strict', 1800, '38 records match the strict this-quarter definition')
+          rec.verifier('outbound-verifier', 'pass', '38 recipients match the strict this-quarter churn definition')
+          rec.tool('mail.send', 'to: 38 CSM owners', 100, '38 emails sent; scope verified')
+          rec.finish({ success: true, tokens: 124_000, latencyP50: 171_000, failureModes: {} })
+        },
+      },
+      {
+        branchId: 'compress', config: cfg({ compression: 'budget' }),
+        metrics: { ...fx(36.1, 138_000, 201_000, { 'long-horizon-decay': 1, 'step-repetition': 1, 'unaware-of-stopping': 1, 'task-derailment': 1 }), source: S('fixture', 'Δ −8.3pp illustrative (NLAH v2 direction: aggressive compression summaries drift from the evaluator)') },
+        build(rec) {
+          rec.start(MODEL, "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM")
+          rec.req(ctx({ history: 1300 }), "First pull this quarter's churned-customer list")
+          rec.tool('crm.query', 'churned this quarter', 2400, '412 churned records in total')
+          rec.tool('fs.write', 'export/churn-q3.csv', 300, '412 rows exported')
+          rec.req(ctx({ history: 2900, toolResult: { source: 'crm.query(churned)', tokens: 2400, preview: '412 records…' } }), 'Build the summary table')
+          rec.tool('xlsx.generate', 'churn-summary.xlsx', 260, 'Summary table complete')
+          rec.req(ctx({ history: 9400, toolResult: { source: 'xlsx.generate', tokens: 260, preview: 'Window heavy; compress aggressively' } }), 'Context heavy; squeeze everything into a summary and proceed')
+          rec.compact('budget', 14_800, 13_500)
+          rec.add({ type: 'shaper.fire', step: rec.step, order: 1, shaper: 'budget', freedTokens: 1300, note: 'Single overflow → replaced with a file reference' })
+          rec.req(ctx({ history: 9800, toolResult: { source: 'budget-summary', tokens: 900, preview: 'Summary says 412 churned; scope definition lost in compression' } }), 'Act on the compressed summary: prepare the 412 send')
+          rec.req(ctx({ history: 11_200, toolResult: { source: 'crm.query(contacts)', tokens: 3100, preview: 'Window heavy again; compress and re-read' } }), 'Compress again and re-read the scope')
+          rec.compact('budget', 15_100, 13_800)
+          rec.tag('step-repetition', 0.88, 'Same compress-and-act cycle retried without new evidence')
+          rec.req(ctx({ history: 12_400, toolResult: { source: 'budget-summary', tokens: 900, preview: 'Summary still says 412; drifted notion of success' } }), 'Keep fitting context instead of stopping or escalating')
           rec.tag('unaware-of-stopping', 0.85, 'Loop never recognizes it should stop or escalate; runs until timeout')
-          rec.tag('task-derailment', 0.8, 'Objective drifts from sending the email to satisfying the verifier')
-          rec.tag('long-horizon-decay', 0.83, 'The verification loop self-inflates on a task with no gold answer; task times out')
-          rec.finish({ success: false, tokens: 132_000, latencyP50: 198_000, failureModes: { 'long-horizon-decay': 1, 'step-repetition': 1, 'unaware-of-stopping': 1, 'task-derailment': 1 } })
+          rec.tag('task-derailment', 0.8, 'Objective drifts from sending the email to fitting everything into context')
+          rec.tag('long-horizon-decay', 0.83, 'Aggressive summaries drift from the evaluator; task times out')
+          rec.finish({ success: false, tokens: 138_000, latencyP50: 201_000, failureModes: { 'long-horizon-decay': 1, 'step-repetition': 1, 'unaware-of-stopping': 1, 'task-derailment': 1 } })
         },
       },
       {
         branchId: 'multicand', config: cfg({ sensors: 'verifier+critic', subAgents: 'context-isolated' }),
-        metrics: { ...fx(43.1, 118_000, 176_000, { 'weak-grounding': 1, 'reasoning-action-mismatch': 1 }), source: S('fixture', 'Δ −3.1pp illustrative (NLAH direction: Multi-Candidate negative across both task families)') },
+        metrics: { ...fx(47.2, 118_000, 176_000, { 'weak-grounding': 1, 'reasoning-action-mismatch': 1 }), source: S('fixture', 'Δ +2.8pp illustrative (NLAH v2: Multi-Candidate small OSWorld gain, −1.6pp on SWE)') },
       },
       {
         branchId: 'tuned', config: cfg({ filesystem: 'file-backed-state', hooks: 'lifecycle', sensors: 'verifier', permissions: 'ask-write', humanInLoop: 'approval-gates' }),
@@ -405,7 +427,7 @@ const scenarios: Scenario[] = [
       },
       {
         branchId: 'selfevo', config: cfg({ optimizer: 'wind-tunnel-search' }),
-        metrics: { ...fx(38.8, 44_600, 104_000), source: S('fixture', 'Δ +4.8pp from NLAH Self-Evolution (SWE family); baseline illustrative') },
+        metrics: { ...fx(39.8, 44_600, 104_000), source: S('fixture', 'Δ +5.8pp from NLAH Self-Evolution (SWE family, v2 Table 5); baseline illustrative') },
         build(rec) {
           rec.start(MODEL, 'Fix flaky tests in the CLI output module and finish the refactor')
           rec.req(ctx({ history: 900, toolSchema: 380 }), 'First reproduce the flaky test')

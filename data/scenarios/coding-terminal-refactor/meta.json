@@ -203,13 +203,13 @@
       }
     },
     "0768d243": {
-      "successRate": 38.8,
+      "successRate": 39.8,
       "tokens": 44600,
       "latencyP50": 104000,
       "failureModes": {},
       "source": {
         "kind": "fixture",
-        "label": "Δ +4.8pp from NLAH Self-Evolution (SWE family); baseline illustrative"
+        "label": "Δ +5.8pp from NLAH Self-Evolution (SWE family, v2 Table 5); baseline illustrative"
       }
     },
     "64a65d44": {

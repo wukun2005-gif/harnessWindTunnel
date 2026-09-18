@@ -14,7 +14,7 @@
 2. **风洞**（`#/tunnel`）——拨 20 个模块的开关，多配置并排对比（成功率、相对基线 Δ、token、时延、失败迁移），双轨迹逐步对齐到第一个分叉点。
 3. **演化**（`#/evolution`）——失败聚类、改动卡（带预测区间）、风洞证伪、人批准、版本树提交、一键回滚。
 
-核心结论：**模块多不等于好**。加个验证器，跨应用任务掉 8.4 个点；先把范围写进文件，涨 5.5 个点。不做受控消融永远看不见。
+核心结论：**模块多不等于好**。只加激进压缩，跨应用任务掉 8.3 个点；先把范围写进文件，涨 13.9 个点；验证器在新版论文里转正（+8.4）。不做受控消融永远看不见。
 
 ## 跑起来
 
@@ -41,7 +41,7 @@ npm run dev        # 数据服务 :4000 + 页面 :5173
 - `paper-reproduction`——方向与 Δ 引自论文，基线为示意
 - `live`——连你自己配的模型跑出来的
 
-一键论文预设（风洞空状态载入）：**NLAH** 受控消融（arXiv:2603.25723）、**AHE** 十代爬升 69.7%→77.0%（arXiv:2604.25850）、**Harness-R1** 反例 41.6%→35.4%（arXiv:2608.02276）。
+一键论文预设（风洞空状态载入）：**NLAH** 受控消融（arXiv:2603.25723v2, Table 5）、**AHE** 十代爬升 69.7%→77.0%（arXiv:2604.25850）、**Harness-R1** 反例 41.6%→35.4%（arXiv:2608.02276，附录 H.3）。
 
 ## 失败标签
 
@@ -63,7 +63,7 @@ harness-research-v0.5.html        # 背后的调研报告
 ## 引用
 
 - MAST：Why Do Multi-Agent LLM Systems Fail?（arXiv:2503.13657）
-- NLAH：Natural-Language Agent Harnesses（arXiv:2603.25723）
+- NLAH：Natural-Language Agent Harnesses（arXiv:2603.25723v2, Table 5）
 - AHE：Agentic Harness Engineering（arXiv:2604.25850）
 - Harness-R1（arXiv:2608.02276）、AutoHarness（arXiv:2603.03329）、Airbnb PRISM（arXiv:2609.05736）、L-MARS（arXiv:2509.00761）
 

@@ -163,7 +163,7 @@ body.no-hl .v11-tag{display:none}
 <p><strong>问题 1：可靠性瓶颈已从模型转移到模型之外。</strong>前沿模型在 SWE-bench Verified 上差距收窄到约 5 个百分点内；MAST 标注 7 个框架 1600+ 条轨迹归纳出 14 类失败（标注一致性 κ=0.88，arXiv:2503.13657），其中绝大多数是「配置问题」而非「模型笨」。早在 SWE-agent（arXiv:2405.15793）就已证明：固定模型与环境、只改面向 Agent 的接口，就能把 SWE-bench 从 12.5% 拉到当时 SOTA。</p>
 <p><strong>问题 2：harness 模块「不是越多越好」，且作用随任务族、随模型反转，靠看单次 trace 永远发现不了。</strong>这是产品成立的硬证据：</p>
 <div class="table-wrap"><table><colgroup><col style="width:30%"><col style="width:46%"><col style="width:24%"></colgroup><thead><tr><th>实证（来源）</th><th>关键数字</th><th>说明的问题</th></tr></thead><tbody>
-<tr><td>NLAH 逐模块消融（arXiv:2603.25723）</td><td>同一模型同一运行时、每次只叠一个模块：File-backed State +1.6/+5.5pp；Optimizer（NLAH 别名 Self-Evolution）+4.8/+2.7；但 Verifier 在 OSWorld 上 <b>−8.4pp</b>、Multi-Candidate 双任务族都为负</td><td>凭直觉「加验证、加候选」会掉分，必须受控消融才看得见</td></tr>
+<tr><td>NLAH 逐模块消融（arXiv:2603.25723v2, Table 5）</td><td>同一模型同一运行时、每次只叠一个模块（Codex CLI, GPT-5.4-mini）：File-backed State +2.6/+13.9pp；Self-Evolution +5.8/+8.4；Verifier 在 OSWorld 上 +8.4pp（v1 曾为 −8.4，v2 修正转正）；Context Compression 在 OSWorld 上 <b>−8.3pp</b></td><td>凭直觉「加压缩」会掉分、验证器好坏看离验收多远，必须受控消融才看得见</td></tr>
 <tr><td>DeepMind AutoHarness（arXiv:2603.03329）</td><td>模型排名随 harness 反转：Flash+合成 Harness 单人奖励 0.745 &gt; Pro 0.707 &gt; 裸 Flash 0.673；双人局对 Pro 胜率 56.3% 对 38.2%</td><td>脱离 harness 无法给模型排名，必须做「模型 × harness」二维交叉</td></tr>
 <tr><td>Airbnb Beyond Prompts（arXiv:2609.05736，EMNLP 2026）</td><td>固定模型只改 prompt + 工具边界中间件，非 coding 的函数调用 / 零售 / 电信客服任务平均提升 +14.2 / +14.9 / +10.1pp</td><td>harness 增益对非 coding 业务任务同样成立，且闭源也能从 IO 边界接入</td></tr>
 <tr><td>Harness-R1（arXiv:2608.02276）反例</td><td>让强模型直接改 harness，39 个有效补丁中 21 个让批次成绩变差（41.6%→35.4%，−6.2pp），仅 12 个变好</td><td>黑盒全自动演化不可靠 → 产品必须「风洞证伪 + 人控批准 + 可回滚」</td></tr>
@@ -220,7 +220,7 @@ body.no-hl .v11-tag{display:none}
 <p><strong>Model</strong> 是推理引擎（GPT、Claude、Gemini……），提供”能做什么”的上限。</p>
 <p><strong>Harness</strong> 是围绕模型的一切工程化控制——循环怎么跑、工具怎么给、上下文怎么压、失败怎么拦、人怎么介入。它决定模型的能力<strong>能不能稳定兑现</strong>。</p>
 <p>类比：模型是发动机，Harness 是赛道。同一台发动机在不同赛道上的圈速天差地别。</p>
-<p><strong>量化证据：</strong> - 同一模型（gpt-5.4-xhigh）+ 同一任务，仅切换 harness 配置：34% → 77%（+43pp） - Harness-R1 论文：固定模型，Harness 优化平均提升 +10pp（arXiv:2608.02276） - NLAH 论文：Harness 模块消融实验，单模块最大增益 +5.5pp（File-backed State）</p>
+<p><strong>量化证据：</strong> - 同一模型（gpt-5.4-xhigh）+ 同一任务，仅切换 harness 配置：34% → 77%（+43pp） - Harness-R1 论文：固定模型，Harness 优化平均提升 +10pp（arXiv:2608.02276） - NLAH 论文（v2, Table 5）：Harness 模块消融实验，跨应用单模块最大增益 +13.9pp（File-backed State），最大负增益 −8.3pp（Context Compression）</p>
 
 <h2>2.2 Harness 模块体系</h2>
 <h3>2.2.1 设计原则</h3>
@@ -281,7 +281,7 @@ body.no-hl .v11-tag{display:none}
 <td>File System &amp; State</td>
 <td>[none] / file-backed-state</td>
 <td>外部化状态持久化：无 / 将假设和证据写入路径可寻址文件</td>
-<td>NLAH: +1.6pp (SWE) / +5.5pp (OSWorld)，最稳健增益</td>
+<td>NLAH v2: +2.6pp (SWE) / +13.9pp (OSWorld)，跨应用最强增益</td>
 </tr>
 <tr class="even">
 <td>④</td>
@@ -393,7 +393,7 @@ body.no-hl .v11-tag{display:none}
 <td>Feedback Sensors &amp; Lints</td>
 <td>[none] / lint / verifier / verifier+critic</td>
 <td>反馈传感器（行动后检测），按强度分档：无 / lint（轻量确定性规则检查：只判定定义口径、格式完备等可形式化规则，不做语义判断）/ verifier（重语义验证：需跑测试、查证据或证明范围，如单测全绿、引用溯源）/ verifier+critic（验证器结论再经批评者复核）</td>
-<td>NLAH: SWE −0.8pp, OSWorld −8.4pp — mismatch causes regression</td>
+<td>NLAH v2: SWE +0.2pp, OSWorld +8.4pp — verification helps when close to the acceptance gate</td>
 </tr>
 <tr class="odd">
 <td>⑭</td>
@@ -463,7 +463,7 @@ body.no-hl .v11-tag{display:none}
 <td>Optimizer</td>
 <td>[off] / wind-tunnel-search</td>
 <td>优化器：无 / 风洞搜索（基于历史实验数据自动搜索更优配置）</td>
-<td>NLAH: Optimizer（别名 Self-Evolution）+4.8pp on SWE benchmark</td>
+<td>NLAH v2: Optimizer（别名 Self-Evolution）+5.8pp on SWE benchmark</td>
 </tr>
 </tbody>
 </table>
@@ -1049,7 +1049,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <tr><td>跨应用工作流</td><td>workflow-crm-export</td><td>误发误写、长程状态丢失</td><td>外发权限门、file-backed state 状态外置</td></tr>
 <tr><td>coding（对照族）</td><td>coding-terminal-refactor</td><td>测试不过、未验证就合并</td><td>测试 verifier、worktree、diff 编辑；用于演示模块作用跨族反转</td></tr>
 </tbody></table></div>
-<div class="callout c-warn"><p><span class="ct">为什么非 coding 反而更需要风洞</span>编程有编译器和单测提供<b>二元、免费、确定性</b>的验证信号；研究 / 文档类产出「全不全面、来源是否可靠、甚至对不对」只能相对任务判断，ground truth 持续漂移、专家都可能不一致（Anthropic《Demystifying evals for AI agents》, 2026-01）。非 coding 没有标准答案，只能靠 harness 里的 guide / sensor / checklist 兜底，<b>配法对错更隐蔽</b>。NLAH 的硬证据：同一个 Verifier 模块在 SWE-bench 上只 −0.8pp，换到 OSWorld 通用桌面任务却是 <b>−8.4pp</b>，副作用大十倍——这只有跨任务族受控实验才看得见。</p></div>
+<div class="callout c-warn"><p><span class="ct">为什么非 coding 反而更需要风洞</span>编程有编译器和单测提供<b>二元、免费、确定性</b>的验证信号；研究 / 文档类产出「全不全面、来源是否可靠、甚至对不对」只能相对任务判断，ground truth 持续漂移、专家都可能不一致（Anthropic《Demystifying evals for AI agents》, 2026-01）。非 coding 没有标准答案，只能靠 harness 里的 guide / sensor / checklist 兜底，<b>配法对错更隐蔽</b>。NLAH v2 的硬证据：同一个 File-backed State 模块在 SWE-bench 上只 +2.6pp，换到 OSWorld 跨应用任务却是 <b>+13.9pp</b>，增益差五倍；而激进压缩在 OSWorld 上掉 <b>8.3pp</b>——配法对错在非 coding 任务上更隐蔽、更昂贵，这只有跨任务族受控实验才看得见。</p></div>
 
 <h2>核心用户旅程</h2>
 <h3>旅程一：2 分钟一键演示（面向 P3，四幕叙事，详细分镜见 4.0 / F0）</h3>
@@ -1148,7 +1148,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <div class="table-wrap"><table><colgroup><col style="width:12%"><col style="width:16%"><col style="width:72%"></colgroup><thead><tr><th>步</th><th>画面</th><th>动作与观众记忆点</th></tr></thead><tbody>
 <tr><td>1</td><td>开场</td><td>同模型同任务、两个 harness 终局 34% 对 77%——抛出「差距不在模型？」</td></tr>
 <tr><td>2–4</td><td>运行透视</td><td>报告写作任务上下文将满、五层压缩器（Shaper）依次点火；点开工具结果看来源组件与 U 形位置；verifier（验证器）驳回一次 premature victory（过早胜利）</td></tr>
-<tr><td>5–8</td><td>风洞</td><td>直觉失灵：只加验证器（Verifier，完工前按规则自动拦一道，通不过打回重做）反而掉8.4个点；先把范围写进文件再干活（File-backed State，关键范围以文件为准）涨5.5个点，隔离子Agent×评审挑选（论文打包名 Multi-Candidate＝⑤＋⑬两个开关一起开）掉3.1个点；双配置轨迹分叉 diff（发邮件决策处首次分开）；失败模式转移矩阵。注：数字为示意，方向引自 NLAH Table 3 跨应用任务列（论文原名 OSWorld）</td></tr>
+<tr><td>5–8</td><td>风洞</td><td>直觉失灵：只加激进压缩（上下文一满就压成摘要）反而掉8.3个点；先把范围写进文件再干活（File-backed State，关键范围以文件为准）涨13.9个点；验证器在新版论文里转正（+8.4，离验收标准越近越有用）；双配置轨迹分叉 diff（发邮件决策处首次分开）；失败模式转移矩阵。注：数字为示意，方向引自 NLAH v2 Table 5 跨应用任务列（论文原名 OSWorld；v1 Table 3 结论不同）</td></tr>
 <tr><td>9–12</td><td>演化</td><td>失败簇归因 Premature Victory → 改动卡预测 +3~6pp → 风洞证伪（救回 4、回归 1，自动建回滚点）→ 人批准、版本树长出 commit → Autoplay 十代爬升收尾</td></tr>
 </tbody></table></div>
 <div class="ac"><span class="act">AC：</span>① 不点任何其他按钮，一键播放可在约 2 分钟内完整走完 12 步且每步停留可读；② 每步画面与脚本表一一对应、记忆点（数字 / 分叉 / 回滚点）在屏上可见；③ 离线、无网络、无 Key 下可完整播放；④ 支持暂停后手动操作、再回到自动节奏。【现状：src/screens/Demo 骨架已建】</div></div>
@@ -1192,7 +1192,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <p>回答「每个Harness 模块到底值多少分」，是本产品区别于观测平台的关键。</p>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F2-1</span><span class="fr-name">20 模块板（受控变量开关）</span><span class="pill p0">P0</span></div>
-<div class="fr-kv"><b>交互：</b>按「运行内核 / 状态与记忆 / 约束与安全 / 进化与韧性」四组渲染 20 个模块，每个以下拉或分段开关切换策略；旁附证据 tooltip（如 File-backed State「+1.6/+5.5」、Verifier「OSWorld −8.4」）；对「确定性强制门」与「概率性引导」用不同标记区分（permissions、sensors 标 enforced）。</div>
+<div class="fr-kv"><b>交互：</b>按「运行内核 / 状态与记忆 / 约束与安全 / 进化与韧性」四组渲染 20 个模块，每个以下拉或分段开关切换策略；旁附证据 tooltip（如 File-backed State「+2.6/+13.9」、Context Compression「OSWorld −8.3」）；对「确定性强制门」与「概率性引导」用不同标记区分（permissions、sensors 标 enforced）。</div>
 <div class="ac"><span class="act">AC：</span>① 20 字段、四组与 shared/config.ts 完全一致；② 每次改动生成新指纹且 configDiff 能列出相对基线改了哪几个字段；③ 证据 tooltip 数字与调研报告一致并标 arXiv；④ 确定性门（deny-first）与引导（guide）视觉可区分，呼应「wrappers ENFORCE / prompts REQUEST」。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F2-2</span><span class="fr-name">固定模型 / 任务集与基线</span><span class="pill p0">P0</span></div>
@@ -1201,7 +1201,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F2-3</span><span class="fr-name">多配置并行重放与对照读数</span><span class="pill p0">P0</span></div>
 <div class="fr-kv"><b>交互：</b>一次可并行对比多个配置（离线为同步选分支），读数面板给成功率、token、P50 时延；配置以「相对基线 Δ」呈现，正 / 负增益用颜色与符号区分。</div>
-<div class="ac"><span class="act">AC：</span>① 至少支持 4 个配置并列；② 每个配置显示 successRate / tokens / latencyP50 与相对基线 Δ；③ 负增益（如 Verifier 在 OSWorld 族 −8.4）以负向色明确呈现、不被藏起来。</div></div>
+<div class="ac"><span class="act">AC：</span>① 至少支持 4 个配置并列；② 每个配置显示 successRate / tokens / latencyP50 与相对基线 Δ；③ 负增益（如 Context Compression 在 OSWorld 族 −8.3）以负向色明确呈现、不被藏起来。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F2-4</span><span class="fr-name">模型 × Harness 二维交叉矩阵</span><span class="pill p0">P0</span></div>
 <div class="fr-kv"><b>交互：</b>首屏以矩阵呈现：行＝模型、列＝harness 配置、格＝得分 / 胜率；支持高亮「同一模型跨配置」与「同一配置跨模型」两条阅读路径，直观展示排名反转。</div>
@@ -1554,9 +1554,9 @@ data/redteam/*                              攻击用例库、安全七控件定
 <tr><td>失败检测标签（通用；12 标签 + other，对齐 MAST） / L-MARS 原子断言（法律域 5 类）</td><td>MAST：通用失败标签，原论文共 14 类（FM-1.1～FM-3.3，分 FC1/FC2/FC3 三组）；自家 12 标签中 6 个自下而上从场景 Trap 长出（2.6.4 全覆盖），6 个经 MAST 14 类复查补齐（2.5.4 全绿）；<code>other</code> 只剩 FM-1.2、FM-2.1、FM-2.4、FM-2.5 四种多智能体协作特有模式；此前文案中的“#14”系误写（原论文无流水编号），已更正为 FC3；L-MARS：法律原子断言 supported / partially_supported / unsupported / citation_unreachable / no_citation（shared/legal.ts）。critical failure step＝第一个不可恢复错误</td></tr>
 <tr><td>HITL（Human-in-the-Loop，人在回路）</td><td>任何进入版本树的改动必须经过人的批准动作（Approve / Modify / Reject 三态，F3-4 自治度滑块只改变卡点数量，不取消最终批准）。模块 ⑱，事件侧无独立类型，落点为版本树 commit 门</td></tr>
 <tr><td>配对消融 / Skill Lift</td><td>固定其余一切、只切换一个模块的有无（configDistance＝1），取配对差，得到该模块的纯净边际作用</td></tr>
-<tr><td>SWE-bench Verified（修代码任务族）</td><td>公开代码修复评测集：给 Issue＋代码库，跑单测判分（过 / 挂二元、免费、确定性）；NLAH 用了其中 125 题，Basic＝75.2%</td></tr>
-<tr><td>OSWorld（跨应用桌面任务族，论文原名）</td><td>公开电脑操作评测集：在真实桌面里点鼠标敲键盘、跨应用干活，只查终态文件 / 配置；NLAH 用了其中 36 题子集，Basic＝41.7%；本 Demo 的 CRM 导出任务即属此类</td></tr>
-<tr><td>Multi-Candidate（多候选，论文打包名）</td><td>对应自家⑤ Sub-Agent Isolation（context-isolated）＋⑬ sensors（verifier+critic）两个开关一起开：多个隔离子 Agent 并行各做一份完整答案，再由评审挑一份发出（挑的是答案，不是挑收件人）；在修代码和跨应用两个任务族上都为负增益，Demo 风洞表第 4 行即此</td></tr>
+<tr><td>SWE-bench Verified（修代码任务族）</td><td>公开代码修复评测集：给 Issue＋代码库，跑单测判分（过 / 挂二元、免费、确定性）；NLAH v2 RQ3 以 GPT-5.4-mini 为模型，Basic＝73.0%</td></tr>
+<tr><td>OSWorld（跨应用桌面任务族，论文原名）</td><td>公开电脑操作评测集：在真实桌面里点鼠标敲键盘、跨应用干活，只查终态文件 / 配置；NLAH v2 RQ3 以 GPT-5.4-mini 为模型，Basic＝44.4%；本 Demo 的 CRM 导出任务即属此类</td></tr>
+<tr><td>Multi-Candidate（多候选，论文打包名）</td><td>对应自家⑤ Sub-Agent Isolation（context-isolated）＋⑬ sensors（verifier+critic）两个开关一起开：多个隔离子 Agent 并行各做一份完整答案，再由评审挑一份发出（挑的是答案，不是挑收件人）；NLAH v2 跨应用小幅为正（+2.8）、写代码侧为负（−1.6），属“分支多不等于控制好”；Demo 风洞表即此行</td></tr>
 <tr><td>Change Card（改动卡；别名 Modification Card 已废弃）</td><td>失败簇的修复提案：改动点（必为 20 模块之一）+ NL 说明 + 确定性 diff + 预测区间（F3-2）</td></tr>
 <tr><td>法律七控件（Legal Controls） / 安全七控件（Security Controls）</td><td>F5 / F6 各自的 7 开关集合，禁裸称“七件套”。Kill-Chain 正典 5 段：Ingress → Lurk → Privilege Escalation → Action Execution → Exfiltration</td></tr>
 <tr><td>Bare Baseline（裸基准；别名 Basic / base / 裸跑）</td><td>20 模块全取默认值（BASE_CONFIG）。Optimizer（⑳）别名 Self-Evolution 仅为 NLAH 论文侧称谓</td></tr>
@@ -1572,7 +1572,7 @@ data/redteam/*                              攻击用例库、安全七控件定
 <tr><td>SWE-agent</td><td>arXiv:2405.15793</td><td>只改 ACI 即可大幅提分（问题 1）</td></tr>
 <tr><td>ReAct</td><td>arXiv:2210.03629</td><td>推理—行动主循环范式</td></tr>
 <tr><td>MAST</td><td>arXiv:2503.13657</td><td>14 类失败标签、κ=0.88</td></tr>
-<tr><td>NLAH 逐模块消融</td><td>arXiv:2603.25723</td><td>模块正负增益、Verifier 在 OSWorld −8.4（F2 预设）</td></tr>
+<tr><td>NLAH 逐模块消融</td><td>arXiv:2603.25723v2（Table 5）</td><td>模块增益（File-backed +13.9、压缩 −8.3、验证器转正 +8.4；F2 预设）</td></tr>
 <tr><td>AutoHarness（DeepMind）</td><td>arXiv:2603.03329</td><td>模型排名随 harness 反转（F2-4）</td></tr>
 <tr><td>Interplay of Harness & Post-Training</td><td>arXiv:2606.25447</td><td>harness 与后训练互相依赖</td></tr>
 <tr><td>Airbnb Beyond Prompts / PRISM</td><td>arXiv:2609.05736</td><td>非 coding 增益 +14.2/+14.9/+10.1；可靠性下尾指标、三数据集、编辑面路由（第 6 章 / F3-7）</td></tr>

@@ -22,23 +22,25 @@ const checks: Check[] = []
 const ck = (name: string, ok: boolean, detail: string) => checks.push({ name, ok, detail })
 const near = (a: number, b: number, eps = 0.051) => Math.abs(a - b) <= eps
 
-// ===== NLAH 消融（workflow 场景，OSWorld 族）=====
+// ===== NLAH 消融 v2（workflow 场景，OSWorld 族，Table 5）=====
 {
   const base = mOf('workflow-crm-export', 'base').successRate
-  ck('NLAH 基线 46.2（示意）', near(base, 46.2), `base = ${base}`)
+  ck('NLAH 基线 44.4（示意）', near(base, 44.4), `base = ${base}`)
   const ver = mOf('workflow-crm-export', 'verifier').successRate
-  ck('NLAH Verifier Δ = −8.4pp', near(ver - base, -8.4), `${base} → ${ver} = ${ver - base}`)
+  ck('NLAH Verifier Δ = +8.4pp（v2 转正）', near(ver - base, 8.4), `${base} → ${ver} = ${ver - base}`)
   const fs = mOf('workflow-crm-export', 'filestate').successRate
-  ck('NLAH File-backed State Δ = +5.5pp', near(fs - base, 5.5), `${base} → ${fs} = ${fs - base}`)
+  ck('NLAH File-backed State Δ = +13.9pp', near(fs - base, 13.9), `${base} → ${fs} = ${fs - base}`)
   const mc = mOf('workflow-crm-export', 'multicand').successRate
-  ck('NLAH Multi-Candidate Δ = −3.1pp（示意）', near(mc - base, -3.1), `${base} → ${mc} = ${mc - base}`)
+  ck('NLAH Multi-Candidate Δ = +2.8pp（示意，OSWorld 小幅为正）', near(mc - base, 2.8), `${base} → ${mc} = ${mc - base}`)
+  const cp = mOf('workflow-crm-export', 'compress').successRate
+  ck('NLAH Budget-only Compression Δ = −8.3pp', near(cp - base, -8.3), `${base} → ${cp} = ${cp - base}`)
 }
 
-// ===== NLAH coding 族：Self-Evolution +4.8 =====
+// ===== NLAH coding 族：Self-Evolution +5.8 (v2) =====
 {
   const base = mOf('coding-terminal-refactor', 'base').successRate
   const se = mOf('coding-terminal-refactor', 'selfevo').successRate
-  ck('NLAH Self-Evolution（SWE 族）Δ = +4.8pp', near(se - base, 4.8), `${base} → ${se} = ${se - base}`)
+  ck('NLAH Self-Evolution（SWE 族）Δ = +5.8pp', near(se - base, 5.8), `${base} → ${se} = ${se - base}`)
 }
 
 // ===== AHE 十代 69.7 → 77.0 =====
