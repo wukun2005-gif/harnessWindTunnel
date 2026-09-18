@@ -157,7 +157,7 @@ body.no-hl .v11-tag{display:none}
 
 <h2>1.1 一句话定位与电梯陈述</h2>
 <p><strong>一句话：</strong>模型是引擎，Harness 是赛道。HarnessWindTunnel 让 Agent 开发者<strong>固定一个模型、一套任务，像吹风洞一样切换「Harness」配法</strong>——透视模型每一步实际看到什么，对 20 个 harness 模块做受控消融与反事实对比，并把一次失败炼成一条经过验证、人来批准、可回滚的Harness 改动。</p>
-<div class="callout c-accent"><p><span class="ct">30 秒电梯陈述</span>2026 年行业共识是 <code>Agent = Model + Harness</code>：模型趋同后，任务能不能可靠做完，越来越取决于模型之外的执行脚手架（主循环、工具面、记忆、上下文压缩、校验器、权限门……）。但现有工具要么只回放单次运行轨迹（LangSmith 类），要么是黑盒自动改 harness 的研究代码（AHE / Harness-R1）。<strong>没有人给开发者一台「风洞」：在上线前用受控实验看清每个模块的边际作用，并在人的批准下让Harness可证伪地进化。</strong>HarnessWindTunnel 补的就是这一格，且默认面向写文档、数据分析、信息调研、跨应用工作流等<strong>非 coding 通用知识任务</strong>。</p></div>
+<div class="callout c-accent"><p><span class="ct">30 秒电梯陈述</span>2026 年行业共识是 <code>Agent = Model + Harness</code>：模型趋同后，任务能不能可靠做完，越来越取决于模型之外的 harness（主循环、工具面、记忆、上下文压缩、校验器、权限门……）。但现有工具要么只回放单次运行轨迹（LangSmith 类），要么是黑盒自动改 harness 的研究代码（AHE / Harness-R1）。<strong>没有人给开发者一台「风洞」：在上线前用受控实验看清每个模块的边际作用，并在人的批准下让Harness可证伪地进化。</strong>HarnessWindTunnel 补的就是这一格，且默认面向写文档、数据分析、信息调研、跨应用工作流等<strong>非 coding 通用知识任务</strong>。</p></div>
 
 <h2>1.2 背景与问题：为什么现在做、为什么值得做</h2>
 <p><strong>问题 1：可靠性瓶颈已从模型转移到模型之外。</strong>前沿模型在 SWE-bench Verified 上差距收窄到约 5 个百分点内；MAST 标注 7 个框架 1600+ 条轨迹归纳出 14 类失败（标注一致性 κ=0.88，arXiv:2503.13657），其中绝大多数是「配置问题」而非「模型笨」。早在 SWE-agent（arXiv:2405.15793）就已证明：固定模型与环境、只改面向 Agent 的接口，就能把 SWE-bench 从 12.5% 拉到当时 SOTA。</p>
@@ -1410,7 +1410,7 @@ Forge 失败聚类 → 生成改动卡</code></pre>
 </tbody></table></div>
 
 <h1>8 技术方案</h1>
-<h2>技术栈（与既有作品及现有脚手架一致）</h2>
+<h2>技术栈（与既有作品及现有 harness 一致）</h2>
 <div class="table-wrap"><table><colgroup><col style="width:22%"><col style="width:30%"><col style="width:48%"></colgroup><thead><tr><th>层</th><th>选型</th><th>用途</th></tr></thead><tbody>
 <tr><td>前端框架</td><td>React 18 + TypeScript + Vite</td><td>三屏单页应用；严格类型，Vite 快速构建</td></tr>
 <tr><td>状态管理</td><td>Zustand</td><td>当前运行 / 选中配置 / 播放步号 / 版本树等全局状态（src/stores）</td></tr>
