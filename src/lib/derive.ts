@@ -35,6 +35,8 @@ export interface DerivedRun {
   globalMarkers: { text: string; kind: string }[]
   finish?: Extract<HarnessEvent, { type: 'run.finished' }>
   start?: Extract<HarnessEvent, { type: 'run.started' }>
+  /** First step carrying a failure tag on a run that never recovers (null = clean or fully recovered). */
+  criticalStep: number | null
 }
 
 const MK: Record<MarkerKind, (d: string, idx: number) => Marker> = {
@@ -144,7 +146,14 @@ export function deriveRun(events: HarnessEvent[]): DerivedRun {
   const globalMarkers: { text: string; kind: string }[] = []
   if (start) globalMarkers.push({ text: `Run started · ${start.model}`, kind: 'shaper' })
   if (finish) globalMarkers.push({ text: finish.success ? 'Run succeeded' : 'Run failed', kind: finish.success ? 'verifier-pass' : 'fail' })
-  return { events, steps: list, globalMarkers, finish, start }
+  // Critical step = earliest tagged step on a run that never recovers.
+  // Tags on a successful run were recovered by definition, so they don't qualify.
+  const tagSteps = events
+    .filter((e): e is Extract<HarnessEvent, { type: 'failure.tag' }> => e.type === 'failure.tag')
+    .map((e) => e.step)
+    .sort((a, b) => a - b)
+  const criticalStep = tagSteps.length > 0 && (!finish || !finish.success) ? tagSteps[0] : null
+  return { events, steps: list, globalMarkers, finish, start, criticalStep }
 }
 
 /** Step-level aligned diff: returns pairs per line (null = missing on one side), plus first divergence line number */

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api'
-import { useT } from '../../i18n'
+import { useT, useFixture } from '../../i18n'
 import { ScreenNav } from '../../components/ScreenNav'
 import { SourceBadge } from '../MRI'
 import { downloadJson } from '../../lib/pack'
@@ -8,9 +8,7 @@ import { paretoFrontier } from '../../../shared/reliability'
 import {
   HONESTY_NOTE,
   KILL_CHAIN,
-  KILL_CHAIN_LABEL,
   SECURITY_CONTROLS,
-  SECURITY_CONTROL_LABEL,
   type AttackCase,
   type ControlPoint,
   type RedteamBundle,
@@ -68,7 +66,7 @@ export default function Security() {
   if (!bundle) {
     return (
       <div className="page">
-        <div className="screen-head"><span className="no">SECURITY</span><h1>{t('sec.title')}</h1></div>
+        <div className="screen-head"><span className="no">{t('security.eyebrow')}</span><h1>{t('sec.title')}</h1></div>
         <ScreenNav current="/security" />
         <div className="panel loading">{failed ? t('sec.error') : t('sec.loading')}</div>
       </div>
@@ -82,7 +80,7 @@ export default function Security() {
   return (
     <div className="page">
       <div className="screen-head">
-        <span className="no">SECURITY</span>
+        <span className="no">{t('security.eyebrow')}</span>
         <h1>{t('sec.title')}</h1>
         <span className="q">{t('sec.subtitle')}</span>
       </div>
@@ -94,7 +92,7 @@ export default function Security() {
           <Honesty />
         </div>
         <div>
-          <Ablation bundle={bundle} sel={sel} setSel={setSel} matched={matched} exact={exact} frontier={frontier} setPolicyId={setPolicyId} />
+          <Ablation bundle={bundle} sel={sel} setSel={setSel} matched={matched} exact={exact} frontier={frontier} selectedId={policyId} setPolicyId={setPolicyId} />
           <Policy point={policyPoint} points={bundle.controls.points} setPolicyId={setPolicyId} approved={approved} setApproved={setApproved} />
         </div>
       </div>
@@ -105,27 +103,28 @@ export default function Security() {
 /** F6-1 kill-chain flow with blast radius. */
 function KillChain({ attack, attacks, select }: { attack: AttackCase; attacks: AttackCase[]; select: (id: string) => void }) {
   const t = useT()
+  const f = useFixture()
   return (
-    <div className="panel">
+    <div className="panel" data-demo="kill">
       <h3>{t('sec.kill.title')} <span className="tag">{t('sec.kill.tag')}</span></h3>
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         {attacks.map((c) => (
           <button key={c.id} className={c.id === attack.id ? 'active-btn' : ''} style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => select(c.id)}>
-            {c.title}
+            {f(c.title)}
           </button>
         ))}
       </div>
-      <div className="faint" style={{ marginBottom: 8 }}>{attack.tactic}</div>
+      <div className="faint" style={{ marginBottom: 8 }}>{f(attack.tactic)}</div>
       {KILL_CHAIN.map((stage) => {
         const s = attack.stages.find((x) => x.stage === stage)!
         const bad = s.status === 'breached'
         return (
           <div key={stage} style={{ display: 'flex', gap: 10, alignItems: 'baseline', padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-            <span className="mono" style={{ width: 150, fontSize: 12 }}>{KILL_CHAIN_LABEL[stage]}</span>
+            <span className="mono" style={{ width: 150, fontSize: 12 }}>{t(`security.stage.${stage}`)}</span>
             <span style={{ fontSize: 12, fontWeight: 600, color: bad ? 'var(--red)' : 'var(--green)', width: 80 }}>
               {bad ? t('sec.kill.breached') : t('sec.kill.blocked')}
             </span>
-            <span className="faint" style={{ flex: 1 }}>{s.note}</span>
+            <span className="faint" style={{ flex: 1 }}>{f(s.note)}</span>
           </div>
         )
       })}
@@ -135,29 +134,31 @@ function KillChain({ attack, attacks, select }: { attack: AttackCase; attacks: A
           <span key={b} className="tl-mark mk-fail" style={{ position: 'static', display: 'inline-block', transform: 'none', marginRight: 4 }}>{b}</span>
         ))}
       </div>
-      <div className="faint" style={{ marginTop: 6 }}>{attack.mapping}</div>
+      <div className="faint" style={{ marginTop: 6 }}>{f(attack.mapping)}</div>
     </div>
   )
 }
 
 /** F6-2 controls ablation with computed 3D Pareto. */
-function Ablation({ bundle, sel, setSel, matched, exact, frontier, setPolicyId }: {
+function Ablation({ bundle, sel, setSel, matched, exact, frontier, selectedId, setPolicyId }: {
   bundle: RedteamBundle
   sel: Record<SecurityControl, boolean>
   setSel: (s: Record<SecurityControl, boolean>) => void
   matched: ControlPoint
   exact: boolean
   frontier: Set<string>
+  selectedId: string
   setPolicyId: (id: string) => void
 }) {
   const t = useT()
+  const f = useFixture()
   const W = 560
   const H = 200
   const P = 40
   const px = (u: number) => P + ((u - 40) / 60) * (W - P - 16)
   const py = (a: number) => 14 + (a / 100) * (H - P - 14)
   return (
-    <div className="panel" style={{ overflowX: 'auto' }}>
+    <div className="panel" style={{ overflowX: 'auto' }} data-demo="pareto">
       <h3>{t('sec.ablation.title')} <span className="tag">{t('sec.ablation.tag')}</span></h3>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         {SECURITY_CONTROLS.map((c) => (
@@ -165,13 +166,13 @@ function Ablation({ bundle, sel, setSel, matched, exact, frontier, setPolicyId }
             key={c}
             className={sel[c] ? 'active-btn' : ''}
             style={{ padding: '2px 10px', fontSize: 12 }}
-            title={SECURITY_CONTROL_LABEL[c]}
+            title={t(`security.control.${c}`)}
             onClick={() => setSel({ ...sel, [c]: !sel[c] })}
-          >{SECURITY_CONTROL_LABEL[c]}</button>
+          >{t(`security.control.${c}`)}</button>
         ))}
       </div>
       <div className="faint" style={{ marginBottom: 6 }}>
-        {t('sec.ablation.matched', { label: matched.label })}{' '}
+        {t('sec.ablation.matched', { label: f(matched.label) })}{' '}
         {!exact && <span style={{ color: 'var(--amber)' }}>{t('sec.ablation.nearest')}</span>}
       </div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }}>
@@ -182,13 +183,13 @@ function Ablation({ bundle, sel, setSel, matched, exact, frontier, setPolicyId }
         {bundle.controls.points.map((p) => (
           <g key={p.id} onClick={() => setPolicyId(p.id)} style={{ cursor: 'pointer' }}>
             <circle
-              cx={px(p.utility)} cy={py(p.asr)} r={p.id === matched.id ? 8 : 3 + (p.friction / 100) * 8}
+              cx={px(p.utility)} cy={py(p.asr)} r={(p.id === matched.id ? 8 : 3 + (p.friction / 100) * 8) + (p.id === selectedId ? 2 : 0)}
               fill={p.id === matched.id ? 'var(--accent)' : 'var(--text-faint)'}
-              opacity={p.id === matched.id ? 0.9 : 0.55}
-              stroke={frontier.has(p.id) ? 'var(--green)' : 'none'}
+              opacity={p.id === matched.id || p.id === selectedId ? 0.9 : 0.55}
+              stroke={p.id === selectedId ? 'var(--accent)' : frontier.has(p.id) ? 'var(--green)' : 'none'}
               strokeWidth={2}
             />
-            <text x={px(p.utility) + 10} y={py(p.asr) + 4} fill="var(--text-dim)" fontSize="11">{p.label}</text>
+            <text x={px(p.utility) + 10} y={py(p.asr) + 4} fill="var(--text-dim)" fontSize="11">{f(p.label)}</text>
           </g>
         ))}
       </svg>
@@ -197,9 +198,12 @@ function Ablation({ bundle, sel, setSel, matched, exact, frontier, setPolicyId }
         <thead><tr><th>{t('sec.ablation.combo')}</th><th className="num">ASR ↓</th><th className="num">{t('sec.ablation.utility')}</th><th className="num">{t('sec.ablation.friction')}</th><th /></tr></thead>
         <tbody>
           {bundle.controls.points.map((p) => (
-            <tr key={p.id} style={p.id === matched.id ? { background: 'rgba(34,211,238,.06)' } : undefined}>
+            <tr key={p.id} style={{
+              ...(p.id === matched.id ? { background: 'rgba(34,211,238,.06)' } : {}),
+              ...(p.id === selectedId ? { outline: '1px solid var(--accent)', outlineOffset: -1 } : {}),
+            }}>
               <td>
-                {p.label}
+                {f(p.label)}
                 {frontier.has(p.id) && <span style={{ color: 'var(--green)', fontSize: 11 }}> ◆</span>}
               </td>
               <td className="num">{p.asr.toFixed(1)}%</td>
@@ -212,11 +216,11 @@ function Ablation({ bundle, sel, setSel, matched, exact, frontier, setPolicyId }
       </table>
       <div className="faint" style={{ marginTop: 10 }}>{t('sec.stories.title')}</div>
       {bundle.controls.stories.map((s) => (
-        <div key={s.id} style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>· {s.text}</div>
+        <div key={s.id} style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>· {f(s.text)}</div>
       ))}
       <div className="faint" style={{ marginTop: 8 }}>{t('sec.refs.title')}</div>
       {bundle.controls.references.map((r) => (
-        <div key={r.name} style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>· {r.name}: <b className="mono">{r.value}</b> <span className="faint">({r.citation})</span></div>
+        <div key={r.name} style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>· {f(r.name)}: <b className="mono">{r.value}</b> <span className="faint">({r.citation})</span></div>
       ))}
       <div style={{ marginTop: 6 }}>{bundle.controls.source.map((s, i) => <span key={i} style={{ marginRight: 6 }}><SourceBadge source={s as never} /></span>)}</div>
     </div>
@@ -233,7 +237,7 @@ function buildPolicy(p: ControlPoint): Record<string, unknown> {
   const refuse = [...(dlp ? ['*.external', 'payout.unlisted'] : []), ...(sandbox ? [] : ['shell.exec'])]
   const rego = [
     'package agent.authz', '',
-    '# generated from Pareto point (fixture demo)',
+    '# generated from Pareto point',
     'default allow = false', '',
     ...scopes.map((s) => `allow { input.scope == "${s}" }`),
     ...ask.map((a) => `ask { input.tool == "${a}" }`),
@@ -262,17 +266,18 @@ function Policy({ point, points, setPolicyId, approved, setApproved }: {
   setApproved: (a: Record<string, boolean>) => void
 }) {
   const t = useT()
+  const f = useFixture()
   const policy = useMemo(() => buildPolicy(point), [point])
   const items = Object.keys(policy)
   const key = (item: string) => `${point.id}:${item}`
   const allOk = items.every((item) => approved[key(item)])
   return (
-    <div className="panel">
+    <div className="panel" data-demo="policy">
       <h3>{t('sec.policy.title')} <span className="tag">{t('sec.policy.tag')}</span></h3>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <span className="faint">{t('sec.policy.point')}</span>
         <select value={point.id} onChange={(e) => setPolicyId(e.target.value)}>
-          {points.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+          {points.map((p) => <option key={p.id} value={p.id}>{f(p.label)}</option>)}
         </select>
       </div>
       {items.map((item) => (
@@ -281,7 +286,7 @@ function Policy({ point, points, setPolicyId, approved, setApproved }: {
             <input type="checkbox" checked={!!approved[key(item)]} onChange={(e) => setApproved({ ...approved, [key(item)]: e.target.checked })} />
             <b className="mono">{item}</b>
           </label>
-          <pre className="code-diff" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{JSON.stringify(policy[item], null, 1)}</pre>
+          <pre className="code-diff" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{typeof policy[item] === 'string' ? policy[item] as string : JSON.stringify(policy[item], null, 1)}</pre>
         </div>
       ))}
       <button

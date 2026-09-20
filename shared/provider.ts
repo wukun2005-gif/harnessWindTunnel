@@ -1,69 +1,75 @@
-// F4-6 online provider settings (PRD v1.1, docStudio architecture in spirit).
-// Secrets policy: the server keyStore holds raw apiKeys in memory only and
-// NEVER persists, logs, or returns them. The client persists everything
-// EXCEPT the key (localStorage); the key lives in the edit form state and is
-// sent once to the keyStore on save. Connections reference keys by apiKeyRef.
+// F4-6 online provider settings (PRD v1.1): ported from docStudio.
+// Mirrors docStudio shared/src/types/provider.ts (ProviderConfig + presets) and
+// client/src/components/Settings.tsx (13 always-rendered cards).
+// Persistence mirrors docStudio: the raw apiKey is sent to the server settings
+// store (server-data/settings.json, provider_all + legacy provider_{id} rows)
+// and echoed back on load. Secrets never enter HarnessEvents, logs, or exports.
 
-export interface VendorPreset {
-  id: string
-  name: string
-  baseUrl: string
-  keyPlaceholder: string
-  models: string[]
+export type ProviderId =
+  | "kimi" | "glm" | "minimax" | "mimo" | "deepseek" | "gemini"
+  | "qwen" | "bedrock" | "openrouter" | "opencode" | "volcengine" | "bailian";
+
+export interface ModelInfo {
+  id: string;
+  recommendation?: string;
+  rpm?: number;
+  rpd?: number;
+  tpm?: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  isReasoning?: boolean;
+  supportsVision?: boolean;
+  supportsStructuredOutput?: boolean;
+  supportsFunctionCalling?: boolean;
 }
 
-export const VENDOR_PRESETS: VendorPreset[] = [
-  { id: 'kimi', name: 'Kimi', baseUrl: 'https://api.moonshot.cn/v1', keyPlaceholder: 'sk-… (Moonshot)', models: ['kimi-k2', 'kimi-k2-thinking'] },
-  { id: 'glm', name: 'GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', keyPlaceholder: '… (Zhipu)', models: ['glm-4.6', 'glm-4.5'] },
-  { id: 'minimax', name: 'MiniMax', baseUrl: 'https://api.minimax.io/v1', keyPlaceholder: '… (MiniMax)', models: ['MiniMax-M2', 'MiniMax-M1'] },
-  { id: 'mimo', name: 'MiMo', baseUrl: 'https://api.xiaomimimo.com/v1', keyPlaceholder: '… (Xiaomi MiMo)', models: ['mimo-7b', 'mimo-flash'] },
-  { id: 'deepseek', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', keyPlaceholder: 'sk-… (DeepSeek)', models: ['deepseek-chat', 'deepseek-reasoner'] },
-  { id: 'gemini', name: 'Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyPlaceholder: 'AI… (Google AI Studio)', models: ['gemini-3-pro', 'gemini-3-flash'] },
-  { id: 'qwen', name: 'Qwen', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', keyPlaceholder: 'sk-… (Alibaba Bailian)', models: ['qwen3-max', 'qwen3-flash'] },
-  { id: 'bedrock', name: 'Bedrock', baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1', keyPlaceholder: '… (AWS Bedrock)', models: ['claude-5-class', 'nova-pro'] },
-  { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', keyPlaceholder: 'sk-or-…', models: ['openrouter/auto'] },
-  { id: 'opencode', name: 'OpenCode', baseUrl: 'https://opencode.ai/api/v1', keyPlaceholder: '… (OpenCode)', models: ['opencode-default'] },
-  { id: 'volcengine', name: 'Volcengine', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', keyPlaceholder: '… (Huoshang)', models: ['doubao-seed-1.6', 'doubao-seed-flash'] },
-  { id: 'bailian', name: 'Bailian', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', keyPlaceholder: 'sk-… (Bailian)', models: ['qwen-plus', 'qwen-turbo'] },
-]
-
-export const CUSTOM_PRESET_ID = 'custom'
-
-export function customPreset(baseUrl: string): VendorPreset {
-  return { id: CUSTOM_PRESET_ID, name: 'Custom (OpenAI Compatible)', baseUrl, keyPlaceholder: 'sk-… / any token', models: ['custom-model'] }
+/** Provider config, docStudio ProviderConfig shape (client + server agree). */
+export interface ProviderConfig {
+  providerId: string;
+  apiKey?: string;
+  apiKeyRef?: string;
+  baseUrl?: string;
+  defaultModelId?: string;
+  modelIds?: string[];
+  modelFallbacks?: string[];
+  enabled: boolean;
+  enableModelFallback?: boolean;
 }
 
-export interface ProviderConnection {
-  /** Stable id: vendor preset id, or `custom-<n>` for extra endpoints. */
-  id: string
-  vendorId: string
-  name: string
-  baseUrl: string
-  /** Reference into the server keyStore; the raw key is never stored here. */
-  apiKeyRef: string | null
-  models: string[]
-  defaultModel: string
-  /** Ordered fallback chain (subset of models, first = primary after default). */
-  fallback: string[]
-  enabled: boolean
-  collapsed?: boolean
+export interface AppSettings {
+  providers: ProviderConfig[];
+  enableProviderFallback?: boolean;
 }
+
+export interface PresetProvider {
+  id: string;
+  name: string;
+  nameEn?: string;
+  defaultBaseUrl: string;
+  keyPlaceholder: string;
+  desc: string;
+  descEn?: string;
+}
+
+/** All 13 cards are always rendered (docStudio has no add-provider flow). */
+export const PRESET_PROVIDERS: PresetProvider[] = [
+  { id: "gemini", name: "Gemini (Google)", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", keyPlaceholder: "AIza...", desc: "Google Gemini 系列", descEn: "Google Gemini series" },
+  { id: "openrouter", name: "OpenRouter", defaultBaseUrl: "https://openrouter.ai/api/v1", keyPlaceholder: "sk-or-...", desc: "多模型聚合平台", descEn: "Multi-model aggregation platform" },
+  { id: "deepseek", name: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com/v1", keyPlaceholder: "sk-...", desc: "DeepSeek AI" },
+  { id: "qwen", name: "Qwen (通义千问)", nameEn: "Qwen (Tongyi)", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", keyPlaceholder: "sk-...", desc: "阿里通义千问", descEn: "Alibaba Tongyi Qianwen" },
+  { id: "kimi", name: "Kimi (月之暗面)", nameEn: "Kimi (Moonshot)", defaultBaseUrl: "https://api.moonshot.cn/v1", keyPlaceholder: "sk-...", desc: "月之暗面 Kimi", descEn: "Moonshot AI Kimi" },
+  { id: "glm", name: "GLM (智谱)", nameEn: "GLM (Zhipu)", defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4", keyPlaceholder: "...", desc: "智谱 GLM", descEn: "Zhipu GLM" },
+  { id: "minimax", name: "MiniMax", defaultBaseUrl: "https://api.minimax.chat/v1", keyPlaceholder: "eyJhb...", desc: "MiniMax AI" },
+  { id: "opencode", name: "OpenCode", defaultBaseUrl: "https://opencode.ai/v1", keyPlaceholder: "sk-...", desc: "OpenCode AI" },
+  { id: "mimo", name: "MiMo (Xiaomi)", defaultBaseUrl: "https://api.xiaomi.com/v1", keyPlaceholder: "tp-...", desc: "小米 MiMo", descEn: "Xiaomi MiMo" },
+  { id: "volcengine", name: "Volcengine (火山引擎)", nameEn: "Volcengine", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", keyPlaceholder: "ark-...", desc: "火山引擎豆包", descEn: "Volcengine Doubao" },
+  { id: "bailian", name: "Bailian (百炼/阿里)", nameEn: "Bailian (Alibaba)", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", keyPlaceholder: "sk-...", desc: "阿里百炼", descEn: "Alibaba Bailian" },
+  { id: "bedrock", name: "AWS Bedrock", defaultBaseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com", keyPlaceholder: "AWS access key ID", desc: "Amazon Bedrock" },
+  { id: "custom", name: "Custom (OpenAI Compatible)", defaultBaseUrl: "", keyPlaceholder: "sk-...", desc: "自定义 OpenAI 兼容端点", descEn: "Custom OpenAI-compatible endpoint" },
+];
+
+export const CUSTOM_PRESET_ID = "custom";
 
 export function trimBaseUrl(u: string): string {
-  return u.trim().replace(/\/+$/, '')
-}
-
-export function blankConnection(vendor: VendorPreset, n = 0): ProviderConnection {
-  const id = vendor.id === CUSTOM_PRESET_ID ? `${CUSTOM_PRESET_ID}-${Date.now().toString(36)}${n ? `-${n}` : ''}` : vendor.id
-  return {
-    id,
-    vendorId: vendor.id,
-    name: vendor.name,
-    baseUrl: vendor.baseUrl,
-    apiKeyRef: null,
-    models: [...vendor.models],
-    defaultModel: vendor.models[0] ?? '',
-    fallback: vendor.models.slice(1),
-    enabled: true,
-  }
+  return u.trim().replace(/\/+$/, "");
 }

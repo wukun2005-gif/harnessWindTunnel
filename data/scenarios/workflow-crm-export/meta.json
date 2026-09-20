@@ -456,7 +456,7 @@
       ],
       "source": {
         "kind": "fixture",
-        "label": "Illustrative: filestate locks scope → verifier passes first try → hooks guard mail.send; all components from MRI demo"
+        "label": "Illustrative: filestate locks scope → verifier passes first try → hooks guard mail.send; all components visible in Run Insight"
       }
     }
   }

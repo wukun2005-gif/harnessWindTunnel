@@ -274,12 +274,3 @@ async function stepTo(target: number) {
     useForge.setState({ currentGen: s.currentGen + 1 })
   }, 700)
 }
-
-// ---------- Demo ----------
-interface DemoState { step: number; next: () => void; prev: () => void; setStep: (n: number) => void }
-export const useDemo = create<DemoState>((set) => ({
-  step: 0,
-  next: () => set((s) => ({ step: Math.min(s.step + 1, 11) })),
-  prev: () => set((s) => ({ step: Math.max(s.step - 1, 0) })),
-  setStep: (n) => set({ step: n }),
-}))

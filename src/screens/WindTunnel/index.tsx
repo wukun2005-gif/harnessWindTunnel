@@ -28,6 +28,7 @@ export default function WindTunnel() {
   const T = useTunnel()
   const meta = metas[current]
   const t = useT()
+  const f = useFixture()
   const nlahRef = useRef<HTMLInputElement>(null)
   const [nlahMsg, setNlahMsg] = useState<string | null>(null)
   const [nlahErr, setNlahErr] = useState(false)
@@ -61,7 +62,7 @@ export default function WindTunnel() {
   return (
     <div className="page">
       <div className="screen-head">
-        <span className="no">SCREEN 02</span>
+        <span className="no">{t('tunnel.eyebrow')}</span>
         <h1>{t('tunnel.title')}</h1>
         <span className="q">{t('tunnel.subtitle')}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -75,24 +76,31 @@ export default function WindTunnel() {
 
       <div className="grid-tunnel">
         <div>
-          <div className="panel">
+          <div className="panel" data-demo="board">
             <h3>{t('tunnel.board.title')} <span className="tag">{t('tunnel.board.tag')}</span></h3>
-            {COMPONENT_GROUPS.map((g) => (
+            {COMPONENT_GROUPS.map((g) => {
+              const groupKey: Record<string, string> = {
+                'Runtime Core': 'tunnel.group.runtime',
+                'State & Memory': 'tunnel.group.state',
+                'Constraints & Safety': 'tunnel.group.safety',
+                'Evolution & Resilience': 'tunnel.group.evolution',
+              }
+              return (
               <div className="cgroup" key={g.group}>
-                <div className="cgroup-title">{g.group}</div>
-                {g.fields.map((f) => {
-                  const m = COMPONENT_META[f]
-                  const changed = T.config[f] !== BASE_CONFIG[f]
+                <div className="cgroup-title">{t(groupKey[g.group] ?? '', {}) !== groupKey[g.group] ? t(groupKey[g.group]) : g.group}</div>
+                {g.fields.map((field) => {
+                  const m = COMPONENT_META[field]
+                  const changed = T.config[field] !== BASE_CONFIG[field]
                   return (
-                    <div className={`comp-row ${changed ? 'changed' : ''}`} key={f}>
+                    <div className={`comp-row ${changed ? 'changed' : ''}`} key={field}>
                       <span className="dot" />
-                      <span className="clabel" title={f}>{m.label}</span>
-                      <select value={T.config[f]} onChange={(e) => T.setField(f as ConfigField, e.target.value)}>
+                      <span className="clabel" title={field}>{m.label}</span>
+                      <select value={T.config[field]} onChange={(e) => T.setField(field as ConfigField, e.target.value)}>
                         {m.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                       {m.evidence && (
                         <div className="comp-ev">
-                          <b>{m.label}</b><br />{m.evidence}
+                          <b>{m.label}</b><br />{f(m.evidence)}
                           {m.enforced && <><br /><span style={{ color: 'var(--amber)' }}>{t('tunnel.board.enforced')}</span>{t('tunnel.board.soft')}</>}
                         </div>
                       )}
@@ -100,7 +108,8 @@ export default function WindTunnel() {
                   )
                 })}
               </div>
-            ))}
+              )
+            })}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button
                 className="primary"
@@ -197,12 +206,12 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
   }
 
   return (
-    <div className="panel" style={{ overflowX: 'auto' }}>
+    <div className="panel" style={{ overflowX: 'auto' }} data-demo="readings">
       <h3>{t('tunnel.readings.title')} <span className="tag">{t('tunnel.readings.tag')}</span>{T.fetching && <span className="faint">{t('tunnel.readings.fetching')}</span>}</h3>
-      <div style={{ display: 'flex', gap: 8, margin: '6px 0 10px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, margin: '6px 0 10px', alignItems: 'center', flexWrap: 'wrap' }} data-demo="presets">
         <span className="faint">{t('tunnel.readings.quickload')}</span>
         {PRESETS.filter((p) => p.id === 'nlah-ablation' || p.id === 'harness-r1-regress' || p.id === 'minimal-rich-pairs').map((p) => (
-          <button key={p.id} className="primary" style={{ padding: '2px 10px', fontSize: 12 }} title={p.tagline} onClick={() => { select(p.scenarioId); T.loadPresetVariants(p.scenarioId, p.variants) }}>▶ {p.title}</button>
+          <button key={p.id} className="primary" style={{ padding: '2px 10px', fontSize: 12 }} title={f(p.tagline)} onClick={() => { select(p.scenarioId); T.loadPresetVariants(p.scenarioId, p.variants) }}>▶ {f(p.title)}</button>
         ))}
         <span style={{ flex: 1 }} />
         <button style={{ padding: '2px 10px', fontSize: 12 }} onClick={onExport} disabled={rows.length === 0}>{t('tunnel.export')}</button>
@@ -225,8 +234,8 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
             return (
             <tr key={v.key}>
               <td style={{ minWidth: 140 }}>
-                <span style={{ color: v.color }}>■</span> {label(v.label)}
-                {v.note && <div className="faint">{v.note}</div>}
+                <span style={{ color: v.color }}>■</span> {f(label(v.label))}
+                {v.note && <div className="faint">{f(v.note)}</div>}
                 {!m?.exact && m && <div className="faint" style={{ color: 'var(--amber)' }}>{t('tunnel.readings.approximate', { distance: m.distance ?? '?' })}</div>}
               </td>
               <td style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'normal', minWidth: 220 }}>
@@ -235,7 +244,7 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
                     {changedFields.map((k) => {
                       const cur = v.config[k]
                       const dimmed = consensus.has(k)
-                      return <span key={k} style={{ whiteSpace: 'nowrap', opacity: dimmed ? 0.5 : 1 }} title={dimmed ? '与其他所有对照相同' : undefined}><span className="mono" style={{ color: dimmed ? 'var(--text-faint)' : 'var(--text)', fontWeight: dimmed ? undefined : 600 }} title={k}>{COMPONENT_META[k].label}</span> <span style={{ color: 'var(--red)', textDecoration: 'line-through' }}>{BASE_CONFIG[k]}</span> → <span style={{ color: 'var(--green)', fontWeight: dimmed ? undefined : 600 }}>{cur}</span></span>
+                      return <span key={k} style={{ whiteSpace: 'nowrap', opacity: dimmed ? 0.5 : 1 }} title={dimmed ? t('tunnel.diff.sameAll') : undefined}><span className="mono" style={{ color: dimmed ? 'var(--text-faint)' : 'var(--text)', fontWeight: dimmed ? undefined : 600 }} title={k}>{COMPONENT_META[k].label}</span> <span style={{ color: 'var(--red)', textDecoration: 'line-through' }}>{BASE_CONFIG[k]}</span> → <span style={{ color: 'var(--green)', fontWeight: dimmed ? undefined : 600 }}>{cur}</span></span>
                     })}
                   </div>
                 )}
@@ -246,7 +255,7 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
               <td className="num" style={{ fontWeight: 600, color: m ? colorFor(m.latencyP50, best.latency, worst.latency, false) : undefined }}>{m ? fmtMs(m.latencyP50) : ''}</td>
               <td style={{ fontWeight: 600, color: m ? colorFor(fc, best.failures, worst.failures, false) : undefined }}>
                 {m && Object.entries(m.failureModes).map(([k, c]) => (
-                  <span key={k} className="tl-mark mk-fail" style={{ position: 'static', display: 'inline-block', transform: 'none', marginRight: 4 }} title={f(MAST_LABEL[k as keyof typeof MAST_LABEL])}>{k}×{c}</span>
+                  <span key={k} className="tl-mark mk-fail" style={{ position: 'static', display: 'inline-block', transform: 'none', marginRight: 4 }} title={f(MAST_LABEL[k as keyof typeof MAST_LABEL])}>{f(MAST_LABEL[k as keyof typeof MAST_LABEL])}×{c}</span>
                 ))}
               </td>
               <td>{m && <SourceBadge source={m.source as never} />}</td>
@@ -266,7 +275,7 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
         <>
           <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.matrix.title')}</div>
           <table className="t" style={{ width: 'max-content' }}>
-            <thead><tr><th>{t('tunnel.matrix.mode')}</th>{rows.map(({ v }) => <th key={v.key} className="num">{label(v.label)}</th>)}</tr></thead>
+            <thead><tr><th>{t('tunnel.matrix.mode')}</th>{rows.map(({ v }) => <th key={v.key} className="num">{f(label(v.label))}</th>)}</tr></thead>
             <tbody>
               {allModes.map((k) => (
                 <tr key={k}>
@@ -300,6 +309,7 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
 function LowerTail({ scenarioId }: { scenarioId: string }) {
   const label = useVariantLabel()
   const t = useT()
+  const f = useFixture()
   const T = useTunnel()
   const rows = T.variants.map((v) => ({ v, m: T.metrics[v.key] }))
   const lockedKey = T.lockedKey ?? rows[0]?.v.key
@@ -310,7 +320,7 @@ function LowerTail({ scenarioId }: { scenarioId: string }) {
   }
   return (
     <>
-      <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.lowertail.title')} <span className="tag">{t('tunnel.lowertail.tag')}</span></div>
+      <div className="faint" style={{ margin: '12px 0 6px' }} data-demo="lowertail">{t('tunnel.lowertail.title')} <span className="tag">{t('tunnel.lowertail.tag')}</span></div>
       <table className="t" style={{ width: 'max-content' }}>
         <thead><tr><th>{t('tunnel.readings.config')}</th><th className="num">MeanLift</th><th className="num">WorstLift</th><th className="num">RR₀</th><th className="num">RelLift₉₅</th><th>{t('tunnel.lowertail.verdict')}</th></tr></thead>
         <tbody>
@@ -318,7 +328,7 @@ function LowerTail({ scenarioId }: { scenarioId: string }) {
             if (v.key === lockedKey) {
               return (
                 <tr key={v.key}>
-                  <td><span style={{ color: v.color }}>■</span> {label(v.label)}</td>
+                  <td><span style={{ color: v.color }}>■</span> {f(label(v.label))}</td>
                   <td className="num" colSpan={4} style={{ color: 'var(--text-faint)' }}>—</td>
                   <td><b style={{ color: 'var(--accent)', fontSize: 12 }}>◉ {t('tunnel.baseline.locked')}</b></td>
                 </tr>
@@ -332,7 +342,7 @@ function LowerTail({ scenarioId }: { scenarioId: string }) {
             if (!stats) {
               return (
                 <tr key={v.key}>
-                  <td><span style={{ color: v.color }}>■</span> {label(v.label)}</td>
+                  <td><span style={{ color: v.color }}>■</span> {f(label(v.label))}</td>
                   <td className="num" colSpan={4} style={{ color: 'var(--text-faint)' }}>…</td>
                   <td className="faint">{t('tunnel.lowertail.noruns')}</td>
                 </tr>
@@ -361,6 +371,7 @@ function LowerTail({ scenarioId }: { scenarioId: string }) {
 function Pareto({ rows }: { rows: { v: { key: string; label: string; color: string }; m?: VariantMetrics }[] }) {
   const label = useVariantLabel()
   const t = useT()
+  const f = useFixture()
   const pts = rows.filter((r) => r.m)
   if (pts.length < 2) return null
   const W = 560, H = 170, P = 36
@@ -379,7 +390,7 @@ function Pareto({ rows }: { rows: { v: { key: string; label: string; color: stri
       {pts.map(({ v, m }) => (
         <g key={v.key}>
           <circle cx={px(m!.tokens)} cy={py(m!.successRate)} r={6} fill={v.color} />
-          <text x={px(m!.tokens) + 9} y={py(m!.successRate) + 4} fill="var(--text-dim)" fontSize="11">{label(v.label)} · {m!.successRate.toFixed(1)}%</text>
+          <text x={px(m!.tokens) + 9} y={py(m!.successRate) + 4} fill="var(--text-dim)" fontSize="11">{f(label(v.label))} · {m!.successRate.toFixed(1)}%</text>
         </g>
       ))}
     </svg>
@@ -388,11 +399,18 @@ function Pareto({ rows }: { rows: { v: { key: string; label: string; color: stri
 
 function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
   const t = useT()
+  const f = useFixture()
+  const branchName = (id: string) => { const k = `mri.branch.${id}`; const v = t(k); return v === k ? id : v }
   const [pair, setPair] = useState<[string, string] | null>(null)
   const [data, setData] = useState<{ a: ReturnType<typeof deriveRun>; b: ReturnType<typeof deriveRun> } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [left, setLeft] = useState<string>('')
+  const [right, setRight] = useState<string>('')
+  // Auto-load the default pair so the panel never sits empty on entry.
+  const loadedFor = useRef<string | null>(null)
 
-  useEffect(() => { setPair(null); setData(null) }, [meta?.scenarioId])
+  useEffect(() => { setPair(null); setData(null); setError(null); setLeft(''); setRight(''); loadedFor.current = null }, [meta?.scenarioId])
 
   // Generate all valid pairs from branches with files
   const branches = (meta?.branches ?? []).filter((b) => b.file)
@@ -402,8 +420,6 @@ function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
       allPairs.push([branches[i].branchId, branches[j].branchId])
     }
   }
-  const [left, setLeft] = useState<string>('')
-  const [right, setRight] = useState<string>('')
   // Initialize selectors: prefer the scenario's declared first diff pair,
   // so branch display order never silently changes the default comparison.
   useEffect(() => {
@@ -414,9 +430,6 @@ function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
       else { setLeft(allPairs[0][0]); setRight(allPairs[0][1]) }
     }
   }, [allPairs])
-  // Auto-load the default pair so arrivals from the Demo tour land on a
-  // visible diff instead of an empty panel waiting on Compare.
-  const loadedFor = useRef<string | null>(null)
   useEffect(() => {
     if (!meta || data || loading) return
     if (loadedFor.current === meta.scenarioId) return
@@ -428,13 +441,18 @@ function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
 
   const load = async (p: [string, string]) => {
     if (!meta) return
-    setPair(p); setLoading(true)
-    const [ra, rb] = await Promise.all([
-      api.replayBranch(meta.scenarioId, p[0]),
-      api.replayBranch(meta.scenarioId, p[1]),
-    ])
-    setData({ a: deriveRun(ra.events as HarnessEvent[]), b: deriveRun(rb.events as HarnessEvent[]) })
-    setLoading(false)
+    setPair(p); setLoading(true); setError(null)
+    try {
+      const [ra, rb] = await Promise.all([
+        api.replayBranch(meta.scenarioId, p[0]),
+        api.replayBranch(meta.scenarioId, p[1]),
+      ])
+      setData({ a: deriveRun(ra.events as HarnessEvent[]), b: deriveRun(rb.events as HarnessEvent[]) })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const loadSelected = () => { if (left && right && left !== right) load([left, right]) }
@@ -443,30 +461,31 @@ function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
   const firstDiverge = rows.findIndex((r) => !r.same)
 
   return (
-    <div className="panel">
+    <div className="panel" data-demo="diff">
       <h3>{t('tunnel.diff.panel.title')} <span className="tag">{t('tunnel.diff.panel.tag')}</span></h3>
       {branches.length < 2 && <div className="faint">{t('tunnel.diff.empty')}</div>}
       {branches.length >= 2 && (
         <>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
             <select value={left} onChange={(e) => setLeft(e.target.value)}>
-              {branches.map((b) => <option key={b.branchId} value={b.branchId}>{b.branchId}</option>)}
+              {branches.map((b) => <option key={b.branchId} value={b.branchId}>{branchName(b.branchId)}</option>)}
             </select>
             <span className="faint">vs</span>
             <select value={right} onChange={(e) => setRight(e.target.value)}>
-              {branches.map((b) => <option key={b.branchId} value={b.branchId}>{b.branchId}</option>)}
+              {branches.map((b) => <option key={b.branchId} value={b.branchId}>{branchName(b.branchId)}</option>)}
             </select>
             <button className="primary" style={{ padding: '3px 12px', fontSize: 12 }} onClick={loadSelected} disabled={left === right}>{t('tunnel.diff.compare') || 'Compare'}</button>
           </div>
         </>
       )}
       {loading && <div className="faint">{t('tunnel.diff.loading')}</div>}
+      {error && !loading && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 6 }}>{t('tunnel.diff.error', { error })}</div>}
       {data && pair && (
         <div className="diff-cols">
           {[{ d: data.a, id: pair[0] }, { d: data.b, id: pair[1] }].map(({ d, id }, side) => (
             <div className="diff-col" key={side}>
               <header>
-                <b>{id}</b>
+                <b>{branchName(id)}</b>
                 <span className={`src-badge ${d.finish?.success ? 'src-live' : 'src-fixture'}`} style={{ borderColor: d.finish?.success ? 'rgba(52,211,153,.4)' : 'rgba(248,113,113,.4)', color: d.finish?.success ? 'var(--green)' : 'var(--red)' }}>
                   {d.finish?.success ? t('tunnel.diff.success') : t('tunnel.diff.failure')}
                 </span>
@@ -478,10 +497,10 @@ function TrajDiff({ meta }: { meta?: ScenarioMeta }) {
                     <div key={r.n} className={`diff-steprow ${r.same ? 'same' : 'diverge'}`}>
                       <span className="n">{r.n}</span>
                       <span className="tt">
-                        {s ? <>{s.thought}<div className="faint">{s.tools.map((t) => t.tool).join(' · ')}</div></> : <i className="faint">{t('tunnel.diff.noStep')}</i>}
+                        {s ? <>{f(s.thought)}<div className="faint">{s.tools.map((t) => t.tool).join(' · ')}</div></> : <i className="faint">{t('tunnel.diff.noStep')}</i>}
                         {s && (s.markers.length > 0 || s.tags.length > 0) && (
                           <div style={{ marginTop: 2 }}>
-                            {[...s.markers, ...s.tags].sort((a, b) => a.idx - b.idx).map((m, i) => <span key={i} className={`tl-mark mk-${m.kind}`} style={{ position: 'static', display: 'inline-block', transform: 'none', marginRight: 4 }}>{m.label}</span>)}
+                            {[...s.markers, ...s.tags].sort((a, b) => a.idx - b.idx).map((m, i) => <span key={i} className={`tl-mark mk-${m.kind}`} style={{ position: 'static', display: 'inline-block', transform: 'none', marginRight: 4 }}>{f(m.label)}</span>)}
                           </div>
                         )}
                       </span>
@@ -507,6 +526,7 @@ function TransferTable({ a, b, pair }: { a: ReturnType<typeof deriveRun>; b: Ret
   const f = useFixture()
   const m = useMemo(() => transferModes(a.events, b.events), [a, b])
   if (m.steps === 0) return <div className="faint" style={{ marginTop: 8 }}>{t('tunnel.transfer.none')}</div>
+  const branchName = (id: string) => { const k = `mri.branch.${id}`; const v = t(k); return v === k ? id : v }
   const name = (k: string) => (k === TRANSFER_CLEAR ? t('tunnel.transfer.clear') : f(MAST_LABEL[k as keyof typeof MAST_LABEL] ?? k))
   const cellBg = (from: string, to: string, c: number) => {
     if (!c) return undefined
@@ -519,7 +539,7 @@ function TransferTable({ a, b, pair }: { a: ReturnType<typeof deriveRun>; b: Ret
     <div style={{ marginTop: 12 }}>
       <div className="faint" style={{ marginBottom: 6 }}>{t('tunnel.transfer.title')} <span className="tag">{t('tunnel.transfer.tag')}</span></div>
       <table className="t" style={{ width: 'max-content' }}>
-        <thead><tr><th className="mono" style={{ fontSize: 11 }}>{pair[0]} → {pair[1]}</th>{m.modes.map((k) => <th key={k} className="num" style={{ fontSize: 11 }}>{name(k)}</th>)}</tr></thead>
+        <thead><tr><th className="mono" style={{ fontSize: 11 }}>{branchName(pair[0])} → {branchName(pair[1])}</th>{m.modes.map((k) => <th key={k} className="num" style={{ fontSize: 11 }}>{name(k)}</th>)}</tr></thead>
         <tbody>
           {m.modes.map((from) => (
             <tr key={from}>
@@ -542,6 +562,7 @@ function TransferTable({ a, b, pair }: { a: ReturnType<typeof deriveRun>; b: Ret
  */
 function AdaptProfile({ scenarioId }: { scenarioId: string }) {
   const t = useT()
+  const f = useFixture()
   const [doc, setDoc] = useState<AdaptationDoc | null>(null)
   const [locked, setLocked] = useState('')
   const [missing, setMissing] = useState(false)
@@ -591,17 +612,17 @@ function AdaptProfile({ scenarioId }: { scenarioId: string }) {
       <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
         <span className="faint">{t('tunnel.adapt.harness')}</span>
         {doc.harnesses.map((h) => (
-          <button key={h.id} className={h.id === H.id ? 'active-btn' : ''} style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => setLocked(h.id)}>{h.label}</button>
+          <button key={h.id} className={h.id === H.id ? 'active-btn' : ''} style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => setLocked(h.id)}>{f(h.label)}</button>
         ))}
       </div>
-      <div className="faint mono" style={{ marginBottom: 10 }}>{t('tunnel.adapt.diff0', { fp: fingerprint(H.config) })}</div>
+      <div className="faint mono" style={{ marginBottom: 10 }}>{t('tunnel.adapt.diff0')}</div>
 
       <table className="t" style={{ width: 'max-content' }}>
-        <thead><tr><th>{t('tunnel.adapt.model')}</th><th className="num">{t('tunnel.adapt.scoreH', { h: H.label })}</th><th className="num">{t('tunnel.adapt.scoreBare')}</th><th className="num">{t('tunnel.adapt.condlift')}</th></tr></thead>
+        <thead><tr><th>{t('tunnel.adapt.model')}</th><th className="num">{t('tunnel.adapt.scoreH', { h: f(H.label) })}</th><th className="num">{t('tunnel.adapt.scoreBare')}</th><th className="num">{t('tunnel.adapt.condlift')}</th></tr></thead>
         <tbody>
           {doc.models.map((m, i) => (
             <tr key={m}>
-              <td className="mono" style={{ fontSize: 12 }}>{m}</td>
+              <td className="mono" style={{ fontSize: 12 }}>{f(m)}</td>
               <td className="num">{complete ? (scoreOf(m, H.id) as number).toFixed(1) : '…'}</td>
               <td className="num">{complete ? (scoreOf(m, bare.id) as number).toFixed(1) : '…'}</td>
               <td className="num">{complete ? fmtPp(lifts[i]) : '…'}</td>
@@ -613,7 +634,7 @@ function AdaptProfile({ scenarioId }: { scenarioId: string }) {
         <div style={{ marginTop: 8, fontSize: 13 }}>
           <b style={{ color: ratingColor }}>{t(`tunnel.adapt.rating.${rating}`)}</b>
           {spread && <span className="faint" style={{ marginLeft: 10 }}>{t('tunnel.adapt.spread', { range: spread.range.toFixed(1), std: spread.std.toFixed(1) })}</span>}
-          {negatives.length > 0 && <div style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 2 }}>{t('tunnel.adapt.negative', { models: negatives.join(', ') })}</div>}
+          {negatives.length > 0 && <div style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 2 }}>{t('tunnel.adapt.negative', { models: negatives.map(f).join(', ') })}</div>}
           {tau !== null && (
             <div className="faint" style={{ marginTop: 2 }}>
               {tau < 1 ? t('tunnel.adapt.reversal', { tau: tau.toFixed(2) }) : t('tunnel.adapt.stable', { tau: tau.toFixed(2) })}
@@ -624,14 +645,14 @@ function AdaptProfile({ scenarioId }: { scenarioId: string }) {
 
       <div className="faint" style={{ margin: '12px 0 6px' }}>{t('tunnel.adapt.matrix.title')}</div>
       <table className="t" style={{ width: 'max-content' }}>
-        <thead><tr><th>{t('tunnel.adapt.model')}</th>{doc.harnesses.map((h) => <th key={h.id} className="num">{h.label}</th>)}</tr></thead>
+        <thead><tr><th>{t('tunnel.adapt.model')}</th>{doc.harnesses.map((h) => <th key={h.id} className="num">{f(h.label)}</th>)}</tr></thead>
         <tbody>
           {doc.models.map((m) => {
             const vals = doc.harnesses.map((h) => scoreOf(m, h.id))
             const best = Math.max(...vals.filter((v): v is number => Number.isFinite(v)))
             return (
               <tr key={m}>
-                <td className="mono" style={{ fontSize: 12 }}>{m}</td>
+                <td className="mono" style={{ fontSize: 12 }}>{f(m)}</td>
                 {doc.harnesses.map((h, j) => (
                   <td key={h.id} className="num" style={Number.isFinite(vals[j]) && vals[j] === best ? { color: 'var(--green)', fontWeight: 700 } : undefined}>
                     {Number.isFinite(vals[j]) ? (vals[j] as number).toFixed(1) : '·'}

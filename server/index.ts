@@ -2,14 +2,14 @@
 import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { getMetrics, getScenario, hasData, listScenarios, metricsForConfig, resolveReplay } from './replayer'
+import { hasData, listScenarios, metricsForConfig, resolveReplay, getMetrics, getScenario } from './replayer'
+import { deleteSetting, getSetting, getSettings, putProviderBundle, putSetting } from './settingsStore'
+import { getModelCatalog } from './providers/model-capabilities-registry'
 import { PRESETS } from '../shared/presets'
 import type { HarnessConfig } from '../shared/config'
 import { parseClaudeCodeTranscript } from './importers/claudeCode'
 import { parseDshTrajectory } from './importers/dshTrajectory'
 import { exportNlah, importNlah } from './importers/nlah'
-import { hasKey, setKey } from './keyStore'
-import { VENDOR_PRESETS } from '../shared/provider'
 
 const PORT = Number(process.env['PORT'] ?? 4000)
 
@@ -127,9 +127,36 @@ const server = createServer((req, res) => {
       return json(res, 200, { name, text: readFileSync(resolve(process.cwd(), 'data', 'imports', file), 'utf8') })
     }
 
-    if (p === '/api/provider-key-status') {
-      const id = q.get('id') ?? ''
-      return json(res, 200, { hasKey: hasKey(id) })
+    // ---- Settings store (mirrors docStudio user_settings semantics) ----
+    if (p === '/api/settings' && req.method !== 'PUT' && req.method !== 'DELETE') {
+      return json(res, 200, { ok: true, settings: getSettings() })
+    }
+
+    if (p.startsWith('/api/settings/') && req.method !== 'POST') {
+      const key = decodeURIComponent(p.slice('/api/settings/'.length))
+      if (req.method === 'PUT' || req.method === 'PATCH') {
+        void readBody(req).then((raw) => {
+          try {
+            const { value } = bodyJson<{ value?: unknown }>(raw)
+            putSetting(key, value)
+            return json(res, 200, { ok: true })
+          } catch (err) {
+            return json(res, 400, { ok: false, error: String((err as Error).message ?? err) })
+          }
+        }).catch((err) => {
+          try { return json(res, 400, { ok: false, error: String((err as Error).message ?? err) }) } catch { /* socket gone */ }
+        })
+        return
+      }
+      if (req.method === 'DELETE') {
+        deleteSetting(key)
+        return json(res, 200, { ok: true })
+      }
+      return json(res, 200, { ok: true, value: getSetting(key) })
+    }
+
+    if (p === '/api/providers/models') {
+      return json(res, 200, { ok: true, catalog: getModelCatalog() })
     }
 
     if (p === '/api/legal') {
@@ -152,9 +179,51 @@ const server = createServer((req, res) => {
       }
     }
 
-    if (req.method === 'POST' && (p === '/api/import' || p === '/api/nlah/export' || p === '/api/nlah/import' || p === '/api/provider-key' || p === '/api/provider-models')) {
-      void readBody(req).then((raw) => {
+    const provMatch = p.match(/^\/api\/providers\/([^/]+)\/(models|verify-model)$/)
+    if (req.method === 'POST' && (p === '/api/import' || p === '/api/nlah/export' || p === '/api/nlah/import' || p === '/api/settings/providers' || provMatch)) {
+      void readBody(req).then(async (raw) => {
         try {
+          if (p === '/api/settings/providers') {
+            const { providers, enableProviderFallback } = bodyJson<{ providers?: unknown; enableProviderFallback?: boolean }>(raw)
+            if (!Array.isArray(providers)) return json(res, 400, { ok: false, error: 'providers must be an array' })
+            putProviderBundle(providers as Array<Record<string, unknown>>, { enableProviderFallback })
+            return json(res, 200, { ok: true })
+          }
+          if (provMatch) {
+            const providerId = decodeURIComponent(provMatch[1])
+            const action = provMatch[2]
+            const { apiKey, baseUrl, modelId } = bodyJson<{ apiKey?: string; baseUrl?: string; modelId?: string }>(raw)
+            if (!apiKey) return json(res, 400, { ok: false, error: 'apiKey is required' })
+            const base = (baseUrl || '').trim().replace(/\/+$/, '')
+            if (!base) return json(res, 400, { ok: false, error: 'baseUrl is required' })
+            try {
+              if (action === 'models') {
+                // Generic OpenAI-compatible model listing (docStudio uses per-provider adapters).
+                const r = await fetch(`${base}/models`, {
+                  headers: { Authorization: `Bearer ${apiKey}` },
+                  signal: AbortSignal.timeout(15_000),
+                })
+                if (!r.ok) return json(res, 502, { ok: false, error: `HTTP ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}` })
+                const data = await r.json() as { data?: { id?: string }[] }
+                const models = Array.isArray(data.data) ? data.data.map((m) => m.id).filter((x): x is string => typeof x === 'string') : []
+                return json(res, 200, { ok: true, providerId, models })
+              }
+              if (!modelId) return json(res, 400, { ok: false, error: 'apiKey and modelId are required' })
+              const fetchRes = await fetch(`${base}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+                body: JSON.stringify({ model: modelId, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 }),
+                signal: AbortSignal.timeout(10_000),
+              })
+              if (fetchRes.ok) return json(res, 200, { ok: true, modelId })
+              const body = await fetchRes.text().catch(() => '')
+              return json(res, 200, { ok: false, modelId, error: `HTTP ${fetchRes.status}: ${body.slice(0, 200)}` })
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+              if (action === 'models') return json(res, 502, { ok: false, error: message })
+              return json(res, 200, { ok: false, modelId, error: message })
+            }
+          }
           if (p === '/api/import') {
             const { format, text } = bodyJson<{ format?: string; text?: string }>(raw)
             if (typeof text !== 'string' || !text.trim()) return json(res, 400, { error: 'missing text' })
@@ -177,20 +246,7 @@ const server = createServer((req, res) => {
           }
           const { doc } = bodyJson<{ doc?: unknown }>(raw)
           if (p === '/api/nlah/import') return json(res, 200, importNlah(doc))
-          if (p === '/api/provider-key') {
-            const { id, apiKey } = bodyJson<{ id?: string; apiKey?: string }>(raw)
-            if (!id) return json(res, 400, { error: 'need provider id' })
-            const ref = setKey(id, typeof apiKey === 'string' ? apiKey : '')
-            return json(res, 200, { ok: true, ref, hasKey: hasKey(id) })
-          }
-          // Fake model listing for demo (simulated): matches a known vendor
-          // baseUrl or falls back to a custom placeholder. Real /models
-          // forwarding happens only against a user-configured live endpoint.
-          const { baseUrl } = bodyJson<{ baseUrl?: string }>(raw)
-          const norm = (baseUrl ?? '').trim().replace(/\/+$/, '')
-          if (!norm) return json(res, 400, { error: 'need baseUrl' })
-          const preset = VENDOR_PRESETS.find((v) => v.baseUrl.replace(/\/+$/, '') === norm)
-          return json(res, 200, { models: preset ? preset.models : ['custom-model'], simulated: true })
+          return json(res, 404, { ok: false, error: `no route: ${p}` })
         } catch (err) {
           return json(res, 400, { error: String((err as Error).message ?? err) })
         }

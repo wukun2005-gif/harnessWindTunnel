@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { ABA_DUTIES, LEGAL_ASSERTIONS, LEGAL_CONTROLS, type LegalBundle } from '../shared/legal'
+import { ABA_DUTIES, LEGAL_ASSERTIONS, LEGAL_CONTROLS, STAIRCASE_GLOBAL_REF, type LegalBundle } from '../shared/legal'
 import { t } from '../src/i18n'
 
 const bundle = {
@@ -46,6 +46,20 @@ test('staircase improves monotonically to zero fake citations', () => {
   }
   assert.equal(bundle.staircase.states.hard.fakeCiteRate, 0)
   assert.ok(bundle.staircase.references.length >= 4)
+})
+
+test('dossier refs resolve to real staircase references (global line excluded)', () => {
+  const ids = new Set(bundle.staircase.references.map((r) => r.id))
+  assert.ok(ids.has(STAIRCASE_GLOBAL_REF))
+  for (const d of bundle.dossiers) {
+    assert.ok(Array.isArray(d.refs), d.id)
+    for (const r of d.refs) assert.ok(ids.has(r) && r !== STAIRCASE_GLOBAL_REF, `${d.id}/${r}`)
+  }
+  const used = new Set(bundle.dossiers.flatMap((d) => d.refs))
+  for (const r of bundle.staircase.references) {
+    if (r.id === STAIRCASE_GLOBAL_REF) continue
+    assert.ok(used.has(r.id), `unreferenced: ${r.id}`)
+  }
 })
 
 test('license duties reference real controls only', () => {

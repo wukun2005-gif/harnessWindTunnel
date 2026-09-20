@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api'
-import { useI18n, useT } from '../../i18n'
+import { useI18n, useT, useFixture } from '../../i18n'
 import { ScreenNav } from '../../components/ScreenNav'
 import { SourceBadge } from '../MRI'
 import {
@@ -8,7 +8,7 @@ import {
   CN_FILING_NOTE,
   LEGAL_CONTROLS,
   LEGAL_CONTROL_ENFORCEMENT,
-  LEGAL_CONTROL_LABEL,
+  STAIRCASE_GLOBAL_REF,
   type Dossier,
   type LegalBundle,
   type LegalControl,
@@ -35,7 +35,7 @@ export default function Legal() {
   if (!bundle) {
     return (
       <div className="page">
-        <div className="screen-head"><span className="no">LEGAL</span><h1>{t('legal.title')}</h1></div>
+        <div className="screen-head"><span className="no">{t('legal.eyebrow')}</span><h1>{t('legal.title')}</h1></div>
         <ScreenNav current="/legal" />
         <div className="panel loading">{failed ? t('legal.error') : t('legal.loading')}</div>
       </div>
@@ -48,7 +48,7 @@ export default function Legal() {
   return (
     <div className="page">
       <div className="screen-head">
-        <span className="no">LEGAL</span>
+        <span className="no">{t('legal.eyebrow')}</span>
         <h1>{t('legal.title')}</h1>
         <span className="q">{t('legal.subtitle')}</span>
       </div>
@@ -61,7 +61,7 @@ export default function Legal() {
         </div>
         <div>
           <CaseReview dossier={dossier} dossiers={bundle.dossiers} select={setDossierId} />
-          <Staircase bundle={bundle} route={route} setRoute={setRoute} />
+          <Staircase bundle={bundle} dossierRefs={dossier.refs} route={route} setRoute={setRoute} />
         </div>
       </div>
     </div>
@@ -93,14 +93,14 @@ function ControlsBoard({ controls, toggle, route, setRoute }: {
         return (
           <div className={`comp-row ${on ? 'changed' : ''}`} key={c}>
             <span className="dot" />
-            <span className="clabel" title={t(`legal.tip.${c}`)}>{LEGAL_CONTROL_LABEL[c]}</span>
+            <span className="clabel" title={t(`legal.tip.${c}`)}>{t(`legal.control.${c}`)}</span>
             <span className="faint" style={{ fontSize: 11 }}>{enforced ? t('legal.enforced') : t('legal.guide')}</span>
             <button
               className={on ? 'active-btn' : ''}
               style={{ padding: '1px 10px', fontSize: 12 }}
               onClick={() => toggle(c)}
             >{on ? t('legal.on') : t('legal.off')}</button>
-            <div className="comp-ev"><b>{LEGAL_CONTROL_LABEL[c]}</b><br />{t(`legal.tip.${c}`)}</div>
+            <div className="comp-ev"><b>{t(`legal.control.${c}`)}</b><br />{t(`legal.tip.${c}`)}</div>
           </div>
         )
       })}
@@ -119,25 +119,26 @@ const ASSERT_COLOR: Record<string, string> = {
 /** F5-2 case review: dossier → atomic assertions → ABA report. */
 function CaseReview({ dossier, dossiers, select }: { dossier: Dossier; dossiers: Dossier[]; select: (id: string) => void }) {
   const t = useT()
+  const f = useFixture()
   const flagged = dossier.assertions.filter((a) => a.label !== 'supported')
   const rules = [...new Set(dossier.assertions.flatMap((a) => a.aba ?? []))].sort()
   return (
-    <div className="panel">
+    <div className="panel" data-demo="case">
       <h3>{t('legal.review.title')} <span className="tag">{t('legal.review.tag')}</span></h3>
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         {dossiers.map((d) => (
           <button key={d.id} className={d.id === dossier.id ? 'active-btn' : ''} style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => select(d.id)}>
-            {d.title}
+            {f(d.title)}
           </button>
         ))}
       </div>
-      <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{dossier.memo}</p>
+      <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{f(dossier.memo)}</p>
       {dossier.assertions.map((a) => (
         <div key={a.id} style={{ borderLeft: `3px solid ${ASSERT_COLOR[a.label]}`, padding: '6px 10px', margin: '6px 0', background: 'var(--bg-panel2)', borderRadius: '0 8px 8px 0' }}>
-          <div style={{ fontSize: 13 }}>{a.text}</div>
+          <div style={{ fontSize: 13 }}>{f(a.text)}</div>
           <div style={{ fontSize: 12, marginTop: 2 }}>
             <b style={{ color: ASSERT_COLOR[a.label] }}>{t(`legal.assert.${a.label}`)}</b>
-            <span className="faint"> · {a.note}</span>
+            <span className="faint"> · {f(a.note)}</span>
           </div>
         </div>
       ))}
@@ -154,8 +155,9 @@ function CaseReview({ dossier, dossiers, select }: { dossier: Dossier; dossiers:
 }
 
 /** F5-3 audit staircase: bare → soft (route) → hard, three curves. */
-function Staircase({ bundle, route, setRoute }: { bundle: LegalBundle; route: 'cn' | 'us'; setRoute: (r: 'cn' | 'us') => void }) {
+function Staircase({ bundle, dossierRefs, route, setRoute }: { bundle: LegalBundle; dossierRefs: string[]; route: 'cn' | 'us'; setRoute: (r: 'cn' | 'us') => void }) {
   const t = useT()
+  const f = useFixture()
   const st = bundle.staircase
   const soft = route === 'cn' ? st.states['soft-cn'] : st.states['soft-us']
   const pts = [st.states.bare, soft, st.states.hard]
@@ -167,7 +169,7 @@ function Staircase({ bundle, route, setRoute }: { bundle: LegalBundle; route: 'c
   const py = (v: number) => H - P - (v / 100) * (H - P - 20)
   const line = (f: (s: typeof pts[number]) => number) => pts.map((s, i) => `${px(i)},${py(f(s))}`).join(' ')
   return (
-    <div className="panel">
+    <div className="panel" data-demo="stair">
       <h3>{t('legal.stair.title')} <span className="tag">{t('legal.stair.tag')}</span></h3>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
         <span className="faint">{t('legal.route')}</span>
@@ -204,11 +206,19 @@ function Staircase({ bundle, route, setRoute }: { bundle: LegalBundle; route: 'c
         <span><span style={{ color: 'var(--green)' }}>●</span> {t('legal.stair.strict')}</span>
       </div>
       <div className="faint" style={{ marginTop: 10 }}>{t('legal.stair.refs')}</div>
-      {st.references.map((r) => (
-        <div key={r.name} style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>
-          · {r.name}: <b className="mono">{r.value}</b> <span className="faint">({r.citation})</span>
-        </div>
-      ))}
+      {st.references.map((r) => {
+        // The curve-provenance line is global; other lines light up only for
+        // dossiers that exemplify them (dossier.refs).
+        const lit = r.id === STAIRCASE_GLOBAL_REF || dossierRefs.includes(r.id)
+        return (
+          <div key={r.id} style={{ fontSize: 12.5, color: 'var(--text-dim)', opacity: lit ? undefined : 0.45 }}>
+            · {f(r.name)}: <b className="mono">{r.value}</b> <span className="faint">({r.citation})</span>
+            {lit && r.id !== STAIRCASE_GLOBAL_REF && (
+              <span className="src-badge src-live" style={{ marginLeft: 6 }}>{t('legal.stair.related')}</span>
+            )}
+          </div>
+        )
+      })}
       <div style={{ marginTop: 6 }}>{st.source.map((s, i) => <span key={i} style={{ marginRight: 6 }}><SourceBadge source={s as never} /></span>)}</div>
     </div>
   )
@@ -221,7 +231,7 @@ function LicenseCard({ controls, route }: { controls: Record<LegalControl, boole
   const rows = ABA_DUTIES.map((d) => ({ ...d, covered: d.gates.every((g) => controls[g]) }))
   const gaps = rows.filter((r) => !r.covered)
   return (
-    <div className="panel">
+    <div className="panel" data-demo="license">
       <h3>{t('legal.license.title')} <span className="tag">{t('legal.license.tag')}</span></h3>
       <table className="t">
         <thead><tr><th>ABA</th><th>{t('legal.license.duty')}</th><th>{t('legal.license.status')}</th></tr></thead>

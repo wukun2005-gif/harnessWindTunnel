@@ -94,6 +94,8 @@ export interface Dossier {
   title: string
   memo: string
   assertions: DossierAssertion[]
+  /** Reference ids in staircase.references that this dossier exemplifies. */
+  refs: string[]
 }
 
 export interface StaircaseState {
@@ -102,11 +104,21 @@ export interface StaircaseState {
   strictPassRate: number
 }
 
+export interface StaircaseReference {
+  id: string
+  name: string
+  value: string
+  citation: string
+}
+
+/** The staircase-curve provenance line: global, lit for every dossier. */
+export const STAIRCASE_GLOBAL_REF = 'audit-staircase'
+
 export interface LegalBundle {
   dossiers: Dossier[]
   staircase: {
     states: { bare: StaircaseState; 'soft-cn': StaircaseState; 'soft-us': StaircaseState; hard: StaircaseState }
-    references: { name: string; value: string; citation: string }[]
+    references: StaircaseReference[]
     source: { kind: string; label: string; citation?: string }[]
   }
 }

@@ -4,6 +4,7 @@ import { PRESETS, type Preset } from '../shared/presets'
 import type { AdaptationDoc } from '../shared/reliability'
 import type { LegalBundle } from '../shared/legal'
 import type { RedteamBundle } from '../shared/redteam'
+import type { ModelInfo, ProviderConfig } from '../shared/provider'
 
 async function jget<T>(url: string): Promise<T> {
   const r = await fetch(url)
@@ -73,12 +74,19 @@ export const api = {
     jpost<unknown>('/api/nlah/export', { config, task }),
   nlahImport: (doc: unknown) =>
     jpost<{ config: HarnessConfig; task: string }>('/api/nlah/import', { doc }),
-  providerKey: (id: string, apiKey: string) =>
-    jpost<{ ok: boolean; ref: string; hasKey: boolean }>('/api/provider-key', { id, apiKey }),
-  providerKeyStatus: (id: string) =>
-    jget<{ hasKey: boolean }>(`/api/provider-key-status?id=${encodeURIComponent(id)}`),
-  providerModels: (baseUrl: string) =>
-    jpost<{ models: string[]; simulated: boolean }>('/api/provider-models', { baseUrl }),
+  // ---- Provider settings (docStudio shape: { ok, ... }) ----
+  settings: () =>
+    jget<{ ok: boolean; settings: Record<string, unknown> }>('/api/settings'),
+  settingsProviders: (providers: ProviderConfig[], enableProviderFallback?: boolean) =>
+    jpost<{ ok: boolean }>('/api/settings/providers', { providers, enableProviderFallback }),
+  modelCatalog: () =>
+    jget<{ ok: boolean; catalog: Record<string, ModelInfo[]> }>('/api/providers/models'),
+  queryModels: (providerId: string, apiKey: string, baseUrl: string) =>
+    jpost<{ ok: boolean; providerId: string; models: string[]; error?: string }>(
+      `/api/providers/${encodeURIComponent(providerId)}/models`, { apiKey, baseUrl }),
+  verifyModel: (providerId: string, apiKey: string, baseUrl: string, modelId: string) =>
+    jpost<{ ok: boolean; modelId: string; error?: string }>(
+      `/api/providers/${encodeURIComponent(providerId)}/verify-model`, { apiKey, baseUrl, modelId }),
   legal: () => jget<LegalBundle>('/api/legal'),
   redteam: () => jget<RedteamBundle>('/api/redteam'),
 }

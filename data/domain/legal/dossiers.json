@@ -3,6 +3,7 @@
     {
       "id": "mata-avianca",
       "title": "Mata v. Avianca — fabricated citations brief",
+      "refs": ["l-mars-hallucination", "l-mars-f1"],
       "memo": "Counsel's opposition brief relies on six precedents to support tolling of the limitations period. Sanctions under FRCP Rule 11 may apply where a filing cites authority counsel never verified.",
       "assertions": [
         { "id": "m1", "text": "Varghese v. China Southern Airlines (illustrative) holds that limitations toll during settlement talks.", "label": "citation_unreachable", "note": "No such opinion exists in any reporter; mirrors the Mata filing pattern.", "aba": ["1.1", "3.3"] },
@@ -18,6 +19,7 @@
     {
       "id": "deadline-trap",
       "title": "Limitations deadline with holiday trap",
+      "refs": ["parthenon-gain"],
       "memo": "Counsel computes the limitations deadline by adding 30 calendar days to the accrual date. The jurisdiction excludes public holidays from the count, which the memo ignores.",
       "assertions": [
         { "id": "d1", "text": "The limitations period is 30 days from accrual.", "label": "supported", "note": "Statute text verified." },
@@ -30,6 +32,7 @@
     {
       "id": "jurisdiction-trap",
       "title": "Wrong-jurisdiction law applied",
+      "refs": ["parthenon-gain"],
       "memo": "The memo analyzes the dispute under State A contract law. The agreement's forum clause and the place of performance both point to State B.",
       "assertions": [
         { "id": "j1", "text": "The agreement contains a State B forum clause.", "label": "supported", "note": "Section 12 of the agreement." },
@@ -42,6 +45,7 @@
     {
       "id": "figures-trap",
       "title": "Unsourced damages figures",
+      "refs": ["parthenon-gain", "l-mars-f1"],
       "memo": "The memo claims $1.42M in lost profits and a 23% contract uplift without citing any exhibit, ledger, or expert report.",
       "assertions": [
         { "id": "f1", "text": "Lost profits total $1.42M.", "label": "no_citation", "note": "No exhibit, ledger, or report attached.", "aba": ["1.1", "3.3"] },
@@ -53,6 +57,7 @@
     {
       "id": "clean-control",
       "title": "Clean control — fully sourced memo",
+      "refs": [],
       "memo": "A short memo where every assertion carries a verifiable authority. The harness must flag nothing here.",
       "assertions": [
         { "id": "c1", "text": "FRCP Rule 11 requires reasonable inquiry before filing.", "label": "supported", "note": "Rule text." },

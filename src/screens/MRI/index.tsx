@@ -9,8 +9,13 @@ import { fmtTokens } from '../../lib/derive'
 import { ScreenNav } from '../../components/ScreenNav'
 
 export function SourceBadge({ source }: { source: SourceRef }) {
+  const t = useT()
+  const f = useFixture()
   const cls = source.kind === 'paper-reproduction' ? 'src-paper' : source.kind === 'live' ? 'src-live' : source.kind === 'imported' ? 'src-imported' : 'src-fixture'
-  return <span className={`src-badge ${cls}`} title={source.citation ?? ''}>{source.label}</span>
+  // Runtime-composed nearest-neighbor label carries an interpolated field count.
+  const approx = /^Approximate · nearest-neighbor branch \(differs by (\d+) fields\)$/.exec(source.label)
+  const label = approx ? t('tunnel.readings.approximate', { distance: approx[1] }) : f(source.label)
+  return <span className={`src-badge ${cls}`} title={source.citation ?? ''}>{label}</span>
 }
 
 export default function MRI() {
@@ -24,7 +29,7 @@ export default function MRI() {
 
   useEffect(() => {
     if (!meta) return
-    // Honor a run prepared elsewhere (Demo handoff carries scenario+branch):
+    // Honor a run prepared elsewhere (another screen may carry scenario+branch):
     // adopt it instead of resetting to the first branch.
     if (runMeta && runMeta.scenarioId === current && meta.branches.some((b) => b.branchId === runMeta.branchId)) {
       setBranch(runMeta.branchId)
@@ -45,7 +50,7 @@ export default function MRI() {
   return (
     <div className="page">
       <div className="screen-head">
-        <span className="no">SCREEN 01</span>
+        <span className="no">{t('mri.eyebrow')}</span>
         <h1>{t('mri.title')}</h1>
         <span className="q">{t('mri.subtitle')}</span>
       </div>
@@ -55,7 +60,7 @@ export default function MRI() {
         <button
           className={`mri-toggle mri-toggle-left ${leftOpen ? 'open' : ''}`}
           onClick={() => setLeftOpen(!leftOpen)}
-          title={leftOpen ? 'Collapse left panel' : 'Expand left panel'}
+          title={leftOpen ? t('mri.toggle.collapseLeft') : t('mri.toggle.expandLeft')}
         >{leftOpen ? '◀' : '▶'}</button>
 
         {/* Left panel */}
@@ -67,7 +72,7 @@ export default function MRI() {
             </select>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {(meta?.branches ?? []).filter((b) => b.file).map((b) => (
-                <button key={b.branchId} className={branch === b.branchId ? 'active-btn' : ''} onClick={() => onBranch(b.branchId)}>
+                <button key={b.branchId} data-demo-branch={b.branchId} className={branch === b.branchId ? 'active-btn' : ''} onClick={() => onBranch(b.branchId)}>
                   {t(`mri.branch.${b.branchId}`) !== `mri.branch.${b.branchId}` ? t(`mri.branch.${b.branchId}`) : b.branchId}
                 </button>
               ))}
@@ -84,7 +89,6 @@ export default function MRI() {
                 <dt>runId</dt><dd className="mono">{runMeta.runId}</dd>
                 <dt>{t('mri.meta.model')}</dt><dd>{t('model.gpt-5.4-xhigh') !== 'model.gpt-5.4-xhigh' ? t('model.gpt-5.4-xhigh') : meta?.model}</dd>
                 <dt>{t('mri.meta.scenario')}</dt><dd><SourceBadge source={runMeta.source} /></dd>
-                {curBranch && <><dt>{t('mri.meta.config')}</dt><dd className="mono">{curBranch.fingerprint}</dd></>}
               </dl>
               {curBranch && (
                 <>
@@ -129,7 +133,7 @@ export default function MRI() {
         <button
           className={`mri-toggle mri-toggle-right ${rightOpen ? 'open' : ''}`}
           onClick={() => setRightOpen(!rightOpen)}
-          title={rightOpen ? 'Collapse right panel' : 'Expand right panel'}
+          title={rightOpen ? t('mri.toggle.collapseRight') : t('mri.toggle.expandRight')}
         >{rightOpen ? '▶' : '◀'}</button>
       </div>
     </div>
@@ -181,20 +185,22 @@ function ImportPanel() {
   }
 
   return (
-    <div className="panel">
+    <div className="panel" data-demo="import">
       <h3>{t('mri.import.title')} <span className="tag">{t('mri.import.tag')}</span></h3>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        <select value={format} onChange={(e) => setFormat(e.target.value as 'claude' | 'dsh')} style={{ flex: 1 }}>
+      <div className="faint" style={{ marginBottom: 8 }}>{t('mri.import.desc')}</div>
+      <label className="faint" style={{ display: 'grid', gap: 4, fontSize: 12, marginBottom: 8 }}>
+        <select value={format} onChange={(e) => setFormat(e.target.value as 'claude' | 'dsh')} style={{ width: '100%' }}>
           <option value="claude">{t('mri.import.claude')}</option>
           <option value="dsh">{t('mri.import.dsh')}</option>
         </select>
-        <button disabled={busy} onClick={() => fileRef.current?.click()}>{t('mri.import.file')}</button>
-        <input ref={fileRef} type="file" accept=".jsonl,.json,.txt" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = '' }} />
-      </div>
+      </label>
+      <button className="primary" disabled={busy} style={{ width: '100%', marginBottom: 10 }} onClick={() => fileRef.current?.click()}>{t('mri.import.file')}</button>
+      <input ref={fileRef} type="file" accept=".jsonl,.json,.txt" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); e.target.value = '' }} />
+      <div className="faint" style={{ textAlign: 'center', marginBottom: 6 }}>— {t('mri.import.orSample')} —</div>
       <div style={{ display: 'flex', gap: 6 }}>
         {(['claude', 'dsh'] as const).map((n) => (
-          <button key={n} disabled={busy} style={{ flex: 1, padding: '2px 8px', fontSize: 12 }} onClick={() => void onSample(n)}>
-            {t('mri.import.sample', { name: n })}
+          <button key={n} disabled={busy} style={{ flex: 1, padding: '4px 8px', fontSize: 12 }} onClick={() => void onSample(n)}>
+            {t('mri.import.sample', { name: n === 'claude' ? 'Claude' : 'dsh' })}
           </button>
         ))}
       </div>
@@ -263,22 +269,24 @@ function TimelinePlayer() {
           <div className="tl-track">
             {run.steps.map((s) => {
               const vis = s.reqIdx < playhead
+              const critical = run.criticalStep === s.step
               const marks = [...s.markers, ...s.tags].filter((m) => m.idx < playhead).sort((a, b) => a.idx - b.idx)
               return (
                 <div
                   key={s.step}
-                  className={`tl-step ${vis ? (cur?.step === s.step ? 'cur' : 'past') : ''}`}
+                  className={`tl-step ${vis ? (cur?.step === s.step ? 'cur' : 'past') : ''}${critical ? ' critical' : ''}`}
                   style={{ opacity: vis ? undefined : 0.3 }}
                   onClick={() => { setPlaying(false); setPlayhead(s.reqIdx + 1); setSelected(s.step) }}
                 >
-                  <div className="sn">STEP {s.step} · {fmtTokens(s.estTokens)} tk</div>
+                  <div className="sn">{t('mri.step.line', { step: s.step, tokens: fmtTokens(s.estTokens) })}</div>
+                  {critical && <div className="crit-diamond" title={t('mri.critical.banner')}>{t('mri.critical.badge')}</div>}
                   <div className="thought">{f(s.thought)}</div>
                   <div className="tools">{s.tools.map((t, i) => <span key={i}>{t.tool}</span>)}</div>
                   {marks.map((m, i) => (
                     <span
                       key={i} className={`tl-mark mk-${m.kind}`}
                       style={{ left: '50%', top: `${100 + i * 19}px` }}
-                      title={m.detail}
+                      title={f(m.detail)}
                     >{f(m.label)}</span>
                   ))}
                 </div>
@@ -288,10 +296,11 @@ function TimelinePlayer() {
         </div>
       </div>
 
-      <div className="panel">
-        <h3>{t('mri.step.details')} {cur ? <span className="tag mono">STEP {cur.step}</span> : null}</h3>
+      <div className="panel" data-demo="stepdetail">
+        <h3>{t('mri.step.details')} {cur ? <span className="tag mono">{t('mri.step.tag', { step: cur.step })}</span> : null}</h3>
         {cur ? (
           <>
+            {run.criticalStep === cur.step && <div className="crit-banner">{t('mri.critical.banner')}</div>}
             <div style={{ fontSize: 13.5, color: 'var(--text)' }}>{f(cur.thought)}</div>
             {cur.tools.map((tool, i) => (
               <div key={i} style={{ margin: '7px 0', fontSize: 12.5 }}>
@@ -307,7 +316,7 @@ function TimelinePlayer() {
                 {cur.markers.map((m, i) => (
                   <div key={i} style={{ fontSize: 12.5, margin: '3px 0' }}>
                     <span className={`tl-mark mk-${m.kind}`} style={{ position: 'static', display: 'inline-block', transform: 'none' }}>{f(m.label)}</span>
-                    <span className="muted"> {m.detail}</span>
+                    <span className="muted"> {f(m.detail)}</span>
                   </div>
                 ))}
               </>
@@ -318,8 +327,8 @@ function TimelinePlayer() {
                 {cur.tags.map((m, i) => (
                   <div key={i} style={{ fontSize: 12.5, margin: '3px 0' }}>
                     <span className={`tl-mark mk-${m.kind}`} style={{ position: 'static', display: 'inline-block', transform: 'none' }}>{f(m.label)}</span>
-                    <span className="muted"> {m.detail}</span>
-                    {m.author && m.author !== 'harness' && <span className="faint mono"> · author: {m.author}</span>}
+                    <span className="muted"> {f(m.detail)}</span>
+                    {m.author && m.author !== 'harness' && <span className="faint mono">{t('mri.author', { author: m.author })}</span>}
                   </div>
                 ))}
               </>
@@ -358,7 +367,7 @@ function ContextInspector() {
     return fires
   }, [run, playhead])
 
-  if (!run || !cur) return <div className="panel"><h3>{t('mri.stack.title2')}</h3><div className="faint">Awaiting playback…</div></div>
+  if (!run || !cur) return <div className="panel"><h3>{t('mri.stack.title2')}</h3><div className="faint">{t('mri.awaiting')}</div></div>
 
   const n = cur.blocks.length
   const total = cur.estTokens
@@ -369,7 +378,7 @@ function ContextInspector() {
       <div>
         <h3>
           {t('mri.stack.title2')} <span className="tag">{t('mri.step.what', { step: cur.step })}</span>
-          <span style={{ float: 'right' }} className="mono" title="Total tokens for this step">{fmtTokens(total)} tk</span>
+          <span style={{ float: 'right' }} className="mono" title={t('mri.stack.totalTokens')}>{fmtTokens(total)} tk</span>
         </h3>
         <div className="stack-bar">
           {cur.blocks.map((b, i) => (
@@ -388,7 +397,7 @@ function ContextInspector() {
               <span className={`sw lyr-${b.layer}`} />
               <span className="lyr">{f(LAYER_LABEL[b.layer])}</span>
               <span className="tk">{fmtTokens(b.tokens)} tk</span>
-              {b.preview && <span className="faint" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.preview}</span>}
+              {b.preview && <span className="faint" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f(b.preview)}</span>}
             </div>
           ))}
         </div>

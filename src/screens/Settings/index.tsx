@@ -1,259 +1,511 @@
-import { useEffect, useRef, useState } from 'react'
+// Provider settings — ported from docStudio client/src/components/Settings.tsx
+// (LLM Providers tab only). 13 preset cards are always rendered (no add flow);
+// order + expanded state persist in localStorage; provider configs persist via
+// the server settings store (GET /api/settings, POST /api/settings/providers).
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
-import { useT } from '../../i18n'
+import { useT, useI18n, t as translate } from '../../i18n'
 import { ScreenNav } from '../../components/ScreenNav'
 import {
-  CUSTOM_PRESET_ID,
-  VENDOR_PRESETS,
-  blankConnection,
-  customPreset,
+  PRESET_PROVIDERS,
   trimBaseUrl,
-  type ProviderConnection,
-  type VendorPreset,
+  type AppSettings,
+  type ModelInfo,
+  type ProviderConfig,
 } from '../../../shared/provider'
 
-const STORE_KEY = 'harness-wind-tunnel-providers'
+interface FormProvider {
+  providerId: string
+  name: string
+  enabled: boolean
+  apiKey: string
+  baseUrl: string
+  modelIds: string[]
+  defaultModelId: string
+  modelFallbacks: string[]
+  enableModelFallback: boolean
+}
 
-function loadStored(): ProviderConnection[] {
+const PROVIDER_EXPANDED_KEY = 'docstudio-provider-expanded'
+const PROVIDER_ORDER_KEY = 'docstudio-provider-order'
+
+function loadExpandedState(): Record<string, boolean> {
   try {
-    const raw = localStorage.getItem(STORE_KEY)
-    if (!raw) return []
-    const arr = JSON.parse(raw) as ProviderConnection[]
-    if (!Array.isArray(arr)) return []
-    return arr.filter((c) => c && typeof c.id === 'string' && typeof c.baseUrl === 'string' && Array.isArray(c.models))
-  } catch {
-    return []
-  }
+    const saved = localStorage.getItem(PROVIDER_EXPANDED_KEY)
+    if (saved) return JSON.parse(saved)
+  } catch { /* ignore */ }
+  return {}
+}
+
+function saveExpandedState(state: Record<string, boolean>) {
+  try {
+    localStorage.setItem(PROVIDER_EXPANDED_KEY, JSON.stringify(state))
+  } catch { /* ignore */ }
+}
+
+function loadProviderOrder(): string[] {
+  try {
+    const saved = localStorage.getItem(PROVIDER_ORDER_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) return parsed
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
+function saveProviderOrder(order: string[]) {
+  try {
+    localStorage.setItem(PROVIDER_ORDER_KEY, JSON.stringify(order))
+  } catch { /* ignore */ }
+}
+
+let catalogCache: Record<string, ModelInfo[]> | null = null
+
+function getModelMeta(providerId: string, modelId: string, catalog?: Record<string, ModelInfo[]>): ModelInfo | undefined {
+  if (!catalog) return undefined
+  return catalog[providerId]?.find((m) => m.id === modelId)
 }
 
 export default function Settings() {
   const t = useT()
-  const [conns, setConns] = useState<ProviderConnection[]>(loadStored)
-  const [notice, setNotice] = useState<string | null>(null)
+  const { lang } = useI18n()
+  const [providers, setProviders] = useState<ProviderConfig[]>([])
+  const [enableProviderFallback, setEnableProviderFallback] = useState(true)
+  const [catalog, setCatalog] = useState<Record<string, ModelInfo[]>>({})
+  const [formState, setFormState] = useState<Record<string, FormProvider>>({})
+  const [loadingModels, setLoadingModels] = useState<string | null>(null)
+  const [verifiedModels, setVerifiedModels] = useState<Record<string, Set<string>>>({})
+  const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>(loadExpandedState)
+  const [providerOrder, setProviderOrder] = useState<string[]>(loadProviderOrder)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const dragItem = useRef<{ providerId: string; index: number } | null>(null)
+  const dragOverItem = useRef<{ providerId: string; index: number } | null>(null)
+  const dragProviderItem = useRef<{ index: number } | null>(null)
+  const dragProviderOver = useRef<{ index: number } | null>(null)
+
+  const sortedProviders = [...PRESET_PROVIDERS].sort((a, b) => {
+    const aIdx = providerOrder.indexOf(a.id)
+    const bIdx = providerOrder.indexOf(b.id)
+    if (aIdx === -1 && bIdx === -1) return 0
+    if (aIdx === -1) return 1
+    if (bIdx === -1) return -1
+    return aIdx - bIdx
+  })
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message })
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const loadSettings = useCallback(async (quiet = false) => {
+    try {
+      const res = await api.settings()
+      const list: ProviderConfig[] = []
+      let fallback = true
+      const all = res.settings['provider_all']
+      if (all && typeof all === 'object') {
+        const app = all as AppSettings
+        list.push(...(app.providers ?? []))
+        fallback = app.enableProviderFallback ?? true
+      } else {
+        for (const [key, value] of Object.entries(res.settings)) {
+          if (key.startsWith('provider_') && key !== 'provider_all' && typeof value === 'object' && value !== null) {
+            list.push(value as ProviderConfig)
+          }
+        }
+      }
+      setProviders(list)
+      setEnableProviderFallback(fallback)
+    } catch (e) {
+      // Server offline: keep the empty form but say so (docStudio: store.error).
+      if (!quiet) {
+        const lang = useI18n.getState().lang
+        showToast('error', translate('settings.llm.loadFailed', lang, { error: e instanceof Error ? e.message : String(e) }))
+      }
+    }
+  }, [])
+
+  useEffect(() => { void loadSettings() }, [loadSettings])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(conns))
-    } catch { /* private mode: keep memory-only */ }
-  }, [conns])
+    let live = true
+    api.modelCatalog()
+      .then((r) => { if (live && r.ok) { catalogCache = r.catalog; setCatalog(r.catalog) } })
+      .catch(() => { /* catalog is advisory only */ })
+    return () => { live = false }
+  }, [])
 
-  const patch = (id: string, fn: (c: ProviderConnection) => ProviderConnection) =>
-    setConns((cs) => cs.map((c) => (c.id === id ? fn({ ...c }) : c)))
-  const move = (id: string, dir: -1 | 1) =>
-    setConns((cs) => {
-      const i = cs.findIndex((c) => c.id === id)
-      const j = i + dir
-      if (i < 0 || j < 0 || j >= cs.length) return cs
-      const next = [...cs]
-      ;[next[i], next[j]] = [next[j], next[i]]
+  useEffect(() => {
+    const map: Record<string, FormProvider> = {}
+    PRESET_PROVIDERS.forEach((p) => {
+      const saved = providers.find((c) => c.providerId === p.id)
+      map[p.id] = {
+        providerId: p.id, name: p.name, enabled: saved?.enabled ?? false,
+        apiKey: saved?.apiKey || saved?.apiKeyRef || '', baseUrl: saved?.baseUrl || p.defaultBaseUrl,
+        modelIds: saved?.modelIds || [], defaultModelId: saved?.defaultModelId || '',
+        modelFallbacks: saved?.modelFallbacks || [], enableModelFallback: saved?.enableModelFallback ?? false,
+      }
+    })
+    providers.filter((c) => !PRESET_PROVIDERS.find((p) => p.id === c.providerId)).forEach((c) => {
+      map[c.providerId] = {
+        providerId: c.providerId, name: c.providerId, enabled: c.enabled,
+        apiKey: c.apiKey || c.apiKeyRef || '', baseUrl: c.baseUrl || '',
+        modelIds: c.modelIds || [], defaultModelId: c.defaultModelId || '',
+        modelFallbacks: c.modelFallbacks || [], enableModelFallback: c.enableModelFallback ?? false,
+      }
+    })
+    setFormState(map)
+  }, [providers])
+
+  const toggleExpanded = (providerId: string) => {
+    setExpandedProviders((prev) => {
+      const next = { ...prev, [providerId]: !prev[providerId] }
+      saveExpandedState(next)
       return next
     })
-
-  const addVendor = (v: VendorPreset) => {
-    if (conns.some((c) => c.vendorId === v.id && v.id !== CUSTOM_PRESET_ID)) return
-    setConns((cs) => [...cs, blankConnection(v, cs.length)])
-  }
-  const addCustom = () => {
-    setConns((cs) => [...cs, blankConnection(customPreset('https://your-gateway.example/v1'), cs.length)])
-    setNotice(t('settings.custom.hint'))
   }
 
-  const missing = VENDOR_PRESETS.filter((v) => !conns.some((c) => c.vendorId === v.id))
+  const updateField = (id: string, field: keyof FormProvider, value: FormProvider[keyof FormProvider]) => {
+    setFormState((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
+  }
+
+  const handleSelectDefault = (providerId: string, modelId: string) => {
+    setFormState((prev) => {
+      const current = prev[providerId]
+      if (!current) return prev
+      const fallbacks = (current.modelFallbacks ?? current.modelIds).filter((m) => m !== modelId)
+      return {
+        ...prev,
+        [providerId]: { ...current, defaultModelId: modelId, modelFallbacks: [modelId, ...fallbacks] },
+      }
+    })
+  }
+
+  const handleDragStart = (providerId: string, index: number) => {
+    dragItem.current = { providerId, index }
+  }
+  const handleDragEnd = () => {
+    dragItem.current = null
+    dragOverItem.current = null
+  }
+  const handleDragOver = (e: React.DragEvent, providerId: string, index: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragOverItem.current = { providerId, index }
+  }
+  const handleDrop = (providerId: string) => {
+    if (!dragItem.current || !dragOverItem.current) return
+    if (dragItem.current.providerId !== providerId) return
+    if (dragItem.current.index === dragOverItem.current.index) return
+    const fromIndex = dragItem.current.index
+    const toIndex = dragOverItem.current.index
+    setFormState((prev) => {
+      const current = prev[providerId]
+      if (!current) return prev
+      const list = [...(current.modelFallbacks ?? current.modelIds)]
+      const [moved] = list.splice(fromIndex, 1)
+      if (moved !== undefined) list.splice(toIndex, 0, moved)
+      return { ...prev, [providerId]: { ...current, modelFallbacks: list } }
+    })
+    dragItem.current = null
+    dragOverItem.current = null
+  }
+
+  const handleProviderDragStart = (index: number) => {
+    dragProviderItem.current = { index }
+  }
+  const handleProviderDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    dragProviderOver.current = { index }
+  }
+  const handleProviderDrop = () => {
+    if (!dragProviderItem.current || !dragProviderOver.current) return
+    if (dragProviderItem.current.index === dragProviderOver.current.index) return
+    const fromIndex = dragProviderItem.current.index
+    const toIndex = dragProviderOver.current.index
+    const newOrder = sortedProviders.map((p) => p.id)
+    const [moved] = newOrder.splice(fromIndex, 1)
+    if (moved !== undefined) newOrder.splice(toIndex, 0, moved)
+    setProviderOrder(newOrder)
+    saveProviderOrder(newOrder)
+    const orderedFormState: Record<string, FormProvider> = {}
+    for (const id of newOrder) {
+      if (formState[id]) orderedFormState[id] = formState[id]
+    }
+    for (const [id, p] of Object.entries(formState)) {
+      if (!orderedFormState[id]) orderedFormState[id] = p
+    }
+    setFormState(orderedFormState)
+    dragProviderItem.current = null
+    dragProviderOver.current = null
+  }
+  const handleProviderDragEnd = () => {
+    dragProviderItem.current = null
+    dragProviderOver.current = null
+  }
+
+  const buildSaveList = (): ProviderConfig[] =>
+    sortedProviders.map((p) => {
+      const c = formState[p.id]
+      if (!c) return null
+      return {
+        providerId: c.providerId, enabled: c.enabled,
+        apiKey: c.apiKey.trim(), apiKeyRef: c.apiKey.trim(),
+        baseUrl: trimBaseUrl(c.baseUrl),
+        modelIds: c.modelIds, defaultModelId: c.defaultModelId,
+        modelFallbacks: c.modelFallbacks, enableModelFallback: c.enableModelFallback,
+      }
+    }).filter((p): p is NonNullable<typeof p> => p !== null)
+
+  const handleSave = async () => {
+    try {
+      await api.settingsProviders(buildSaveList(), enableProviderFallback)
+      showToast('success', t('settings.llm.saved'))
+      await loadSettings(true)
+    } catch (e) {
+      showToast('error', t('settings.llm.saveFailed', { error: e instanceof Error ? e.message : String(e) }))
+    }
+  }
+
+  const handleQueryModels = useCallback(async (providerId: string) => {
+    const provider = formState[providerId]
+    if (!provider?.apiKey) return
+    setLoadingModels(providerId)
+    setVerifiedModels((prev) => {
+      const next = { ...prev }
+      delete next[providerId]
+      return next
+    })
+    try {
+      const data = await api.queryModels(providerId, provider.apiKey, trimBaseUrl(provider.baseUrl))
+      if (!data.ok) throw new Error(data.error || t('settings.llm.queryFailed'))
+      const models: string[] = data.models || []
+      const userDefaultId = provider.defaultModelId ?? ''
+      const existingFallbacks = provider.modelFallbacks ?? []
+      const modelSet = new Set(models)
+      const mergedModels = userDefaultId && !modelSet.has(userDefaultId) ? [userDefaultId, ...models] : [...models]
+      const preserved = existingFallbacks.filter((m) => mergedModels.includes(m))
+      const preservedSet = new Set(preserved)
+      const newModels = mergedModels.filter((m) => !preservedSet.has(m))
+      const fallbacks = [...preserved, ...newModels]
+      setFormState((prev) => {
+        const current = prev[providerId]
+        if (!current) return prev
+        return {
+          ...prev,
+          [providerId]: {
+            ...current,
+            modelIds: mergedModels,
+            defaultModelId: userDefaultId || models[0] || current.defaultModelId,
+            modelFallbacks: fallbacks,
+          },
+        }
+      })
+      const verified = new Set<string>()
+      const CONCURRENCY = 3
+      const queue = [...models]
+      const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, () =>
+        (async () => {
+          while (queue.length > 0) {
+            const modelId = queue.shift()
+            if (!modelId) break
+            try {
+              const r = await api.verifyModel(providerId, provider.apiKey, trimBaseUrl(provider.baseUrl), modelId)
+              if (r.ok) verified.add(modelId)
+            } catch { /* per-model failure marks unverified */ }
+          }
+        })(),
+      )
+      await Promise.all(workers)
+      setVerifiedModels((prev) => ({ ...prev, [providerId]: verified }))
+      showToast('success', t('settings.llm.queried', { count: models.length }))
+    } catch (e) {
+      showToast('error', `${t('settings.llm.queryFailed')}: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setLoadingModels(null)
+    }
+  }, [formState, t])
 
   return (
     <div className="page">
       <div className="screen-head">
-        <span className="no">SETTINGS</span>
+        <span className="no">{t('settings.eyebrow')}</span>
         <h1>{t('settings.title')}</h1>
         <span className="q">{t('settings.subtitle')}</span>
       </div>
       <ScreenNav current="/settings" />
-      <div className="panel">
-        <h3>{t('settings.add.title')}</h3>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {missing.map((v) => (
-            <button key={v.id} style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => addVendor(v)}>+ {v.name}</button>
-          ))}
-          <button style={{ padding: '2px 10px', fontSize: 12 }} onClick={addCustom}>+ {t('settings.add.custom')}</button>
-        </div>
-        {notice && <div className="faint" style={{ marginTop: 6 }}>{notice}</div>}
-      </div>
-      {conns.length === 0 && <div className="panel"><div className="faint">{t('settings.empty')}</div></div>}
-      {conns.map((c) => (
-        <ProviderCard key={c.id} conn={c} patch={patch} move={move} remove={(id) => setConns((cs) => cs.filter((x) => x.id !== id))} />
-      ))}
-      <p className="faint" style={{ marginTop: 12 }}>{t('settings.isolation.note')}</p>
-    </div>
-  )
-}
-
-function ProviderCard({ conn, patch, move, remove }: {
-  conn: ProviderConnection
-  patch: (id: string, fn: (c: ProviderConnection) => ProviderConnection) => void
-  move: (id: string, dir: -1 | 1) => void
-  remove: (id: string) => void
-}) {
-  const t = useT()
-  const [key, setKey] = useState('')
-  const [baseUrl, setBaseUrl] = useState(conn.baseUrl)
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
-  const [err, setErr] = useState(false)
-  const [newModel, setNewModel] = useState('')
-  const mounted = useRef(true)
-  useEffect(() => {
-    mounted.current = true
-    return () => { mounted.current = false }
-  }, [])
-  useEffect(() => { setBaseUrl(conn.baseUrl) }, [conn.id, conn.baseUrl])
-
-  const configured = conn.apiKeyRef !== null && conn.baseUrl !== ''
-
-  const save = async () => {
-    setBusy(true)
-    setMsg(null)
-    setErr(false)
-    try {
-      const url = trimBaseUrl(baseUrl)
-      patch(conn.id, (c) => ({ ...c, baseUrl: url }))
-      if (key) {
-        const r = await api.providerKey(conn.id, key)
-        patch(conn.id, (c) => ({ ...c, apiKeyRef: r.ref }))
-        setKey('')
-      } else if (!conn.apiKeyRef) {
-        patch(conn.id, (c) => ({ ...c, apiKeyRef: null }))
-      }
-      if (mounted.current) setMsg(t('settings.saved'))
-    } catch (e) {
-      if (mounted.current) {
-        setErr(true)
-        setMsg(t('settings.save.error', { error: e instanceof Error ? e.message : String(e) }))
-      }
-    } finally {
-      if (mounted.current) setBusy(false)
-    }
-  }
-
-  const refreshModels = async () => {
-    setBusy(true)
-    setMsg(null)
-    setErr(false)
-    try {
-      const r = await api.providerModels(trimBaseUrl(baseUrl))
-      const merged = [...new Set([...conn.models, ...r.models])]
-      patch(conn.id, (c) => ({
-        ...c,
-        models: merged,
-        defaultModel: merged.includes(c.defaultModel) ? c.defaultModel : (merged[0] ?? ''),
-        fallback: merged.filter((m) => m !== (merged.includes(c.defaultModel) ? c.defaultModel : merged[0])),
-      }))
-      if (mounted.current) setMsg(t('settings.models.ok', { n: r.models.length }) + (r.simulated ? ` ${t('settings.simulated')}` : ''))
-    } catch (e) {
-      if (mounted.current) {
-        setErr(true)
-        setMsg(t('settings.models.error', { error: e instanceof Error ? e.message : String(e) }))
-      }
-    } finally {
-      if (mounted.current) setBusy(false)
-    }
-  }
-
-  const moveModel = (m: string, dir: -1 | 1) =>
-    patch(conn.id, (c) => {
-      const fb = [...c.fallback]
-      const i = fb.indexOf(m)
-      const j = i + dir
-      if (i < 0 || j < 0 || j >= fb.length) return c
-      ;[fb[i], fb[j]] = [fb[j], fb[i]]
-      return { ...c, fallback: fb }
-    })
-
-  return (
-    <div className="panel" style={{ opacity: conn.enabled ? undefined : 0.65 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <b>{conn.name}</b>
-        {configured
-          ? <span className="src-badge src-live">{t('settings.configured')}</span>
-          : <span className="src-badge src-fixture">{t('settings.unconfigured')}</span>}
-        <span style={{ flex: 1 }} />
-        <label className="faint" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <input type="checkbox" checked={conn.enabled} onChange={(e) => patch(conn.id, (c) => ({ ...c, enabled: e.target.checked }))} />
-          {t('settings.enabled')}
-        </label>
-        <button style={{ padding: '1px 8px', fontSize: 12 }} onClick={() => move(conn.id, -1)}>↑</button>
-        <button style={{ padding: '1px 8px', fontSize: 12 }} onClick={() => move(conn.id, 1)}>↓</button>
-        <button style={{ padding: '1px 8px', fontSize: 12 }} onClick={() => patch(conn.id, (c) => ({ ...c, collapsed: !c.collapsed }))}>
-          {conn.collapsed ? t('settings.expand') : t('settings.collapse')}
-        </button>
-        {conn.vendorId === CUSTOM_PRESET_ID && (
-          <button className="danger" style={{ padding: '1px 8px', fontSize: 12 }} onClick={() => remove(conn.id)}>✕</button>
-        )}
-      </div>
-      {!conn.collapsed && (
-        <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-            <span className="faint">{t('settings.baseurl')}</span>
-            <input type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://…" />
-          </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-            <span className="faint">{t('settings.apikey', { ref: conn.apiKeyRef ?? t('settings.apikey.none') })}</span>
-            <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder={t('settings.apikey.placeholder')} autoComplete="off" />
-          </label>
-          <div>
-            <div className="faint" style={{ marginBottom: 4 }}>{t('settings.models')}</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {conn.models.map((m) => (
-                <label key={m} style={{ fontSize: 12, display: 'flex', gap: 4, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, padding: '2px 8px' }}>
-                  <input
-                    type="checkbox"
-                    checked
-                    onChange={() => patch(conn.id, (c) => {
-                      const models = c.models.filter((x) => x !== m)
-                      return {
-                        ...c,
-                        models,
-                        defaultModel: c.defaultModel === m ? (models[0] ?? '') : c.defaultModel,
-                        fallback: c.fallback.filter((x) => x !== m),
-                      }
-                    })}
-                  />{m}
-                </label>
-              ))}
-              <input
-                type="text" value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder={t('settings.models.add')}
-                style={{ fontSize: 12, width: 160 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newModel.trim()) {
-                    const m = newModel.trim()
-                    setNewModel('')
-                    patch(conn.id, (c) => (c.models.includes(m) ? c : { ...c, models: [...c.models, m], fallback: [...c.fallback, m] }))
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 12 }}>
-            <span className="faint">{t('settings.default')}</span>
-            <select value={conn.defaultModel} onChange={(e) => patch(conn.id, (c) => ({ ...c, defaultModel: e.target.value, fallback: c.models.filter((x) => x !== e.target.value) }))}>
-              {conn.models.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <span className="faint">{t('settings.fallback')}</span>
-            {conn.fallback.map((m) => (
-              <span key={m} style={{ display: 'inline-flex', gap: 2, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, padding: '1px 4px 1px 8px' }}>
-                {m}
-                <button style={{ padding: '0 5px', fontSize: 11 }} onClick={() => moveModel(m, -1)}>↑</button>
-                <button style={{ padding: '0 5px', fontSize: 11 }} onClick={() => moveModel(m, 1)}>↓</button>
-                <button className="danger" style={{ padding: '0 5px', fontSize: 11 }} onClick={() => patch(conn.id, (c) => ({ ...c, fallback: c.fallback.filter((x) => x !== m) }))}>✕</button>
-              </span>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="primary" disabled={busy} style={{ padding: '3px 14px', fontSize: 12 }} onClick={() => void save()}>{t('settings.save')}</button>
-            <button disabled={busy} style={{ padding: '3px 14px', fontSize: 12 }} onClick={() => void refreshModels()}>{t('settings.verify')}</button>
-          </div>
-          {msg && <div style={{ color: err ? 'var(--red)' : 'var(--green)', fontSize: 12 }}>{msg}</div>}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 20, right: 20, zIndex: 50, padding: '10px 20px', borderRadius: 6,
+          color: '#fff', fontSize: 14, background: toast.type === 'success' ? 'var(--green)' : 'var(--red)',
+        }}>
+          {toast.message}
         </div>
       )}
+      <div className="panel">
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 4 }}>
+          <h3 style={{ margin: 0 }}>{t('settings.llm.title')}</h3>
+          <span style={{ flex: 1 }} />
+          <button className="primary" style={{ padding: '3px 14px', fontSize: 12 }} onClick={() => void handleSave()}>{t('settings.llm.save')}</button>
+        </div>
+        <div className="faint" style={{ marginBottom: 12 }}>{t('settings.llm.desc')}</div>
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <label className="faint" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
+            <input
+              type="checkbox"
+              checked={enableProviderFallback}
+              onChange={() => {
+                const next = !enableProviderFallback
+                setEnableProviderFallback(next)
+                void api.settingsProviders(buildSaveList(), next).catch((e: unknown) => {
+                  setEnableProviderFallback(!next)
+                  showToast('error', t('settings.llm.saveFailed', { error: e instanceof Error ? e.message : String(e) }))
+                })
+              }}
+            />
+            <b style={{ color: 'var(--text)' }}>{t('settings.llm.enableFallback')}</b>
+            {t('settings.llm.fallbackDesc')}
+          </label>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {sortedProviders.map((preset, index) => {
+            const c = formState[preset.id]
+            if (!c) return null
+            const isExpanded = expandedProviders[preset.id] ?? false
+            const fallbackList = c.modelFallbacks ?? c.modelIds ?? []
+            const isLoading = loadingModels === preset.id
+            const modelMetaMap = new Map(
+              fallbackList.map((id) => [id, getModelMeta(preset.id, id, catalogCache ?? catalog)]),
+            )
+            return (
+              <div
+                key={preset.id}
+                className="panel"
+                style={{ margin: 0, opacity: c.enabled ? undefined : 0.6 }}
+                onDragOver={(e) => handleProviderDragOver(e, index)}
+                onDrop={() => handleProviderDrop()}
+              >
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer' }}>
+                  <span
+                    draggable
+                    onDragStart={() => handleProviderDragStart(index)}
+                    onDragEnd={handleProviderDragEnd}
+                    title={t('settings.llm.dragSort')}
+                    style={{ cursor: 'grab', color: 'var(--text-faint)', userSelect: 'none' }}
+                  >⋮⋮</span>
+                  <button
+                    type="button"
+                    style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: 14 }}
+                    onClick={() => toggleExpanded(preset.id)}
+                  >
+                    <span style={{ fontSize: 11 }}>{isExpanded ? '▼' : '▶'}</span>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.enabled ? 'var(--green)' : 'var(--text-faint)', display: 'inline-block' }} />
+                    <b>{lang === 'en' ? (preset.nameEn ?? preset.name) : preset.name}</b>
+                    <span className="faint" style={{ fontSize: 12 }}>{lang === 'en' ? (preset.descEn ?? preset.desc) : preset.desc}</span>
+                  </button>
+                  <span style={{ flex: 1 }} />
+                  <label className="faint" style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 12 }} onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={c.enableModelFallback ?? false} onChange={(e) => updateField(c.providerId, 'enableModelFallback', e.target.checked)} />
+                    {t('settings.llm.modelFallback')}
+                  </label>
+                  <label className="faint" style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 12 }} onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={c.enabled} onChange={(e) => updateField(c.providerId, 'enabled', e.target.checked)} />
+                    {t('settings.llm.enabled')}
+                  </label>
+                  {c.apiKey
+                    ? <span className="src-badge src-live">{t('settings.llm.configured')}</span>
+                    : <span className="src-badge src-fixture">{t('settings.llm.needKey')}</span>}
+                  {c.modelIds.length > 0 && <span className="faint" style={{ fontSize: 12 }}>{t('settings.llm.models', { count: c.modelIds.length })}</span>}
+                </div>
+                {isExpanded && (
+                  <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+                    <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                      <span className="faint">{t('settings.llm.apiKey')}</span>
+                      <input type="password" value={c.apiKey} onChange={(e) => updateField(c.providerId, 'apiKey', e.target.value)} placeholder={preset.keyPlaceholder} autoComplete="off" />
+                    </label>
+                    <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                      <span className="faint">{t('settings.llm.baseUrl')}</span>
+                      <input type="text" value={c.baseUrl} onChange={(e) => updateField(c.providerId, 'baseUrl', e.target.value)} placeholder={preset.defaultBaseUrl || 'https://api.example.com/v1'} />
+                    </label>
+                    {c.apiKey && (
+                      <div>
+                        <button
+                          onClick={() => void handleQueryModels(c.providerId)}
+                          disabled={isLoading}
+                          className={isLoading ? '' : 'primary'}
+                          style={{ padding: '3px 14px', fontSize: 12 }}
+                        >{isLoading ? t('settings.llm.querying') : t('settings.llm.queryModels')}</button>
+                      </div>
+                    )}
+                    {fallbackList.length > 0 && (
+                      <div>
+                        <div className="faint" style={{ marginBottom: 6, fontSize: 12 }}>{t('settings.llm.defaultModel')}</div>
+                        <table className="t" style={{ width: '100%' }}>
+                          <thead><tr>
+                            <th style={{ width: 32 }}>#</th>
+                            <th>{t('settings.modelId')}</th>
+                            <th>{t('settings.llm.recommended')}</th>
+                            <th>{t('settings.llm.quota')}</th>
+                            <th style={{ width: 90 }}>{t('settings.llm.action')}</th>
+                          </tr></thead>
+                          <tbody>
+                            {fallbackList.map((model, i) => {
+                              const isDefault = model === c.defaultModelId
+                              const meta = modelMetaMap.get(model)
+                              const verified = verifiedModels[preset.id]
+                              const isVerified = verified ? verified.has(model) : null
+                              return (
+                                <tr
+                                  key={model}
+                                  style={isDefault ? { background: 'rgba(59,91,219,.08)' } : undefined}
+                                  onDragOver={(e) => handleDragOver(e, preset.id, i)}
+                                  onDrop={(e) => { e.stopPropagation(); handleDrop(preset.id) }}
+                                >
+                                  <td>
+                                    <span
+                                      draggable
+                                      onDragStart={() => handleDragStart(preset.id, i)}
+                                      onDragEnd={handleDragEnd}
+                                      title={t('settings.llm.dragSort')}
+                                      style={{ cursor: 'grab', color: 'var(--text-faint)', userSelect: 'none' }}
+                                    >⠿</span>
+                                  </td>
+                                  <td className="mono" style={{ fontSize: 12 }}>
+                                    {model}
+                                    {isDefault && <span className="src-badge src-live" style={{ marginLeft: 8 }}>{t('settings.llm.currentDefault')}</span>}
+                                    {isVerified === true && <span style={{ color: 'var(--green)', marginLeft: 4 }} title={t('settings.llm.verifiedOk')}>✓</span>}
+                                    {isVerified === false && <span style={{ color: 'var(--amber)', marginLeft: 4 }} title={t('settings.llm.verifyFailedTitle')}>⚠</span>}
+                                    {isVerified === null && isLoading && <span className="faint" style={{ marginLeft: 4 }} title={t('settings.llm.verifyingTitle')}>⏳</span>}
+                                  </td>
+                                  <td style={{ color: 'var(--text-dim)', fontSize: 12 }}>{meta?.recommendation ?? '—'}</td>
+                                  <td style={{ color: 'var(--text-dim)', fontSize: 12 }}>{meta ? `RPM ${meta.rpm ?? '?'} / RPD ${meta.rpd ?? '?'} / TPM ${meta.tpm ?? '?'}` : '—'}</td>
+                                  <td>
+                                    {!isDefault && (
+                                      <button
+                                        type="button"
+                                        style={{ padding: '1px 8px', fontSize: 12 }}
+                                        onClick={() => handleSelectDefault(c.providerId, model)}
+                                      >{t('settings.llm.setDefault')}</button>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button className="primary" style={{ padding: '3px 14px', fontSize: 12 }} onClick={() => void handleSave()}>{t('settings.llm.save')}</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

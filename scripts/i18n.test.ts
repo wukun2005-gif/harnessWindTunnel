@@ -57,11 +57,6 @@ test('all English UI keys exist, contain no Chinese, and preserve interpolation 
   assert.equal(t('tunnel.readings.approximate', 'en', { distance: 3 }).includes('{distance}'), false)
 })
 
-test('Demo wrap-up does not promise ten recorded generations; Chinese title stays unchanged', () => {
-  assert.equal(t('demo.step12.title', 'en'), 'Evolution Replay (69.7% → 77.0%): Wrap-up')
-  assert.equal(t('demo.step12.title', 'zh'), '自动播放 10 代 (69.7% → 77.0%) 总结')
-})
-
 test('English replay entries never return Chinese, including every formerly inverted entry', () => {
   for (const [key, value] of Object.entries(dictionaries.fixtureEn)) {
     assert.ok(!han.test(value), `${key}: ${value}`)

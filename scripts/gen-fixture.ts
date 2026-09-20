@@ -164,6 +164,8 @@ const scenarios: Scenario[] = [
           rec.tool('fs.read', 'sales-wk-01..08', 3800, 'Weekly bundle')
           rec.req(ctx({ history: 5200, toolResult: { source: 'fs.read(customer-interviews.md)', tokens: 5100, preview: 'Full interviews, window fully exhausted…' } }), 'Request assembled, estimated 15.2k tokens')
           rec.req(ctx({ history: 9400, toolResult: { source: 'fs.read(finance-q3.xlsx)', tokens: 4200, preview: 'Over-window request' } }), 'Context window exceeded', 'context_overflow')
+          rec.tag('long-horizon-decay', 0.89, 'Assembled 15.2k-token request exceeds the window with no compaction available; reading stalls mid-run')
+          rec.tag('long-horizon-decay', 0.84, 'No section ever drafted: early material decays before the report begins')
           rec.finish({ success: false, tokens: 221_000, latencyP50: 248_000, failureModes: { 'long-horizon-decay': 2 } })
         },
       },
@@ -378,7 +380,7 @@ const scenarios: Scenario[] = [
       },
       {
         branchId: 'tuned', config: cfg({ filesystem: 'file-backed-state', hooks: 'lifecycle', sensors: 'verifier', permissions: 'ask-write', humanInLoop: 'approval-gates' }),
-        metrics: { ...fx(56.2, 96_000, 136_000), source: S('fixture', 'Illustrative: filestate locks scope → verifier passes first try → hooks guard mail.send; all components from MRI demo') },
+        metrics: { ...fx(56.2, 96_000, 136_000), source: S('fixture', 'Illustrative: filestate locks scope → verifier passes first try → hooks guard mail.send; all components visible in Run Insight') },
         build(rec) {
           rec.start(MODEL, "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM")
           // ---- Phase 1: query & externalize scope (file-backed state) ----
@@ -418,7 +420,7 @@ const scenarios: Scenario[] = [
     branches: [
       {
         branchId: 'base', config: cfg(),
-        metrics: { ...fx(34.0, 41_200, 96_000, { 'premature-victory': 1 }), source: S('fixture', 'Illustrative baseline (opening demo 34%)') },
+        metrics: { ...fx(34.0, 41_200, 96_000, { 'premature-victory': 1 }), source: S('fixture', 'Illustrative baseline (34%)') },
         build(rec) {
           rec.start(MODEL, 'Fix flaky tests in the CLI output module and finish the refactor')
           rec.req(ctx({ history: 900, toolSchema: 380 }), 'First reproduce the flaky test')

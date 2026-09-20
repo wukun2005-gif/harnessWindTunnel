@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useApp } from './stores'
 import { useI18n, useT } from './i18n'
+import { startDemo, stopDemo, isDemoPlaying } from './demo/demo'
 import MRI from './screens/MRI'
 import WindTunnel from './screens/WindTunnel'
 import Forge from './screens/Forge'
-import Demo from './screens/Demo'
 import Settings from './screens/Settings'
 import Legal from './screens/Legal'
 import Security from './screens/Security'
@@ -28,7 +28,6 @@ const TITLES: Record<string, string> = {
   '/insight': 'Run Insight',
   '/tunnel': 'Wind Tunnel',
   '/evolution': 'Evolution',
-  '/demo': 'Demo Tour',
   '/legal': 'Legal',
   '/security': 'Security',
 }
@@ -46,9 +45,24 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <a href="#/" className="en" style={{ textDecoration: 'none' }}>HarnessWindTunnel</a>
+          <a href="#/" style={{ textDecoration: 'none', fontWeight: 700 }}>{t('app.brand.title')}</a>
         </div>
         <div className="spacer" />
+        <button
+          id="demo-btn"
+          className="primary demo-btn"
+          style={{ padding: '4px 12px', fontSize: '13px', marginRight: '8px' }}
+          onClick={() => { if (isDemoPlaying()) stopDemo(); else startDemo() }}
+        >
+          {t('demo.button')}
+        </button>
+        <a
+          href="#/settings"
+          className="settings-link"
+          title={t('settings.title')}
+        >
+          ⚙ {t('nav.settings')}
+        </a>
         <button 
           onClick={toggleLang}
           className="lang-toggle"
@@ -63,7 +77,7 @@ export default function App() {
             marginRight: '12px',
             fontFamily: 'var(--mono)'
           }}
-          title="Switch language"
+          title={t('common.switchLang')}
         >
           {lang === 'en' ? 'EN' : '中'}
         </button>
@@ -77,8 +91,6 @@ export default function App() {
         <WindTunnel />
       ) : route === '/evolution' ? (
         <Forge />
-      ) : route === '/demo' ? (
-        <Demo />
       ) : route === '/settings' ? (
         <Settings />
       ) : route === '/legal' ? (
@@ -101,28 +113,42 @@ function Home({ online }: { online: boolean }) {
         <h1>{t('home.hero.title')}</h1>
         <p>{t('home.hero.desc')}</p>
         <p className="faint">{t('home.hero.tagline')}</p>
+        <div style={{ marginTop: 16 }}>
+          <button
+            className="primary demo-btn"
+            style={{ padding: '8px 22px', fontSize: '14px' }}
+            onClick={() => { if (isDemoPlaying()) stopDemo(); else startDemo() }}
+          >
+            {t('demo.button')}
+          </button>
+        </div>
         <div className="screen-cards">
           <a className="panel screen-card" href="#/insight">
-            <span className="no2">SCREEN 01</span>
+            <span className="no2">{t('mri.eyebrow')}</span>
             <h4>{t('home.screen1.title')}</h4>
             <p>{t('home.screen1.desc')}</p>
           </a>
           <a className="panel screen-card" href="#/tunnel">
-            <span className="no2">SCREEN 02</span>
+            <span className="no2">{t('tunnel.eyebrow')}</span>
             <h4>{t('home.screen2.title')}</h4>
             <p>{t('home.screen2.desc')}</p>
           </a>
           <a className="panel screen-card" href="#/evolution">
-            <span className="no2">SCREEN 03</span>
+            <span className="no2">{t('forge.eyebrow')}</span>
             <h4>{t('home.screen3.title')}</h4>
             <p>{t('home.screen3.desc')}</p>
           </a>
-        </div>
-        <p style={{ marginTop: 34 }}>
-          <a className="primary" style={{ textDecoration: 'none', display: 'inline-block', padding: '9px 22px' }} href="#/demo">
-            {t('home.demo.button')}
+          <a className="panel screen-card" href="#/security">
+            <span className="no2">{t('security.eyebrow')}</span>
+            <h4>{t('home.screen4.title')}</h4>
+            <p>{t('home.screen4.desc')}</p>
           </a>
-        </p>
+          <a className="panel screen-card" href="#/legal">
+            <span className="no2">{t('legal.eyebrow')}</span>
+            <h4>{t('home.screen5.title')}</h4>
+            <p>{t('home.screen5.desc')}</p>
+          </a>
+        </div>
         <p className="faint" style={{ marginTop: 18 }}>
           {online ? t('home.status.ready') : t('home.status.offline')}
         </p>
