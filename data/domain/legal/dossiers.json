@@ -6,14 +6,14 @@
       "refs": ["l-mars-hallucination", "l-mars-f1"],
       "memo": "Counsel's opposition brief relies on six precedents to support tolling of the limitations period. Sanctions under FRCP Rule 11 may apply where a filing cites authority counsel never verified.",
       "assertions": [
-        { "id": "m1", "text": "Varghese v. China Southern Airlines (illustrative) holds that limitations toll during settlement talks.", "label": "citation_unreachable", "note": "No such opinion exists in any reporter; mirrors the Mata filing pattern.", "aba": ["1.1", "3.3"] },
-        { "id": "m2", "text": "Shaboon v. EgyptAir (illustrative) extends the Montreal Convention to codeshare delays.", "label": "unsupported", "note": "Citation unreachable and the proposition has no support.", "aba": ["1.1", "3.3"] },
-        { "id": "m3", "text": "Petersen v. Iran (illustrative) sets the tolling standard for aviation claims.", "label": "citation_unreachable", "note": "Fabricated caption in the Mata pattern.", "aba": ["1.1"] },
-        { "id": "m4", "text": "Martinez v. Delta (illustrative) recognizes equitable tolling for missed connections.", "label": "unsupported", "note": "No supporting authority located.", "aba": ["1.1", "3.3"] },
-        { "id": "m5", "text": "Estate of Durden v. KLM (illustrative) addresses notice pleading for delay damages.", "label": "citation_unreachable", "note": "Fabricated caption in the Mata pattern.", "aba": ["1.1"] },
-        { "id": "m6", "text": "Miller v. United (illustrative) confirms personal jurisdiction over foreign carriers.", "label": "unsupported", "note": "Citation unreachable; jurisdictional claim unsupported.", "aba": ["1.1"] },
-        { "id": "m7", "text": "FRCP Rule 11 authorizes sanctions for filings made without reasonable inquiry.", "label": "supported", "note": "Verifiable rule text." },
-        { "id": "m8", "text": "The Mata court sanctioned two lawyers $5,000 each.", "label": "supported", "note": "Public record, S.D.N.Y. 2023." }
+        { "id": "m1", "text": "Varghese v. China Southern Airlines (illustrative) holds that limitations toll during settlement talks.", "label": "citation_unreachable", "note": "No such opinion exists in any reporter; mirrors the Mata filing pattern.", "authority": "Reporter check (case-file registry): no Varghese v. China Southern Airlines opinion found; the caption belongs to the AI-fabricated case list disclosed in Mata v. Avianca (S.D.N.Y. 2023). Related rules: FRCP Rule 11, ABA Model Rules 1.1/3.3.", "aba": ["1.1", "3.3"] },
+        { "id": "m2", "text": "Shaboon v. EgyptAir (illustrative) extends the Montreal Convention to codeshare delays.", "label": "citation_unreachable", "note": "Citation unreachable and the proposition has no support.", "authority": "Reporter check: no Shaboon v. EgyptAir opinion found (same fabricated list). Substantive side: Montreal Convention art. 19 covers carrier delay liability only and does not extend to codeshare delays. Related rules: ABA Model Rules 1.1, 3.3.", "aba": ["1.1", "3.3"] },
+        { "id": "m3", "text": "Petersen v. Iran (illustrative) sets the tolling standard for aviation claims.", "label": "citation_unreachable", "note": "Fabricated caption in the Mata pattern.", "authority": "Reporter check: no Petersen v. Iran opinion found (same fabricated list). Related rule: FRCP Rule 11.", "aba": ["1.1"] },
+        { "id": "m4", "text": "Martinez v. Delta (illustrative) recognizes equitable tolling for missed connections.", "label": "citation_unreachable", "note": "Citation unreachable; Rule 6(b) offers no tolling basis.", "authority": "Reporter check: no Martinez v. Delta opinion found (same fabricated list). Procedure side: FRCP Rule 6(b) governs extensions of procedural time only, and offers no equitable-tolling basis for missed connections.", "aba": ["1.1", "3.3"] },
+        { "id": "m5", "text": "Estate of Durden v. KLM (illustrative) addresses notice pleading for delay damages.", "label": "citation_unreachable", "note": "Fabricated caption in the Mata pattern.", "authority": "Reporter check: no Estate of Durden v. KLM opinion found (same fabricated list). Related rule: FRCP Rule 11.", "aba": ["1.1"] },
+        { "id": "m6", "text": "Miller v. United (illustrative) confirms personal jurisdiction over foreign carriers.", "label": "citation_unreachable", "note": "Citation unreachable; jurisdictional claim unsupported.", "authority": "Reporter check: no Miller v. United opinion found (same fabricated list). Procedure side: FRCP Rule 4(k) states the general personal-jurisdiction rule.", "aba": ["1.1"] },
+        { "id": "m7", "text": "FRCP Rule 11 authorizes sanctions for filings made without reasonable inquiry.", "label": "supported", "note": "Verifiable rule text.", "authority": "FRCP Rule 11(b)(1) requires reasonable inquiry before filing; Rule 11(c) authorizes sanctions for filings made without it." },
+        { "id": "m8", "text": "The Mata court sanctioned two lawyers $5,000 each.", "label": "supported", "note": "Public record, S.D.N.Y. 2023.", "authority": "Case-file registry: public record Mata v. Avianca, Inc., No. 22-cv-1461 (S.D.N.Y. 2023) — the court sanctioned the two lawyers $5,000." }
       ]
     },
     {
@@ -22,11 +22,11 @@
       "refs": ["parthenon-gain"],
       "memo": "Counsel computes the limitations deadline by adding 30 calendar days to the accrual date. The jurisdiction excludes public holidays from the count, which the memo ignores.",
       "assertions": [
-        { "id": "d1", "text": "The limitations period is 30 days from accrual.", "label": "supported", "note": "Statute text verified." },
-        { "id": "d2", "text": "Adding 30 calendar days lands the deadline on March 14.", "label": "unsupported", "note": "Fails to exclude the March 8 public holiday; correct date is March 15.", "aba": ["1.1"] },
-        { "id": "d3", "text": "No holiday falls inside the window.", "label": "unsupported", "note": "March 8 is a public holiday in this jurisdiction.", "aba": ["1.1"] },
-        { "id": "d4", "text": "Counsel must verify deadline arithmetic against the holiday calendar.", "label": "supported", "note": "Standard of care, ABA 1.1." },
-        { "id": "d5", "text": "Filing on March 14 would be timely.", "label": "partially_supported", "note": "Timely only if the holiday exclusion does not apply — it does.", "aba": ["1.1"] }
+        { "id": "d1", "text": "The limitations period is 30 days from accrual.", "label": "supported", "note": "Statute text verified.", "authority": "Case-file source: Parthenon Gain agreement limitations clause — a claim must be brought within 30 days of accrual." },
+        { "id": "d2", "text": "Adding 30 calendar days lands the deadline on March 14.", "label": "unsupported", "note": "Fails to exclude the March 8 public holiday; correct date is March 15.", "authority": "Case-file holiday calendar: March 8 is a public holiday in this jurisdiction; it must be excluded from the 30-day count — day 30 falls on March 14 and the deadline rolls to March 15.", "aba": ["1.1"] },
+        { "id": "d3", "text": "No holiday falls inside the window.", "label": "unsupported", "note": "March 8 is a public holiday in this jurisdiction.", "authority": "Case-file holiday calendar: March 8 is a public holiday in this jurisdiction and falls inside the 30-day window.", "aba": ["1.1"] },
+        { "id": "d4", "text": "Counsel must verify deadline arithmetic against the holiday calendar.", "label": "supported", "note": "Standard of care, ABA 1.1.", "authority": "Case-file source: ABA Model Rule 1.1 (diligence) — deadline arithmetic must be checked against the case-file holiday calendar." },
+        { "id": "d5", "text": "Filing on March 14 would be timely.", "label": "supported", "note": "True deadline is March 15 after excluding the March 8 holiday; filing on March 14 is within the window.", "authority": "Case-file holiday calendar and time-computation rule: March 8 is a public holiday excluded from the 30-day count; after exclusion the deadline is March 15. Timeliness must be judged only after the exclusion is performed.", "aba": ["1.1"] }
       ]
     },
     {
@@ -35,11 +35,11 @@
       "refs": ["parthenon-gain"],
       "memo": "The memo analyzes the dispute under State A contract law. The agreement's forum clause and the place of performance both point to State B.",
       "assertions": [
-        { "id": "j1", "text": "The agreement contains a State B forum clause.", "label": "supported", "note": "Section 12 of the agreement." },
-        { "id": "j2", "text": "State A contract law governs the cure-period analysis.", "label": "unsupported", "note": "Forum clause selects State B; State A analysis is misplaced.", "aba": ["1.1"] },
-        { "id": "j3", "text": "Performance occurred entirely in State B.", "label": "supported", "note": "Undisputed delivery records." },
-        { "id": "j4", "text": "State B's 10-day cure period was satisfied.", "label": "partially_supported", "note": "Notice was sent on day 9; receipt is unconfirmed.", "aba": ["1.1"] },
-        { "id": "j5", "text": "No conflict-of-laws analysis is required.", "label": "unsupported", "note": "Required precisely because two states are in play.", "aba": ["1.1"] }
+        { "id": "j1", "text": "The agreement contains a State B forum clause.", "label": "supported", "note": "Section 12 of the agreement.", "authority": "Case-file source: Parthenon Gain agreement Section 12 — the agreed forum is State B." },
+        { "id": "j2", "text": "State A contract law governs the cure-period analysis.", "label": "unsupported", "note": "Forum clause selects State B; State A analysis is misplaced.", "authority": "Case-file source: Parthenon Gain agreement Section 12 — both forum and governing-law analysis point to State B.", "aba": ["1.1"] },
+        { "id": "j3", "text": "Performance occurred entirely in State B.", "label": "supported", "note": "Undisputed delivery records.", "authority": "Case-file source: delivery records — performance took place entirely in State B." },
+        { "id": "j4", "text": "State B's 10-day cure period was satisfied.", "label": "partially_supported", "note": "Notice was sent on day 9; receipt is unconfirmed.", "authority": "Case-file source: notice records — notice was sent on day 9 of the 10-day cure period, and the receipt of notice is unconfirmed.", "aba": ["1.1"] },
+        { "id": "j5", "text": "No conflict-of-laws analysis is required.", "label": "unsupported", "note": "Required precisely because two states are in play.", "authority": "Case-file sources: Parthenon Gain agreement Section 12 and the delivery records — State A and State B factors are both present.", "aba": ["1.1"] }
       ]
     },
     {
@@ -48,10 +48,10 @@
       "refs": ["parthenon-gain", "l-mars-f1"],
       "memo": "The memo claims $1.42M in lost profits and a 23% contract uplift without citing any exhibit, ledger, or expert report.",
       "assertions": [
-        { "id": "f1", "text": "Lost profits total $1.42M.", "label": "no_citation", "note": "No exhibit, ledger, or report attached.", "aba": ["1.1", "3.3"] },
-        { "id": "f2", "text": "The contract uplift is 23%.", "label": "no_citation", "note": "Figure appears without any source.", "aba": ["1.1", "3.3"] },
-        { "id": "f3", "text": "Mitigation efforts reduced the loss window to 4 months.", "label": "supported", "note": "Supported by the mitigation log." },
-        { "id": "f4", "text": "Pre-judgment interest runs from the breach date.", "label": "supported", "note": "Statutory default rule." }
+        { "id": "f1", "text": "Lost profits total $1.42M.", "label": "no_citation", "note": "No exhibit, ledger, or report attached.", "authority": "Evidentiary rule: a damages claim must rest on admissible evidence (see Fed. R. Civ. P. 56(a)).", "aba": ["1.1", "3.3"] },
+        { "id": "f2", "text": "The contract uplift is 23%.", "label": "no_citation", "note": "Figure appears without any source.", "authority": "Evidentiary rule: a figure must rest on an admissible source (see Fed. R. Civ. P. 56(a)).", "aba": ["1.1", "3.3"] },
+        { "id": "f3", "text": "Mitigation efforts reduced the loss window to 4 months.", "label": "supported", "note": "Supported by the mitigation log.", "authority": "Case-file source: the mitigation log — mitigation efforts shrank the loss window to 4 months." },
+        { "id": "f4", "text": "Pre-judgment interest runs from the breach date.", "label": "supported", "note": "Statutory default rule.", "authority": "Case-file source: the statutory default rule for pre-judgment interest — it runs from the breach date." }
       ]
     },
     {
@@ -60,10 +60,10 @@
       "refs": [],
       "memo": "A short memo where every assertion carries a verifiable authority. The harness must flag nothing here.",
       "assertions": [
-        { "id": "c1", "text": "FRCP Rule 11 requires reasonable inquiry before filing.", "label": "supported", "note": "Rule text." },
-        { "id": "c2", "text": "ABA Opinion 512 treats generative AI as nonlawyer assistance.", "label": "supported", "note": "Opinion text, July 2023." },
-        { "id": "c3", "text": "Blind reliance on AI output breaches Rules 1.1 and 3.3.", "label": "supported", "note": "Opinion 512 core holding." },
-        { "id": "c4", "text": "Independent verification cures the defect.", "label": "supported", "note": "Standard compliance practice." }
+        { "id": "c1", "text": "FRCP Rule 11 requires reasonable inquiry before filing.", "label": "supported", "note": "Rule text.", "authority": "FRCP Rule 11(b)(1): counsel must make reasonable inquiry before filing." },
+        { "id": "c2", "text": "ABA Opinion 512 treats generative AI as nonlawyer assistance.", "label": "supported", "note": "Opinion text, July 2023.", "authority": "ABA Formal Opinion 512 (July 2023): generative AI is nonlawyer assistance, and lawyers must verify its output." },
+        { "id": "c3", "text": "Blind reliance on AI output breaches Rules 1.1 and 3.3.", "label": "supported", "note": "Opinion 512 core holding.", "authority": "ABA Formal Opinion 512 core holding: blind reliance on AI output breaches ABA Model Rules 1.1 (diligence) and 3.3 (candor)." },
+        { "id": "c4", "text": "Independent verification cures the defect.", "label": "supported", "note": "Standard compliance practice.", "authority": "ABA Formal Opinion 512: independent verification of AI output cures the defect of blind reliance." }
       ]
     }
   ]

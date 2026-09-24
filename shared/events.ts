@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { MastTag } from './mast'
+import type { LegalAssertion } from './legal'
 
 // model-visible means logged: everything reaching the model must be fully reconstructible from the append-only event stream.
 export const CONTEXT_LAYERS = ['system', 'memory', 'skillsMeta', 'toolSchema', 'history', 'toolResult'] as const
@@ -33,7 +34,9 @@ export const SHAPER_LABEL: Record<Shaper, string> = {
   autoCompact: '⑤ Auto-compact',
 }
 
-export const AUTHOR = ['harness', 'narrator'] as const
+// 'imported' (M2): external trajectory recorder — never rendered as a harness
+// intervention (design §14.5 provenance rules).
+export const AUTHOR = ['harness', 'narrator', 'imported'] as const
 export type Author = (typeof AUTHOR)[number]
 
 const base = { id: z.string(), ts: z.number(), runId: z.string(), scenarioId: z.string(), author: z.enum(AUTHOR) }
@@ -48,7 +51,17 @@ export const event = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('hook.decision'), step: z.number(), hook: z.string(), verdict: z.enum(['allow', 'deny', 'rewrite']), reason: z.string() }),
   z.object({ ...base, type: z.literal('permission.request'), step: z.number(), scope: z.string(), riskLevel: z.enum(['low', 'medium', 'high']) }),
   z.object({ ...base, type: z.literal('permission.granted'), step: z.number(), scope: z.string(), via: z.string() }),
+  // M2: symmetric to permission.granted. Never impersonate this with
+  // hook.decision{deny} — the permission gate and hooks are different gates.
+  z.object({ ...base, type: z.literal('permission.denied'), step: z.number(), scope: z.string(), riskLevel: z.enum(['low', 'medium', 'high']).optional(), gate: z.string(), reason: z.string() }),
+  // M2: runtime truth of the tri-state permission router
+  // (EXECUTE/ASK/REFUSE; shared/redteam.ts PERMISSION_ROUTER). The static
+  // buildPolicy() export is not a runtime record; only this event is.
+  z.object({ ...base, type: z.literal('router.decision'), step: z.number(), tool: z.string(), route: z.enum(['EXECUTE', 'ASK', 'REFUSE']), matchedRule: z.string(), policyVersion: z.string() }),
   z.object({ ...base, type: z.literal('verifier.verdict'), step: z.number(), verifier: z.string(), verdict: z.enum(['pass', 'reject']), failureTag: z.custom<MastTag>().optional(), reason: z.string() }),
+  // M2: one row per statute claim. verifier.verdict only carries failureTag +
+  // reason and cannot hold the 5-class L-MARS assertion label.
+  z.object({ ...base, type: z.literal('legal.assertion'), step: z.number(), claimText: z.string(), citedAuthority: z.string(), label: z.custom<LegalAssertion>(), evidenceEventId: z.string().optional() }),
   z.object({ ...base, type: z.literal('sensor.lint'), step: z.number(), lint: z.string(), verdict: z.enum(['pass', 'reject']), reason: z.string() }),
   z.object({ ...base, type: z.literal('agent.fork'), step: z.number(), childId: z.string(), purpose: z.string() }),
   z.object({ ...base, type: z.literal('agent.join'), step: z.number(), childId: z.string(), summary: z.string() }),

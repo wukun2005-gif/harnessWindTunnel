@@ -88,3 +88,7 @@ harness-research-v0.5.html        # 背后的调研报告
 ## License
 
 MIT — 见 [LICENSE](LICENSE)。
+
+## 商标声明
+
+APASS 为蚂蚁集团之商标。本项目的「权限三态路由（EXECUTE/ASK/REFUSE）」仅为技术概念参考（参考其 2026-09-11 发布的三态路由思路），与蚂蚁集团无任何关联、授权或合作关系。

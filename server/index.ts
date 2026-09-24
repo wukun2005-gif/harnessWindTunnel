@@ -10,6 +10,11 @@ import type { HarnessConfig } from '../shared/config'
 import { parseClaudeCodeTranscript } from './importers/claudeCode'
 import { parseDshTrajectory } from './importers/dshTrajectory'
 import { exportNlah, importNlah } from './importers/nlah'
+import { handleRetrievalRoute, handleSearchApiRoute } from './knowledge/routes'
+import { handlePlaygroundRoute } from './playground/routes'
+import { verifyJevTarget } from './playground/jevClient'
+import { isDecisionProvider } from '../shared/provider'
+import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID_OPENCODE } from '../shared/jev'
 
 const PORT = Number(process.env['PORT'] ?? 4000)
 
@@ -50,6 +55,42 @@ const server = createServer((req, res) => {
   const q = url.searchParams
   try {
     if (p === '/api/health') return json(res, 200, { ok: true, data: hasData() })
+
+    // ---- Knowledge base / retrieval settings / Search API (patentExaminator port) ----
+    if (
+      p.startsWith('/api/retrieval/') ||
+      p.startsWith('/api/knowledge/') ||
+      p.startsWith('/api/search') ||
+      p === '/api/verify-search-key'
+    ) {
+      void (async () => {
+        try {
+          const handled =
+            (await handleRetrievalRoute(req, res, p, req.method)) || (await handleSearchApiRoute(req, res, p, req.method))
+          if (!handled) json(res, 404, { ok: false, error: `no route: ${p}` })
+        } catch (err) {
+          try {
+            json(res, 500, { ok: false, error: String((err as Error).message ?? err) })
+          } catch { /* socket gone */ }
+        }
+      })()
+      return
+    }
+
+    // ---- Live Playground (patent judicial-review scenario; M1 eval set + scorer) ----
+    if (p.startsWith('/api/playground/')) {
+      void (async () => {
+        try {
+          const handled = await handlePlaygroundRoute(req, res, p, req.method)
+          if (!handled) json(res, 404, { ok: false, error: `no route: ${p}` })
+        } catch (err) {
+          try {
+            json(res, 500, { ok: false, error: String((err as Error).message ?? err) })
+          } catch { /* socket gone */ }
+        }
+      })()
+      return
+    }
 
     if (p === '/api/scenarios') {
       return json(res, 200, listScenarios().map((s) => {
@@ -184,9 +225,11 @@ const server = createServer((req, res) => {
       void readBody(req).then(async (raw) => {
         try {
           if (p === '/api/settings/providers') {
-            const { providers, enableProviderFallback } = bodyJson<{ providers?: unknown; enableProviderFallback?: boolean }>(raw)
+            const { providers, enableProviderFallback, enableDecisionProviderFallback } = bodyJson<{
+              providers?: unknown; enableProviderFallback?: boolean; enableDecisionProviderFallback?: boolean
+            }>(raw)
             if (!Array.isArray(providers)) return json(res, 400, { ok: false, error: 'providers must be an array' })
-            putProviderBundle(providers as Array<Record<string, unknown>>, { enableProviderFallback })
+            putProviderBundle(providers as Array<Record<string, unknown>>, { enableProviderFallback, enableDecisionProviderFallback })
             return json(res, 200, { ok: true })
           }
           if (provMatch) {
@@ -196,6 +239,23 @@ const server = createServer((req, res) => {
             if (!apiKey) return json(res, 400, { ok: false, error: 'apiKey is required' })
             const base = (baseUrl || '').trim().replace(/\/+$/, '')
             if (!base) return json(res, 400, { ok: false, error: 'baseUrl is required' })
+            // 判定模型（TypeSafe Jev / OpenCode Jev）：没有 OpenAI 兼容的 /models 与 /chat/completions，
+            // 「查询模型」返回对应卡的静态托管型号清单，「验证」走一次最小 /systemone 探针。
+            if (isDecisionProvider(providerId)) {
+              if (action === 'models') {
+                const staticModels = providerId === JEV_PROVIDER_ID_OPENCODE ? JEV_OPENCODE_MODEL_IDS : JEV_MODEL_IDS
+                return json(res, 200, {
+                  ok: true,
+                  providerId,
+                  models: [...staticModels],
+                  source: 'static',
+                  note: '判定模型没有 /models 端点，返回托管型号清单',
+                })
+              }
+              if (!modelId) return json(res, 400, { ok: false, error: 'apiKey and modelId are required' })
+              const probe = await verifyJevTarget({ providerId, baseUrl: base, apiKey, model: modelId })
+              return json(res, 200, probe.ok ? { ok: true, modelId, latencyMs: probe.latencyMs } : { ok: false, modelId, error: probe.error })
+            }
             try {
               if (action === 'models') {
                 // Generic OpenAI-compatible model listing (docStudio uses per-provider adapters).

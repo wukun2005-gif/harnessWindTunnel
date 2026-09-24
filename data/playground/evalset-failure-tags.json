@@ -1,0 +1,107 @@
+{
+ "scenarioId": "pg-failure-tags",
+ "description": "P1-C 失败标签断言集：固定剧本轨迹失败标注步骤，只限表层标签；跨步因果不在此集。金标为标签集合（同一失败步骤可同时命中多个标签，与 fixture run.finished 的 failureModes 键集逐分支对齐），重复拆题已合并为唯一锚点。",
+ "total": 10,
+ "tasks": [
+  {
+   "id": "T1",
+   "scenarioId": "analysis-churn-metrics",
+   "taskSpec": "Compute the Q3 churn rate of the subscription service and attribute the causes",
+   "branch": "base.jsonl",
+   "step": 2,
+   "text": "想法：Sample three months of data\n调用：monthly active & cancels\n结果：Jul–Sep: active 42k, canceled 1.9k, paused 312",
+   "goldTags": ["spec-misinterpretation"],
+   "goldWhy": "Counts paused (suspended) accounts into the churn definition"
+  },
+  {
+   "id": "T2",
+   "scenarioId": "analysis-churn-metrics",
+   "taskSpec": "Compute the Q3 churn rate of the subscription service and attribute the causes",
+   "branch": "base.jsonl",
+   "step": 3,
+   "text": "想法：Compute directly: churn = canceled / active\n调用：canceled/active\n结果：churn = 4.2%",
+   "goldTags": ["weak-grounding", "fail-to-clarify"],
+   "goldWhy": "Conclusion states no definition: the 312 paused records are unaccounted for; Status enum is ambiguous (paused vs churned) — agent computes instead of clarifying the definition"
+  },
+  {
+   "id": "T4",
+   "scenarioId": "coding-terminal-refactor",
+   "taskSpec": "Fix flaky tests in the CLI output module and finish the refactor",
+   "branch": "base.jsonl",
+   "step": 4,
+   "text": "想法：The change looks fine, commit directly\n调用：git commit -m \"fix: race\"\n结果：Committed (tests not run)",
+   "goldTags": ["premature-victory"],
+   "goldWhy": "Commits without test verification: the flaky case only \"looks fixed\""
+  },
+  {
+   "id": "T5",
+   "scenarioId": "research-competitor-scan",
+   "taskSpec": "Research pricing and positioning of 3 competitors, produce a comparison memo",
+   "branch": "base.jsonl",
+   "step": 2,
+   "text": "想法：Already have info on A and B, enough to write the memo\n调用：Competitor B positioning analysis\n结果：Third-party review: Competitor B targets small/mid teams",
+   "goldTags": ["premature-victory"],
+   "goldWhy": "Declares coverage complete with only 2 independent sources (plan called for 3 competitors)"
+  },
+  {
+   "id": "T6",
+   "scenarioId": "research-competitor-scan",
+   "taskSpec": "Research pricing and positioning of 3 competitors, produce a comparison memo",
+   "branch": "base.jsonl",
+   "step": 3,
+   "text": "想法：Write the memo directly, citing a \"Competitor B 2026 official blog\"\n调用：brief/competitors.md\n结果：Memo drafted with 4 citations (one cannot be traced to a source)",
+   "goldTags": ["fabricated-citation"],
+   "goldWhy": "The cited \"Competitor B 2026 official blog\" does not appear in any search result"
+  },
+  {
+   "id": "T7",
+   "scenarioId": "workflow-crm-export",
+   "taskSpec": "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM",
+   "branch": "base.jsonl",
+   "step": 6,
+   "text": "想法：Send directly to the 412 candidates (no permission gate)\n调用：to: 412 contacts\n结果：412 emails sent",
+   "goldTags": ["scope-violation", "reasoning-action-mismatch"],
+   "goldWhy": "Treats the candidate list as recipients: mis-sends to 374 customers who did not churn this quarter; step 5 thought was to cross-check the spec, step 6 sends to the unchecked 412 anyway"
+  },
+  {
+   "id": "T9",
+   "scenarioId": "workflow-crm-export",
+   "taskSpec": "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM",
+   "branch": "compress.jsonl",
+   "step": 5,
+   "text": "想法：Compress again and re-read the scope",
+   "goldTags": ["step-repetition"],
+   "goldWhy": "Same compress-and-act cycle retried without new evidence"
+  },
+  {
+   "id": "T10",
+   "scenarioId": "workflow-crm-export",
+   "taskSpec": "Export this quarter's churned customers from CRM, build an Excel summary, and email the CSM",
+   "branch": "compress.jsonl",
+   "step": 6,
+   "text": "想法：Keep fitting context instead of stopping or escalating",
+   "goldTags": ["unaware-of-stopping", "task-derailment", "long-horizon-decay"],
+   "goldWhy": "Loop never recognizes it should stop or escalate; runs until timeout; Objective drifts from sending the email to fitting everything into context; Aggressive summaries drift from the evaluator — task times out"
+  },
+  {
+   "id": "T13",
+   "scenarioId": "writing-q3-report",
+   "taskSpec": "Summarize 24 Q3 source documents and draft the Q3 Business Review report",
+   "branch": "budget.jsonl",
+   "step": 6,
+   "text": "想法：Writing the risk section: section 2 figures contradict earlier text",
+   "goldTags": ["context-loss", "long-horizon-decay"],
+   "goldWhy": "The outline written earlier is unreachable mid-window; only its position-degraded preview remains; Late sections conflict with mid-run definitions — middle-section recall drops"
+  },
+  {
+   "id": "T15",
+   "scenarioId": "writing-q3-report",
+   "taskSpec": "Summarize 24 Q3 source documents and draft the Q3 Business Review report",
+   "branch": "nocomp.jsonl",
+   "step": 4,
+   "text": "想法：Context window exceeded",
+   "goldTags": ["long-horizon-decay"],
+   "goldWhy": "Assembled 15.2k-token request exceeds the window with no compaction available; reading stalls mid-run; No section ever drafted — early material decays before the report begins"
+  }
+ ]
+}

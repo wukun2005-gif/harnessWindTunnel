@@ -10,6 +10,7 @@
 
 import type { ModelCapabilities } from "./ModelCapabilities";
 import type { ProviderId, ModelInfo } from "../../shared/provider";
+import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS } from "../../shared/jev";
 
 // 按 modelId 前缀匹配的默认能力表
 // 精确匹配优先于前缀匹配
@@ -209,6 +210,14 @@ const CAPABILITY_PRESETS: Record<string, Partial<ModelCapabilities>> = {
   "doubao-2.0":     { isReasoning: false, contextWindow: 131_072,  maxOutputTokens: 8_192,  temperature: { supported: true, range: [0, 1] },  supportsStructuredOutput: false, supportsVision: false, systemPromptMode: "message" },
   "abab6.5s-chat":  { isReasoning: false, contextWindow: 65_536,   maxOutputTokens: 8_192,  temperature: { supported: true, range: [0, 1] },  supportsStructuredOutput: false, supportsVision: false, systemPromptMode: "message", recommendation: "快速版", rpm: 15, rpd: 1000, tpm: "10.0M" },
   "abab6.5-chat":   { isReasoning: false, contextWindow: 65_536,   maxOutputTokens: 8_192,  temperature: { supported: true, range: [0, 1] },  supportsStructuredOutput: false, supportsVision: false, systemPromptMode: "message", recommendation: "标准版", rpm: 10, rpd: 500, tpm: "5.0M" },
+  // ── 判定模型（System One，非 chat）──
+  // 来源：jev-harness-research-v0.1.html 官方口径 —— 每请求 64k token（state＋最长问题约 32k）、
+  // 输入 $0.042/M tok、输出免费、无自由文本生成、仅文本输入。
+  "jev-1.13.0":     { isReasoning: false, contextWindow: 65_536, maxOutputTokens: 0, temperature: { supported: false, range: [0, 0] }, supportsStructuredOutput: true, supportsVision: false, supportsFunctionCalling: false, systemPromptMode: "none", recommendation: "判定模型（TypeSafe 官方端点）：单 pass 并行出 Choice/Score/Noul（估算 $0.042/M 输入 tok）" },
+  "jev-1.13":       { isReasoning: false, contextWindow: 65_536, maxOutputTokens: 0, temperature: { supported: false, range: [0, 0] }, supportsStructuredOutput: true, supportsVision: false, supportsFunctionCalling: false, systemPromptMode: "none", recommendation: "判定模型（OpenCode Console）：单 pass 并行出 Choice/Score/Noul（估算 $0.042/M 输入 tok）" },
+  "jev-1.13-free":  { isReasoning: false, contextWindow: 65_536, maxOutputTokens: 0, temperature: { supported: false, range: [0, 0] }, supportsStructuredOutput: true, supportsVision: false, supportsFunctionCalling: false, systemPromptMode: "none", recommendation: "判定模型（OpenCode 限免档）：限免期间数据可能用于改进模型" },
+  "jev-latest":     { isReasoning: false, contextWindow: 65_536, maxOutputTokens: 0, temperature: { supported: false, range: [0, 0] }, supportsStructuredOutput: true, supportsVision: false, supportsFunctionCalling: false, systemPromptMode: "none", recommendation: "判定模型别名（当前指向 jev-1.13.0）" },
+  "jev-preview":    { isReasoning: false, contextWindow: 65_536, maxOutputTokens: 0, temperature: { supported: false, range: [0, 0] }, supportsStructuredOutput: true, supportsVision: false, supportsFunctionCalling: false, systemPromptMode: "none", recommendation: "判定模型预览别名（当前指向 jev-1.13.0）" },
 };
 
 const DEFAULT_CAPABILITIES: ModelCapabilities = {
@@ -366,6 +375,11 @@ const PROVIDER_MODEL_IDS: Record<ProviderId, string[]> = {
     // MiniMax
     "MiniMax-M2.5",
   ],
+  // 判定模型（System One 协议）：TypeSafe 型号清单取自官方托管分发；OpenCode Console 清单取自
+  // /zen/v1/models 在架 id。端点不是 OpenAI 兼容端点，设置屏的「查询模型」按静态清单返回，
+  // 「验证」走一次最小 /systemone 调用。
+  typesafe: [...JEV_MODEL_IDS],
+  "opencode-jev": [...JEV_OPENCODE_MODEL_IDS],
 };
 
 /** Gemini 模型推荐语推断（API 返回的模型可能不在目录中） */

@@ -1286,7 +1286,7 @@ MAST Sensor 检测失败 → 打上 failure.tag
 <div class="ac"><span class="act">AC：</span>① 七开关可消融、配置指纹可追溯；② 三维 Pareto 由数据现算、可复现，能读出「最省人工仍达标」与「最稳但偏重」候选；③ 复现两个反直觉点：只开输入过滤被自适应攻击绕过、再开「最小权限 + 出站 DLP」后即便注入成功爆炸半径归零；「步步确认」打断率 100% 触发批准疲劳，而沙箱可把权限弹窗降约 84%（Anthropic）；④ 关键数字带来源：ToolPrivBench OPUR 64.9%、Task Shield ASR 2.07% 同时保 69.79% 效用、Constitutional Classifiers 过拒 +0.38%。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F6-3</span><span class="fr-name">面板 C 策略合成与人控批准导出（镜像演化）</span><span class="pill p1">P1</span></div>
-<div class="fr-kv"><b>交互：</b>在 Pareto 选定一点后生成「最小权限 + 必要护栏 + 最省人工卡点」策略（哪几个工具收窄到什么 scope、哪些不可逆动作必须 ASK、哪些目的地默认 REFUSE、带外熔断阈值、预算 / 商户白名单 / 单笔上限）；人逐条批准 / 改写 / 可回滚后，一键导出为运行时策略：OPA Rego、Claude 权限配置、APASS 式三态路由表、Okta 短时凭证范围、x402 / Agent Wallet 式钱包策略。</div>
+<div class="fr-kv"><b>交互：</b>在 Pareto 选定一点后生成「最小权限 + 必要护栏 + 最省人工卡点」策略（哪几个工具收窄到什么 scope、哪些不可逆动作必须 ASK、哪些目的地默认 REFUSE、带外熔断阈值、预算 / 商户白名单 / 单笔上限）；人逐条批准 / 改写 / 可回滚后，一键导出为运行时策略：OPA Rego、Claude 权限配置、权限三态路由表（EXECUTE/ASK/REFUSE）、Okta 短时凭证范围、x402 / Agent Wallet 式钱包策略。</div>
 <div class="ac"><span class="act">AC：</span>① 导出策略与所选 Pareto 点一一对应、字段齐全；② 每条策略经人批准才可导出（无自动下发）；③ 经济约束（预算上限 / 白名单 / 单笔阈值 / 超额人审）可表达（对齐 Cloudflare Agent Wallet、APASS / AgentPayGuard）；④ 标注 APASS 接入规模为「厂商一方披露」。</div></div>
 
 <div class="fr"><div class="fr-head"><span class="fr-id">F6-4</span><span class="fr-name">攻击用例库、闭源降级与诚实边界</span><span class="pill p1">P1</span></div>

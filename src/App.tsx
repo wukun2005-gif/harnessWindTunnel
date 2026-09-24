@@ -8,6 +8,7 @@ import Forge from './screens/Forge'
 import Settings from './screens/Settings'
 import Legal from './screens/Legal'
 import Security from './screens/Security'
+import Playground from './screens/Playground'
 
 function useHashRoute(): string {
   const normalize = (h: string) => {
@@ -30,6 +31,7 @@ const TITLES: Record<string, string> = {
   '/evolution': 'Evolution',
   '/legal': 'Legal',
   '/security': 'Security',
+  '/playground': 'Playground',
 }
 
 export default function App() {
@@ -97,6 +99,8 @@ export default function App() {
         <Legal />
       ) : route === '/security' ? (
         <Security />
+      ) : route === '/playground' ? (
+        <Playground />
       ) : (
         <Home online={online} />
       )}
@@ -147,6 +151,11 @@ function Home({ online }: { online: boolean }) {
             <span className="no2">{t('legal.eyebrow')}</span>
             <h4>{t('home.screen5.title')}</h4>
             <p>{t('home.screen5.desc')}</p>
+          </a>
+          <a className="panel screen-card" href="#/playground" style={{ borderColor: 'rgba(120,120,255,0.5)' }}>
+            <span className="no2">LIVE</span>
+            <h4>{t('home.playground.title')}</h4>
+            <p>{t('home.playground.desc')}</p>
           </a>
         </div>
         <p className="faint" style={{ marginTop: 18 }}>

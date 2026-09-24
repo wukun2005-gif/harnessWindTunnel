@@ -1,0 +1,292 @@
+{
+ "description": "P1-E 检索对齐：老 chunk ID 经文本归一化匹配到新库 chunk（同文件优先）。",
+ "total": 17,
+ "pairs": [
+  {
+   "queryId": "gs-aeabccf9",
+   "query": "在评价一项在后申请的专利权利要求的新颖性时，如果引用一份在先公开的对比文件，如何应用单独对比原则？请以一份具体技术方案（例如‘一种带有X结构的装置’）和一份仅公开了X结构但未公开其他必要技术特征的对比文件为例进行说明。",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c14"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "thin",
+   "thinReason": "题问三步法操作与最接近标准，派生的22条只覆盖新颖性/创造性定义，操作标准库内无原文"
+  },
+  {
+   "queryId": "gs-1f9d0a96",
+   "query": "如果一份专利申请的说明书仅仅描述了发明想要解决的技术问题和期望达到的效果，但没有提供任何实现该技术方案的具体实施方式、结构细节或操作步骤，这是否构成说明书公开不充分？请根据专利法相关规定进行分析。",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c18"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-c3ef81bf",
+   "query": "针对专利复审程序，请问复审请求人提出复审请求时需要满足哪些主要的程序性要求，特别是在复审请求的期限和费用缴纳方面？",
+   "expectedSources": [
+    "unknown"
+   ],
+   "oldChunkIds": [],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c28",
+    "ks-1789916611792-eat57g-c549",
+    "ks-1789916682353-21hl5r-c88"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid",
+   "thinReason": "答案主体依据（创造性三步法操作/复审费细则条款）不在派生chunk内，需补法条定位或人工确认"
+  },
+  {
+   "queryId": "gs-cf7f8262",
+   "query": "在审查一份包含功能性限定特征的权利要求时，应当如何解释该功能性限定特征的保护范围？请解释这种解释方式对专利侵权判定可能产生的影响。",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c14",
+    "ks-1789916580335-mgtaua-c18"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-85bce382",
+   "query": "如何判断一份在后申请的文件是否构成专利法意义上的“抵触申请”，当知识库来源和网络来源对“抵触申请”的定义或适用条件存在不同表述时，应以哪个来源为准？请说明理由。",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c0",
+    "ks-1780740208484-jt1pa3-c1"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c14"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-e6b9434b",
+   "query": "在判断一项发明是否具备创造性时，如何确定最接近的现有技术？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c0",
+    "ks-1780740208484-jt1pa3-c1"
+   ],
+   "newChunkIds": [
+    "ks-1789916611792-eat57g-c255"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-74892da0",
+   "query": "专利复审请求人因不可抗力耽误了法定期限，应当如何请求恢复权利？需要提交哪些文件？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c0",
+    "ks-1780740208484-jt1pa3-c1"
+   ],
+   "newChunkIds": [
+    "ks-1789916682353-21hl5r-c4"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-ecad68be",
+   "query": "在审查一项权利要求时，如果其中使用了功能性限定特征（例如'用于连接的装置'），应当如何解读其保护范围？",
+   "expectedSources": [
+    "unknown"
+   ],
+   "oldChunkIds": [],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c18",
+    "ks-1789916611792-eat57g-c163"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-5369d1f4",
+   "query": "在判断发明的新颖性时，如果一份对比文件公开了权利要求1的所有技术特征，但该对比文件是申请人本人在申请日之前六个月内在中国政府主办的国际展览会上首次展出的，该对比文件是否构成影响新颖性的现有技术？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c14",
+    "ks-1789916580335-mgtaua-c16"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-49517926",
+   "query": "如果一份专利申请的说明书中记载了某化学物质的制备方法，但未公开其具体的反应温度和压力范围，仅声称'在常规条件下反应'，这是否符合说明书充分公开的要求？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c18",
+    "ks-1789916580335-mgtaua-c23"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-f9a69c8e",
+   "query": "在判断创造性时，如果最接近的现有技术（D1）公开了权利要求的大部分特征，区别特征在于使用材料A代替材料B。另一份对比文件（D2）公开了在类似结构中使用材料A可获得更好的耐腐蚀性。但D2所属的技术领域（化工容器）与本发明（电子设备散热片）不同。此时，是否存在将D2的材料A应用到D1中以解决本发明实际要解决的技术问题（提高散热效率）的技术启示？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c0",
+    "ks-1780740208484-jt1pa3-c1"
+   ],
+   "newChunkIds": [
+    "ks-1789916611792-eat57g-c255",
+    "ks-1789916611792-eat57g-c256",
+    "ks-1789916611792-eat57g-c257",
+    "ks-1789916611792-eat57g-c258",
+    "ks-1789916611792-eat57g-c259",
+    "ks-1789916611792-eat57g-c260"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-9e054028",
+   "query": "在解读发明专利权利要求的保护范围时，应当首先依据专利法的哪条规定明确其对应的技术方案属性？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c0"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-0ccd23cf",
+   "query": "审查员在进行发明专利新颖性判断时，单独对比原则的具体适用规则是什么？",
+   "expectedSources": [
+    "unknown"
+   ],
+   "oldChunkIds": [],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c14"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-25088263",
+   "query": "专利申请文件中权利要求书存在不清楚的形式缺陷会导致什么法律后果，权利要求书应当满足什么法定要求？",
+   "expectedSources": [
+    "unknown"
+   ],
+   "oldChunkIds": [],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c18"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-f9710e85",
+   "query": "审查员适用三步法判断发明专利创造性时，最接近现有技术的选取标准是什么？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c14"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-e74c0a64",
+   "query": "专利申请人对驳回专利申请的决定不服提出复审请求的，应当向哪个部门提交申请？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c1"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  },
+  {
+   "queryId": "gs-a54bba9a",
+   "query": "某第三方专利服务平台声称实用新型专利的权利要求可以保护方法类技术方案，该说法是否正确，应当以什么依据为准？",
+   "expectedSources": [
+    "专利法_2020修正.txt",
+    "专利法_2020修正.txt"
+   ],
+   "oldChunkIds": [
+    "ks-1780740208484-jt1pa3-c1",
+    "ks-1780740208484-jt1pa3-c0"
+   ],
+   "newChunkIds": [
+    "ks-1789916580335-mgtaua-c0"
+   ],
+   "goldSource": "article-derived",
+   "goldConfidence": "solid"
+  }
+ ]
+}

@@ -81,7 +81,10 @@ test('all scenario metadata, replay steps, markers, context previews, and Forge 
   const seen = new Set<string>()
   // data/imports holds upload samples, not recorded replay branches — checked for language, excluded from the branch index.
   const isImportSample = (path: string) => path.startsWith(resolve(root, 'imports'))
+  // data/playground is the live Chinese judicial scenario (eval set + dossier), not English fixture data.
+  const isPlayground = (path: string) => path.startsWith(resolve(root, 'playground'))
   for (const path of files(root)) {
+    if (isPlayground(path)) continue
     if (isImportSample(path)) {
       const values: unknown = path.endsWith('.jsonl')
         ? readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line))

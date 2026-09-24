@@ -114,7 +114,7 @@ export const HUMAN_VERDICT_LABEL: Record<HumanVerdict, string> = {
 // ─── Gates: four distinct gates, never collapse into one "gate" noun ───
 // ⑪ Permission Gate (runtime) · ⑱ Human-in-the-Loop Gate (evolution entry) ·
 // Forge Approval Gate (per-card decision) · F5 Release/Risk gates (legal) ·
-// F6 Tool Boundary Gateway + APASS Router (runtime export). See redteam.ts.
+// F6 Tool Boundary Gateway + Permission Router (runtime export). See redteam.ts.
 export const GATE_KINDS = [
   'permission-gate',
   'hitl-gate',
@@ -122,7 +122,7 @@ export const GATE_KINDS = [
   'release-gate',
   'risk-gate',
   'tool-boundary-gateway',
-  'apass-router',
+  'permission-router',
 ] as const
 
 // ─── Datasets (PRD §5.3): repair / gate / scorecard ───

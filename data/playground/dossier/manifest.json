@@ -1,0 +1,53 @@
+{
+  "sourceDir": "/Users/wukun/Documents/tmp/patentExaminator/samples/led-heatsink",
+  "files": [
+    {
+      "file": "CN108XXXXXXA-散热器.pdf",
+      "txt": "CN108XXXXXXA-散热器.txt",
+      "chars": 11656,
+      "sha256": "5c8fe2ee1a4f7bead348627925179df7eb316f41ff692a2f67df09753529bf21"
+    },
+    {
+      "file": "CN109XXXXXXB-热管散热.pdf",
+      "txt": "CN109XXXXXXB-热管散热.txt",
+      "chars": 12067,
+      "sha256": "ada881d1b1e4e46ce6fdce23b4433e39ce7da677272251a57a7b779b841280c2"
+    },
+    {
+      "file": "US20230000XXXA1-热管理.pdf",
+      "txt": "US20230000XXXA1-热管理.txt",
+      "chars": 26072,
+      "sha256": "55658e19cb5fec30a693c9da13e68d44cf30f3894972fc1615c43b0939a6dcbb"
+    },
+    {
+      "file": "修改后权利要求书.pdf",
+      "txt": "修改后权利要求书.txt",
+      "chars": 319,
+      "sha256": "565593853dd7410f1b7399daea2da054be4199c63ce8918a059517acd0813685"
+    },
+    {
+      "file": "复审请求书.pdf",
+      "txt": "复审请求书.txt",
+      "chars": 1747,
+      "sha256": "f7a8177960533295c98fa7509a9faaf8cf4c2dd662f7dfcdcde39f232954f580"
+    },
+    {
+      "file": "意见陈述书.pdf",
+      "txt": "意见陈述书.txt",
+      "chars": 1000,
+      "sha256": "41f978529800c94720d353023584fe0e95e3704593630f3cb96397f7102ee68b"
+    },
+    {
+      "file": "申请文件.pdf",
+      "txt": "申请文件.txt",
+      "chars": 21210,
+      "sha256": "98715bb83ecc6e2d3599c1c8fbf393c1f7d97ab60bcf73aa0cd30613215a7fb0"
+    },
+    {
+      "file": "第一次审查意见通知书.pdf",
+      "txt": "第一次审查意见通知书.txt",
+      "chars": 762,
+      "sha256": "f8a2cac53c51af0245f292c99ceae47282e29c817729231f9de4ed27b3b27be3"
+    }
+  ]
+}

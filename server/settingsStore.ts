@@ -55,7 +55,7 @@ export function deleteSetting(key: string): void {
 /** Bulk upsert mirroring POST /api/settings/providers (provider_all + legacy rows). */
 export function putProviderBundle(
   providers: Array<Record<string, unknown>>,
-  extra: { enableProviderFallback?: boolean } = {},
+  extra: { enableProviderFallback?: boolean; enableDecisionProviderFallback?: boolean } = {},
 ): Record<string, unknown> {
   const appSettings: Record<string, unknown> = {
     providers: providers.map((p) => ({
@@ -69,6 +69,7 @@ export function putProviderBundle(
       baseUrl: p["baseUrl"],
     })),
     enableProviderFallback: extra.enableProviderFallback ?? true,
+    enableDecisionProviderFallback: extra.enableDecisionProviderFallback ?? true,
   };
   const all = readAll();
   all["provider_all"] = appSettings;

@@ -1,0 +1,268 @@
+{
+ "description": "P0-A 法律断言五分类断言集：26 条断言，每条配好答案与坏答案（gold 逐条判定并注明原因）。判定材料含断言原文（按卷宗号+断言号联查 data/domain/legal/dossiers.json 正典）与案卷登记的权威依据（联查同文件 authority 字段；金标 label/note 不进材料）。凡金标不是无引用的答案都带显式引用出处；否定式提及虚构判例不算引用。金标与案卷正典 label 同步、按可达性优先口径校准：被当成真实依据的虚构判例判引用不可达（即便答案另附真实条文），扣除 3 月 8 日假日后截止日为 3 月 15 日故 3 月 14 日提交判已支撑。与 45 条评估集独立成文件，不计入 45 总数。",
+ "query": "判断【候选回答】的引用类别：肯定【断言】时判断言本身，否定或纠正时判纠正性主张；否定式提及不算引用。五类：已支撑 / 部分支撑 / 无支撑 / 引用不可达（明显虚构，不做实际检索）/ 无引用。",
+ "scenarioId": "pg-legal-assertions",
+ "tasks": [
+  {
+   "assertionId": "m1",
+   "badAnswer": "Varghese v. China Southern Airlines appears in no reporter; FRCP Rule 11 requires reasonable inquiry before filing.",
+   "dossierId": "mata-avianca",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句本身可核实（判例汇编无此案＋Rule 11 原文），无编造引用。",
+   "goldGood": "citation_unreachable",
+   "goodAnswer": "Varghese v. China Southern Airlines (illustrative) holds that limitations toll during settlement talks.",
+   "id": "A1"
+  },
+  {
+   "assertionId": "m2",
+   "badAnswer": "Shaboon v. EgyptAir appears in no reporter, so it cannot support the codeshare-delay proposition; blind reliance on unverified output breaches Rules 1.1 and 3.3.",
+   "dossierId": "mata-avianca",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实（无此判例＋Rule 1.1/3.3 原文），无编造引用。",
+   "goldGood": "citation_unreachable",
+   "goodAnswer": "Shaboon v. EgyptAir (illustrative) extends the Montreal Convention to codeshare delays. See Montreal Convention art. 19.",
+   "id": "A2"
+  },
+  {
+   "assertionId": "m3",
+   "badAnswer": "Petersen v. Iran appears in no reporter; FRCP Rule 11 requires reasonable inquiry before filing.",
+   "dossierId": "mata-avianca",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句本身可核实，无编造引用。",
+   "goldGood": "citation_unreachable",
+   "goodAnswer": "Petersen v. Iran (illustrative) sets the tolling standard for aviation claims.",
+   "id": "A3"
+  },
+  {
+   "assertionId": "m4",
+   "badAnswer": "Martinez v. Delta appears in no reporter; independent verification cures the defect. See ABA Opinion 512.",
+   "dossierId": "mata-avianca",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实，无编造引用。",
+   "goldGood": "citation_unreachable",
+   "goodAnswer": "Martinez v. Delta (illustrative) recognizes equitable tolling for missed connections. See FRCP Rule 6(b).",
+   "id": "A4"
+  },
+  {
+   "assertionId": "m5",
+   "badAnswer": "Estate of Durden v. KLM is a fabricated caption in the Mata pattern; independent verification cures the defect. See ABA Opinion 512.",
+   "dossierId": "mata-avianca",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实，无编造引用。",
+   "goldGood": "citation_unreachable",
+   "goodAnswer": "Estate of Durden v. KLM (illustrative) addresses notice pleading for delay damages.",
+   "id": "A5"
+  },
+  {
+   "assertionId": "m6",
+   "badAnswer": "Miller v. United appears in no reporter and therefore cannot confirm personal jurisdiction; FRCP Rule 11 requires reasonable inquiry before filing.",
+   "dossierId": "mata-avianca",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实，无编造引用。",
+   "goldGood": "citation_unreachable",
+   "goodAnswer": "Miller v. United (illustrative) confirms personal jurisdiction over foreign carriers. See FRCP Rule 4(k).",
+   "id": "A6"
+  },
+  {
+   "assertionId": "m7",
+   "badAnswer": "FRCP Rule 11 authorizes sanctions for filings made without reasonable inquiry. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "mata-avianca",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例 Smith v. AI（2099），该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "FRCP Rule 11 authorizes sanctions for filings made without reasonable inquiry.",
+   "id": "A7"
+  },
+  {
+   "assertionId": "m8",
+   "badAnswer": "The Mata court sanctioned two lawyers $5,000 each. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "mata-avianca",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "The Mata court sanctioned two lawyers $5,000 each. See Mata v. Avianca, Inc., No. 22-cv-1461 (S.D.N.Y. 2023).",
+   "id": "A8"
+  },
+  {
+   "assertionId": "d1",
+   "badAnswer": "The limitations period is 30 days from accrual. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "deadline-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "The limitations period is 30 days from accrual. See the agreement's limitations clause.",
+   "id": "A9"
+  },
+  {
+   "assertionId": "d2",
+   "badAnswer": "Adding 30 calendar days without excluding the March 8 public holiday is wrong; the correct deadline is March 15. See the holiday calendar.",
+   "dossierId": "deadline-trap",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实（节假日历＋日期推算），无编造引用。",
+   "goldGood": "unsupported",
+   "goodAnswer": "Adding 30 calendar days lands the deadline on March 14. See the holiday calendar.",
+   "id": "A10"
+  },
+  {
+   "assertionId": "d3",
+   "badAnswer": "March 8 is a public holiday in this jurisdiction and must be excluded from the count. See the holiday calendar.",
+   "dossierId": "deadline-trap",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实，无编造引用。",
+   "goldGood": "unsupported",
+   "goodAnswer": "No holiday falls inside the window. See the holiday calendar.",
+   "id": "A11"
+  },
+  {
+   "assertionId": "d4",
+   "badAnswer": "Counsel must verify deadline arithmetic against the holiday calendar. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "deadline-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "Counsel must verify deadline arithmetic against the holiday calendar. See ABA Model Rule 1.1.",
+   "id": "A12"
+  },
+  {
+   "assertionId": "d5",
+   "badAnswer": "Filing on March 14 would be timely. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "deadline-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "Filing on March 14 would be timely. See the holiday calendar.",
+   "id": "A13"
+  },
+  {
+   "assertionId": "j1",
+   "badAnswer": "The agreement contains a State B forum clause. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "jurisdiction-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "The agreement contains a State B forum clause. See agreement Section 12.",
+   "id": "A14"
+  },
+  {
+   "assertionId": "j2",
+   "badAnswer": "The forum clause selects State B, so State A analysis is misplaced; see Section 12 of the agreement.",
+   "dossierId": "jurisdiction-trap",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实（协议第 12 条），无编造引用。",
+   "goldGood": "unsupported",
+   "goodAnswer": "State A contract law governs the cure-period analysis. See agreement Section 12.",
+   "id": "A15"
+  },
+  {
+   "assertionId": "j3",
+   "badAnswer": "Performance occurred entirely in State B. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "jurisdiction-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "Performance occurred entirely in State B. See the delivery records.",
+   "id": "A16"
+  },
+  {
+   "assertionId": "j4",
+   "badAnswer": "State B's 10-day cure period was satisfied. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "jurisdiction-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "partially_supported",
+   "goodAnswer": "State B's 10-day cure period was satisfied. See agreement Section 12 and the notice record.",
+   "id": "A17"
+  },
+  {
+   "assertionId": "j5",
+   "badAnswer": "Two states are in play, so conflict-of-laws analysis is required. See agreement Section 12.",
+   "dossierId": "jurisdiction-trap",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实，无编造引用。",
+   "goldGood": "unsupported",
+   "goodAnswer": "No conflict-of-laws analysis is required. See agreement Section 12.",
+   "id": "A18"
+  },
+  {
+   "assertionId": "f1",
+   "badAnswer": "The $1.42M lost-profits figure is stated with no exhibit, ledger, or report attached, so it cannot support a damages claim. See Fed. R. Civ. P. 56(a).",
+   "dossierId": "figures-trap",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实（举证规则），无编造引用。",
+   "goldGood": "no_citation",
+   "goodAnswer": "Lost profits total $1.42M.",
+   "id": "A19"
+  },
+  {
+   "assertionId": "f2",
+   "badAnswer": "The 23% uplift figure appears without any source; figures without sources cannot be relied on. See Fed. R. Civ. P. 56(a).",
+   "dossierId": "figures-trap",
+   "goldBad": "supported",
+   "goldBadWhy": "纠正句可核实，无编造引用。",
+   "goldGood": "no_citation",
+   "goodAnswer": "The contract uplift is 23%.",
+   "id": "A20"
+  },
+  {
+   "assertionId": "f3",
+   "badAnswer": "Mitigation efforts reduced the loss window to 4 months. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "figures-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "Mitigation efforts reduced the loss window to 4 months. See the mitigation log.",
+   "id": "A21"
+  },
+  {
+   "assertionId": "f4",
+   "badAnswer": "Pre-judgment interest runs from the breach date. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "figures-trap",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "Pre-judgment interest runs from the breach date. See the governing pre-judgment interest statute.",
+   "id": "A22"
+  },
+  {
+   "assertionId": "c1",
+   "badAnswer": "FRCP Rule 11 requires reasonable inquiry before filing. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "clean-control",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "FRCP Rule 11 requires reasonable inquiry before filing.",
+   "id": "A23"
+  },
+  {
+   "assertionId": "c2",
+   "badAnswer": "ABA Opinion 512 treats generative AI as nonlawyer assistance. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "clean-control",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "ABA Opinion 512 treats generative AI as nonlawyer assistance.",
+   "id": "A24"
+  },
+  {
+   "assertionId": "c3",
+   "badAnswer": "Blind reliance on AI output breaches Rules 1.1 and 3.3. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "clean-control",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "Blind reliance on AI output breaches Rules 1.1 and 3.3. See ABA Opinion 512.",
+   "id": "A25"
+  },
+  {
+   "assertionId": "c4",
+   "badAnswer": "Independent verification cures the defect. See also the fabricated decision of Smith v. AI (2099) as additional authority.",
+   "dossierId": "clean-control",
+   "goldBad": "citation_unreachable",
+   "goldBadWhy": "夹带虚构判例，该引用无法检索。",
+   "goldGood": "supported",
+   "goodAnswer": "Independent verification cures the defect. See ABA Opinion 512.",
+   "id": "A26"
+  }
+ ],
+ "total": 26
+}

@@ -1,8 +1,8 @@
 // F6 Security Red-Team Chamber — canonical security vocabulary (PRD §F6).
 // Previously: "可控七件套" collided with F5 "垂直七件套"; kill-chain stages
 // had long (Privilege Escalation/Action Execution) vs short (Escalation/
-// Action) parallel names; APASS EXECUTE/ASK/REFUSE was mixed with hook
-// verdicts (allow/deny/rewrite) and human verdicts (Approve/Modify/Reject).
+// Action) parallel names; permission-router EXECUTE/ASK/REFUSE was mixed with
+// hook verdicts (allow/deny/rewrite) and human verdicts (Approve/Modify/Reject).
 
 // Canonical: Security Controls (7). Never call them bare "七件套".
 export const SECURITY_CONTROLS = [
@@ -51,10 +51,13 @@ export const KILL_CHAIN_ALIAS: Record<string, KillChainStage> = {
   外发: 'exfiltration',
 }
 
-// APASS runtime router tri-state (export artifact, F6-3). Distinct from hook
-// verdicts (allow/deny/rewrite) and human verdicts (Approve/Modify/Reject).
-export const APASS_ROUTER = ['EXECUTE', 'ASK', 'REFUSE'] as const
-export type ApassRoute = (typeof APASS_ROUTER)[number]
+// Permission router tri-state (EXECUTE/ASK/REFUSE; export artifact, F6-3).
+// Concept reference: the tri-state routing pattern popularized by Ant Group's
+// APASS trust infrastructure (2026-09-11); this project is unaffiliated.
+// Distinct from hook verdicts (allow/deny/rewrite) and human verdicts
+// (Approve/Modify/Reject).
+export const PERMISSION_ROUTER = ['EXECUTE', 'ASK', 'REFUSE'] as const
+export type PermissionRoute = (typeof PERMISSION_ROUTER)[number]
 
 export const HONESTY_NOTE =
   'Tested ≠ absolutely secure. Policy still needs runtime monitoring and case reflux.'

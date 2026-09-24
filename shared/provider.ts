@@ -4,10 +4,17 @@
 // Persistence mirrors docStudio: the raw apiKey is sent to the server settings
 // store (server-data/settings.json, provider_all + legacy provider_{id} rows)
 // and echoed back on load. Secrets never enter HarnessEvents, logs, or exports.
+//
+// 15 always-rendered cards since the second Jev decision card was added（两张判定模型卡
+// 与 12 家 chat provider + custom 并列，可同时启用；见 shared/jev.ts）。
+import { JEV_DEFAULT_BASE_URL, JEV_OPENCODE_DEFAULT_BASE_URL, JEV_PROVIDER_ID, JEV_PROVIDER_ID_OPENCODE } from "./jev";
 
 export type ProviderId =
   | "kimi" | "glm" | "minimax" | "mimo" | "deepseek" | "gemini"
-  | "qwen" | "bedrock" | "openrouter" | "opencode" | "volcengine" | "bailian";
+  | "qwen" | "bedrock" | "openrouter" | "opencode" | "volcengine" | "bailian"
+  // 判定模型（非 chat）：TypeSafe Jev / OpenCode Jev — System One，POST {baseUrl}/systemone。
+  // 与上面 12 家 chat provider 可同时启用；消费方见 shared/jev.ts。
+  | "typesafe" | "opencode-jev";
 
 export interface ModelInfo {
   id: string;
@@ -39,6 +46,8 @@ export interface ProviderConfig {
 export interface AppSettings {
   providers: ProviderConfig[];
   enableProviderFallback?: boolean;
+  /** 判定模型 Provider 回退（失败时按排列顺序切换至下一张可用判定卡）。默认 true。 */
+  enableDecisionProviderFallback?: boolean;
 }
 
 export interface PresetProvider {
@@ -49,9 +58,15 @@ export interface PresetProvider {
   keyPlaceholder: string;
   desc: string;
   descEn?: string;
+  /**
+   * "chat"（默认）= 可被选作主模型跑 harness；"decision" = 判定模型（System One），
+   * 只服务判分/闸门类复核，不能被选成主 chat 目标（该端点没有 /chat/completions）。
+   * 消费方：设置屏卡片文案、server/playground/jevSettings.ts 的目标挑选。
+   */
+  kind?: "chat" | "decision";
 }
 
-/** All 13 cards are always rendered (docStudio has no add-provider flow). */
+/** All 15 cards are always rendered (docStudio has no add-provider flow); the last two are Jev decision models. */
 export const PRESET_PROVIDERS: PresetProvider[] = [
   { id: "gemini", name: "Gemini (Google)", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", keyPlaceholder: "AIza...", desc: "Google Gemini 系列", descEn: "Google Gemini series" },
   { id: "openrouter", name: "OpenRouter", defaultBaseUrl: "https://openrouter.ai/api/v1", keyPlaceholder: "sk-or-...", desc: "多模型聚合平台", descEn: "Multi-model aggregation platform" },
@@ -66,9 +81,27 @@ export const PRESET_PROVIDERS: PresetProvider[] = [
   { id: "bailian", name: "Bailian (百炼/阿里)", nameEn: "Bailian (Alibaba)", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", keyPlaceholder: "sk-...", desc: "阿里百炼", descEn: "Alibaba Bailian" },
   { id: "bedrock", name: "AWS Bedrock", defaultBaseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com", keyPlaceholder: "AWS access key ID", desc: "Amazon Bedrock" },
   { id: "custom", name: "Custom (OpenAI Compatible)", defaultBaseUrl: "", keyPlaceholder: "sk-...", desc: "自定义 OpenAI 兼容端点", descEn: "Custom OpenAI-compatible endpoint" },
+  // ── 判定模型（非 chat）：TypeSafe Jev / OpenCode Jev ──
+  // 端点 POST {baseUrl}/systemone（Bearer），不是 OpenAI 兼容端点；输出是结构化判定
+  // （Choice / Score / Noul + 概率），不生成自由文本。可与上面任一 chat provider 同时启用，
+  // 用途见 shared/jev.ts 与 docs/playground-live-design-v0.1.md §17。
+  // 位置固定在最后两张：server/playground 里「第一个启用的可用 provider」这类挑选逻辑按数组
+  // 顺序取，判定模型排在末尾就不会被误当成主 chat 目标。
+  { id: JEV_PROVIDER_ID, name: "TypeSafe Jev (判定模型)", nameEn: "TypeSafe Jev (decision model)", defaultBaseUrl: JEV_DEFAULT_BASE_URL, keyPlaceholder: "TypeSafe API key", desc: "判定模型（非 chat）：判分复核 / 闸门预筛，与主模型并行启用", descEn: "Decision model (not chat): judging cross-check, runs alongside the main model", kind: "decision" },
+  { id: JEV_PROVIDER_ID_OPENCODE, name: "OpenCode Jev (判定模型)", nameEn: "OpenCode Jev (decision model)", defaultBaseUrl: JEV_OPENCODE_DEFAULT_BASE_URL, keyPlaceholder: "OpenCode Console API key", desc: "判定模型（非 chat）：OpenCode Console 托管的 Jev，判分复核 / 闸门预筛", descEn: "Decision model (not chat): Jev hosted by OpenCode Console, judging cross-check", kind: "decision" },
 ];
 
 export const CUSTOM_PRESET_ID = "custom";
+
+/** 判定模型 provider（System One 协议，非 OpenAI 兼容）。 */
+export const DECISION_PROVIDER_IDS: string[] = [JEV_PROVIDER_ID, JEV_PROVIDER_ID_OPENCODE];
+
+/** true = 判定模型，不能当主 chat 目标（没有 /chat/completions，端点走 /systemone）。 */
+export function isDecisionProvider(providerId: string): boolean {
+  const preset = PRESET_PROVIDERS.find((p) => p.id === providerId);
+  if (preset) return preset.kind === "decision";
+  return DECISION_PROVIDER_IDS.includes(providerId);
+}
 
 export function trimBaseUrl(u: string): string {
   return u.trim().replace(/\/+$/, "");

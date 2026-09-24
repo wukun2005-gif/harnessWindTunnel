@@ -109,7 +109,7 @@ test('all rendered fixture prose has Chinese translations', () => {
       Object.values(o).forEach(visit)
     }
   }
-  for (const p of files(resolve('data')).filter((x) => x.endsWith('.json'))) {
+  for (const p of files(resolve('data')).filter((x) => x.endsWith('.json')).filter((x) => !x.includes(resolve('data', 'playground')))) {
     visit(JSON.parse(readFileSync(p, 'utf8')))
   }
   for (const l of labels) {

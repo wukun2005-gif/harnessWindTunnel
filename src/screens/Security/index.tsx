@@ -246,7 +246,7 @@ function buildPolicy(p: ControlPoint): Record<string, unknown> {
   return {
     rego,
     claude: { allow: scopes, ask, deny: refuse },
-    apass: [
+    permissionRouter: [
       { tool: 'mail.send', route: gate ? 'ASK' : 'EXECUTE' },
       { tool: 'payout.*', route: dlp ? 'REFUSE' : gate ? 'ASK' : 'EXECUTE' },
       { tool: 'web.fetch', route: 'EXECUTE' },

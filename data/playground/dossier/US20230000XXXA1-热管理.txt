@@ -1,0 +1,733 @@
+UNITED STATES PATENT APPLICATION
+
+Thermal Management Device
+
+for Semiconductor Light Sources
+
+Application No.: US 2023/0000XXX A1
+
+Filing Date: July 15, 2022
+
+Publication Date: January 15, 2023
+
+Applicant: ThermalTech Innovations Inc., San Jose, CA (US)
+
+Inventors: John R. Smith; Michael T. Johnson
+
+Assignee: ThermalTech Innovations Inc.
+
+Claims: 10
+
+Specification: 22 pages
+
+Drawing Sheets: 5
+
+Abstract: 1 page
+
+CLAIMS
+
+1. A thermal management device for a semiconductor light source, comprising:
+
+a sealed housing defining an internal chamber, the housing formed of a thermally
+
+conductive material;
+
+a phase change material disposed within the internal chamber, the phase change
+
+material having a melting point between 40°C and 70°C and a latent heat of fusion of at
+
+least 180 kJ/kg;
+
+a thermally conductive substrate mounted on an upper surface of the housing;
+
+a semiconductor light source mounted on the substrate;
+
+a plurality of cooling fins integrally formed on an outer surface of the housing.
+
+2. The device of claim 1, wherein the phase change material is a paraffin-based
+
+material or a salt hydrate material.
+
+3. The device of claim 1, further comprising a porous metal foam structure disposed
+
+within the internal chamber, the metal foam having a porosity of 85%-95% and a pore size
+
+of 0.5-2.0 mm.
+
+4. The device of claim 1, wherein the thermally conductive substrate is an aluminum
+
+nitride ceramic substrate with a thickness of 0.5-3 mm, or a direct copper bond (DCB)
+
+substrate.
+
+5. The device of claim 1, wherein the sealed housing is formed of copper or aluminum
+
+alloy, and the internal chamber is evacuated to a vacuum level of 10-100 Pa.
+
+6. The device of claim 1, wherein the plurality of cooling fins comprises 8-24 fins, each
+
+fin having a height of 10-40 mm and a spacing of 3-8 mm.
+
+7. The device of claim 1, further comprising a thermal interface material layer disposed
+
+between the semiconductor light source and the substrate, the thermal interface material
+
+having a thermal conductivity of at least 5 W/(m·K).
+
+8. The device of claim 1, wherein the phase change material occupies 80%-95% of the
+
+volume of the internal chamber.
+
+9. The device of claim 1, further comprising a temperature sensor and an alarm
+
+module, the temperature sensor being attached to a lower surface of the substrate.
+
+10. A method of manufacturing a thermal management device, comprising:
+
+forming a sealed housing with an internal chamber by die casting;
+
+disposing a porous metal foam structure within the internal chamber;
+
+filling the internal chamber with a phase change material;
+
+evacuating the internal chamber and sealing;
+
+mounting a thermally conductive substrate on an upper surface of the housing;
+
+mounting a semiconductor light source on the substrate.
+
+SPECIFICATION
+
+Thermal Management Device
+
+for Semiconductor Light Sources
+
+TECHNICAL FIELD
+
+[0001] The present invention relates to thermal management of semiconductor light
+
+sources, and more particularly to a thermal management device utilizing phase change
+
+materials for efficient heat absorption and thermal buffering in high-power LED lighting
+
+applications.
+
+BACKGROUND
+
+[0002] High-power semiconductor light sources, particularly light-emitting diodes
+
+(LEDs), generate significant heat during operation. The electrical-to-optical conversion
+
+efficiency of LEDs is typically 30%-40%, meaning that 60%-70% of the input electrical
+
+power is dissipated as heat. If this heat is not effectively removed, the LED junction
+
+temperature rises, leading to reduced luminous efficacy, color shift, and shortened
+
+operational lifetime.
+
+[0003] Existing thermal management solutions for LED lighting include passive heat
+
+sinks with aluminum or copper fins, active cooling with fans, and liquid cooling systems.
+
+Each approach has its limitations:
+
+[0004] Passive heat sinks with fins rely on natural convection and radiation to dissipate
+
+heat. US Patent Application US2020/0012345A1 describes a heat sink with aluminum fins
+
+attached to a base plate via brazing. While effective for moderate power levels (up to 30W),
+
+the thermal interface resistance between the base and fins limits performance at higher
+
+power densities. The heat sink also has limited thermal mass, resulting in significant
+
+temperature fluctuations during power transients.
+
+[0005] Active cooling with fans provides higher heat dissipation capacity but introduces
+
+noise, power consumption, and reliability concerns due to the mechanical moving parts. Fan
+
+bearings have a limited lifespan (typically 30,000-50,000 hours) that may be shorter than
+
+the LED itself (50,000-100,000 hours).
+
+[0006] Liquid cooling systems offer the highest cooling capacity but are complex,
+
+expensive, and require pumps, tubing, and a radiator. They are impractical for most general
+
+lighting applications.
+
+[0007] Phase change materials (PCMs) have been used in thermal energy storage
+
+applications for decades. PCMs absorb large amounts of heat during the solid-to-liquid
+
+phase transition while maintaining a nearly constant temperature. This property makes them
+
+attractive for thermal buffering in electronic cooling applications.
+
+[0008] US Patent Application US2019/0056789A1 describes a thermal management
+
+device using a phase change material enclosed in a sealed container for cooling electronic
+
+components. However, the device described therein does not include a porous metal foam
+
+structure to enhance thermal conduction within the PCM, resulting in poor heat distribution
+
+and slow thermal response.
+
+[0009] Therefore, there is a need for a thermal management device that combines the
+
+thermal buffering capability of phase change materials with enhanced internal thermal
+
+conduction, providing efficient, passive, and reliable cooling for high-power semiconductor
+
+light sources.
+
+SUMMARY OF INVENTION
+
+[0010] The present invention provides a thermal management device for
+
+semiconductor light sources that addresses the limitations of prior art solutions. The device
+
+utilizes a phase change material enclosed in a sealed housing, with a porous metal foam
+
+structure to enhance internal thermal conduction, and integrally formed cooling fins for
+
+external heat dissipation.
+
+[0011] In one aspect, the present invention provides a thermal management device
+
+comprising: a sealed housing defining an internal chamber, the housing formed of a
+
+thermally conductive material such as copper or aluminum alloy; a phase change material
+
+disposed within the internal chamber, the PCM having a melting point between 40°C and
+
+70°C and a latent heat of fusion of at least 180 kJ/kg; a thermally conductive substrate
+
+mounted on an upper surface of the housing; a semiconductor light source mounted on the
+
+substrate; and a plurality of cooling fins integrally formed on an outer surface of the housing.
+
+[0012] In another aspect, the device further comprises a porous metal foam structure
+
+disposed within the internal chamber. The metal foam has a porosity of 85%-95% and a
+
+pore size of 0.5-2.0 mm. The metal foam enhances thermal conduction within the PCM by
+
+providing a high-conductivity skeletal structure that distributes heat uniformly throughout the
+
+chamber.
+
+[0013] In yet another aspect, the internal chamber is evacuated to a vacuum level of
+
+10-100 Pa before sealing. Evacuation removes air that would otherwise impede heat
+
+transfer within the chamber (air thermal conductivity is only 0.026 W/(m·K)).
+
+[0014] The present invention provides several advantages over prior art solutions:
+
+[0015] (1) The phase change material absorbs large amounts of heat during phase
+
+transition (latent heat), providing effective thermal buffering during LED startup and power
+
+transients. This reduces the temperature fluctuation amplitude by 60%-80% compared to
+
+conventional heat sinks.
+
+[0016] (2) The PCM fills the internal chamber and is in direct contact with the housing
+
+walls, eliminating the thermal interface resistance present in heat pipe and conventional
+
+heat sink designs.
+
+[0017] (3) The porous metal foam structure enhances internal thermal conduction,
+
+overcoming the inherently low thermal conductivity of PCMs (typically 0.1-0.3 W/(m·K)).
+
+[0018] (4) The cooling fins are integrally formed with the housing, eliminating the
+
+thermal interface resistance between fins and base.
+
+[0019] (5) The device has no moving parts, requires no maintenance, and has an
+
+essentially unlimited operational lifetime, unlike fan-based cooling systems.
+
+BRIEF DESCRIPTION OF DRAWINGS
+
+[0020] FIG. 1 is a perspective view of the thermal management device according to an
+
+embodiment of the present invention.
+
+[0021] FIG. 2 is a cross-sectional view of the thermal management device of FIG. 1,
+
+showing the internal structure including the PCM, metal foam, and cooling fins.
+
+[0022] FIG. 3 is a top view of the thermal management device, showing the
+
+arrangement of cooling fins and the LED substrate.
+
+[0023] FIG. 4 is a cross-sectional view of an alternative embodiment using a salt
+
+hydrate PCM and copper foam.
+
+[0024] FIG. 5 is a graph comparing the temperature-time curves of the present
+
+invention (Example 1) with a conventional aluminum heat sink (Comparative Example 1)
+
+during LED startup and steady-state operation.
+
+[0025] Reference numerals: 1-sealed housing; 2-phase change material; 3-thermally
+
+conductive substrate; 4-LED chip; 5-thermal interface material; 6-cooling fins; 7-porous
+
+metal foam; 8-evacuation valve; 9-temperature sensor; 10-anti-corrosion coating; 11-
+
+internal chamber.
+
+DETAILED DESCRIPTION
+
+[0026] The following detailed description is provided to enable a person skilled in the
+
+art to make and use the invention. Various modifications to the disclosed embodiments will
+
+be readily apparent to those skilled in the art.
+
+[0027] Example 1:
+
+[0028] Referring to FIGS. 1-3, a thermal management device according to the present
+
+invention comprises a sealed housing 1, a phase change material 2, a thermally conductive
+
+substrate 3, LED chips 4, a thermal interface material 5, cooling fins 6, and a porous metal
+
+foam structure 7.
+
+[0029] The sealed housing 1 is formed of 6063-T5 aluminum alloy by die casting. The
+
+housing has outer dimensions of 120 mm × 120 mm × 25 mm (length × width × height), with
+
+a wall thickness of 2 mm. The housing defines an internal chamber 11 with inner
+
+dimensions of 116 mm × 116 mm × 21 mm and a volume of approximately 282 cm³. The
+
+upper surface of the housing is flat, providing a mounting surface for the thermally
+
+conductive substrate 3. The lower surface and four side surfaces have cooling fins 6
+
+integrally formed by die casting.
+
+[0030] The phase change material 2 is a paraffin-based composite PCM consisting of
+
+n-docosane (70% by weight) and n-octadecane (30% by weight). The PCM has a melting
+
+point of 55°C, a latent heat of fusion of 250 kJ/kg, and a thermal conductivity of 0.21 W/
+
+(m·K). The PCM fills 90% of the chamber volume (approximately 254 cm³, mass
+
+approximately 190 g).
+
+[0031] The porous metal foam structure 7 is made of copper foam with a porosity of
+
+92% and a pore size of 0.8 mm. The copper foam is disposed within the internal chamber
+
+11, covering all inner walls. The copper foam enhances thermal conduction within the PCM
+
+by providing a high-conductivity skeletal structure (copper thermal conductivity: 390 W/
+
+(m·K)) that distributes heat uniformly throughout the chamber. The effective thermal
+
+conductivity of the PCM-copper foam composite is approximately 5-8 W/(m·K), which is
+
+25-40 times higher than pure PCM.
+
+[0032] The thermally conductive substrate 3 is an aluminum nitride (AlN) ceramic
+
+substrate with dimensions of 80 mm × 80 mm and a thickness of 2 mm. The AlN substrate
+
+has a thermal conductivity of 200 W/(m·K) and a coefficient of thermal expansion (CTE) of
+
+4.5 ppm/°C, which closely matches that of LED chips (typically 5-7 ppm/°C). The substrate
+
+is bonded to the upper surface of the housing using a high-temperature thermally
+
+conductive epoxy adhesive (thermal conductivity 3 W/(m·K)).
+
+[0033] The LED chips 4 are four Cree XHP70.2 high-power LED chips, each rated at
+
+12.5W, for a total power of 50W. The chips are arranged in a 2×2 array with a spacing of 15
+
+mm. Each chip is a flip-chip design mounted on the AlN substrate via gold-tin eutectic
+
+soldering (AuSn, melting point 280°C). The solder layer thickness is approximately 3 μm
+
+with a thermal conductivity of 57 W/(m·K).
+
+[0034] The thermal interface material 5 is a phase-change thermal pad with a thickness
+
+of 0.15 mm and a thermal conductivity of 8 W/(m·K). The pad is solid at room temperature
+
+and becomes semi-solid at LED operating temperatures (50-80°C), automatically filling the
+
+microscopic gaps between the AlN substrate and the aluminum housing.
+
+[0035] The cooling fins 6 are integrally formed with the housing by die casting. There
+
+are 16 fins, each with a height of 30 mm, a thickness of 1.5 mm, and a spacing of 5 mm.
+
+The total fin surface area is approximately 1,152 cm². Combined with the housing outer
+
+surface area (approximately 864 cm²), the total heat dissipation surface area is
+
+approximately 2,016 cm².
+
+[0036] The internal chamber 11 is evacuated to a vacuum level of 50 Pa through an
+
+evacuation valve 8 before sealing. Evacuation removes air that would impede heat transfer
+
+within the chamber.
+
+[0037] A temperature sensor 9 (NTC thermistor, 10 kΩ at 25°C) is attached to the
+
+lower surface of the AlN substrate. An alarm module is provided on the side of the housing,
+
+which activates an LED indicator and buzzer when the substrate temperature exceeds 85°C.
+
+[0038] Testing results for Example 1:
+
+[0039] (1) Steady-state performance: After 2 hours of continuous operation at 50W
+
+total LED power, the LED junction temperature is 78°C, and the maximum housing surface
+
+temperature is 62°C. Compared to a conventional aluminum heat sink of the same size
+
+(Comparative Example 1, junction temperature 90°C), the junction temperature is reduced
+
+by 12°C. The temperature distribution on the housing surface is uniform, with a maximum
+
+temperature difference of only 3°C (compared to 8°C for the conventional heat sink).
+
+[0040] (2) Startup temperature transient: During LED startup from cold state to steady
+
+state, the LED chip temperature rises smoothly with an overshoot of only 2°C (compared to
+
+15°C for the conventional heat sink). The temperature fluctuation amplitude is reduced by
+
+87%. This demonstrates that the PCM effectively absorbs the transient thermal shock
+
+during LED startup.
+
+[0041] (3) Power step response: When the LED power is suddenly increased from 30W
+
+to 50W, the LED chip temperature rises from 68°C to 76°C within 30 seconds (temperature
+
+rise of 8°C). For the conventional heat sink under the same conditions, the temperature
+
+rises from 80°C to 95°C (temperature rise of 15°C). The PCM effectively suppresses the
+
+temperature冲击 caused by power transients.
+
+[0042] (4) Maximum cooling capacity: The maximum cooling capacity of Example 1 is
+
+approximately 80W (corresponding to an LED junction temperature of 120°C), providing a
+
+60% thermal design margin for the 50W application.
+
+[0043] Example 2:
+
+[0044] Example 2 differs from Example 1 in the following aspects:
+
+[0045] (1) The PCM is sodium phosphate dodecahydrate (Na₂HPO₄·12H₂O), a salt
+
+hydrate PCM with a melting point of 36°C and a latent heat of fusion of 280 kJ/kg. To
+
+address the supercooling issue of salt hydrates, 3% by weight of borax (Na₂B₄O₇·10H₂O) is
+
+added as a nucleating agent. To address the phase separation issue, 2% by weight of
+
+sodium carboxymethyl cellulose (CMC) is added as a thickening agent.
+
+[0046] (2) The porous metal foam structure is copper foam with a porosity of 90% and
+
+a pore size of 1.0 mm, mechanically pressed into the internal chamber.
+
+[0047] (3) The housing material is changed to copper (C11000), with a thermal
+
+conductivity of 385 W/(m·K), approximately twice that of aluminum. The wall thickness is
+
+reduced to 1.5 mm.
+
+[0048] (4) The thermally conductive substrate is a direct copper bond (DCB) substrate,
+
+1.5 mm thick, with a thermal conductivity of 385 W/(m·K).
+
+[0049] Testing results for Example 2: After 2 hours of continuous operation at 50W, the
+
+LED junction temperature is 72°C, which is 6°C lower than Example 1. The temperature
+
+overshoot during startup is only 1°C. The maximum cooling capacity is approximately 95W.
+
+[0050] Example 3: Small-power LED thermal management
+
+[0051] Example 3 uses a smaller housing (80 mm × 80 mm × 18 mm) with a single
+
+Cree XHP50.2 LED chip rated at 12W. The PCM mass is 76 g. Testing shows a junction
+
+temperature of 72°C after 2 hours at 12W, which is 8°C lower than a conventional aluminum
+
+heat sink of the same size.
+
+[0052] Example 4: No metal foam (comparative)
+
+[0053] Example 4 is identical to Example 1 except that no metal foam structure is
+
+provided in the internal chamber. Testing shows a junction temperature of 85°C (vs. 78°C
+
+for Example 1), and the time to reach steady state after a power step from 30W to 50W is
+
+120 seconds (vs. 30 seconds for Example 1). This demonstrates the critical role of the metal
+
+foam in enhancing internal thermal conduction.
+
+[0054] Comparative Example 1: Conventional aluminum heat sink
+
+[0055] Comparative Example 1 uses an aluminum heat sink of the same outer
+
+dimensions (120 mm × 120 mm × 25 mm) with 16 integrally formed fins (height 30 mm,
+
+thickness 1.5 mm, spacing 5 mm). The heat sink is solid aluminum with no PCM. Testing
+
+shows a junction temperature of 90°C after 2 hours at 50W, a startup overshoot of 15°C,
+
+and a power step response of 15°C (vs. 8°C for Example 1).
+
+[0056] Comparative Example 2: Heat pipe heat sink
+
+[0057] Comparative Example 2 uses a commercial heat pipe heat sink with four 6 mm
+
+diameter copper-water heat pipes. The heat sink has outer dimensions of 130 mm × 130
+
+mm × 45 mm. Testing shows a junction temperature of 75°C (vs. 78°C for Example 1).
+
+However, the heat pipe heat sink is 23% larger in volume, 31% heavier (680 g vs. 520 g),
+
+and 89% more expensive ($12 vs. $6.3) than Example 1. Additionally, the heat pipe heat
+
+sink performance degrades significantly when installed horizontally (junction temperature
+
+rises to 82°C), while Example 1 is orientation-independent.
+
+[0058] Table 1: Performance comparison of examples and comparative examples
+
+Item   Ex. 1   Ex. 2   Ex. 3   Ex. 4(no foam)Comp.Ex. 1Comp.Ex. 2PCM type   Paraffin   SalthydrateParaffin   Paraffin   None   None
+
+HousingmaterialAl   Cu   Al   Al   Al   Al+Cu
+
+Metal foam   Cu 92%   Cu 90%   Cu 92%   None   N/A   N/A
+
+Junctiontemp (°C)78   72   72   85   90   75
+
+Startupovershoot (°C)2   1   1   8   15   5
+
+Power steprise (°C)8   6   5   18   15   10
+
+Max cooling(W)80   95   25   60   55   90
+
+Weight (g)   520   650   210   480   450   680
+
+Cost ($)   6.3   11   3.2   5.4   4.3   12
+
+[0059] Thermal design analysis:
+
+[0060] The thermal resistance network of the device consists of the following
+
+components: R_junction = junction-to-substrate thermal resistance; R_substrate = substrate
+
+thermal resistance; R_TIM = thermal interface material resistance; R_PCM = PCM thermal
+
+resistance; R_fins = fins-to-air thermal resistance. The total thermal resistance R_ja =
+
+R_junction + R_substrate + R_TIM + R_PCM + R_fins.
+
+[0061] For Example 1: R_junction ≈ 0.15°C/W (including eutectic solder and AlN
+
+substrate); R_substrate ≈ 0.002°C/W; R_TIM ≈ 0.003°C/W; R_PCM ≈ 0.5°C/W (with copper
+
+foam enhancement); R_fins ≈ 0.62°C/W (natural convection). Total R_ja ≈ 1.28°C/W. At
+
+32.5W heat dissipation (50W electrical × 0.65 heat fraction), the temperature rise above
+
+ambient is 32.5 × 1.28 = 41.6°C, giving a junction temperature of 25 + 41.6 = 66.6°C. The
+
+measured value of 78°C is slightly higher due to non-uniform temperature distribution within
+
+the PCM.
+
+[0062] The copper foam reduces the effective thermal resistance of the PCM layer
+
+from approximately 10°C/W (pure PCM) to 0.5°C/W, a 20-fold improvement. This is the key
+
+innovation that enables the PCM-based thermal management device to achieve
+
+performance comparable to heat pipe solutions at a fraction of the cost.
+
+[0063] Reliability testing:
+
+[0064] Example 1 was subjected to the following reliability tests:
+
+[0065] (1) Thermal cycling: 1000 cycles from -40°C to 85°C (30 min hold at each
+
+extreme). No deformation, cracking, or PCM leakage was observed. Junction temperature
+
+at 50W was 79°C (vs. 78°C before testing), within measurement uncertainty.
+
+[0066] (2) High-temperature aging: 1000 hours at 85°C ambient with 50W LED power.
+
+No degradation of the anodized coating or PCM decomposition was observed. Junction
+
+temperature remained stable at 77-79°C throughout the test.
+
+[0067] (3) Humidity testing: 1000 hours at 85°C/85% RH. The sealed housing
+
+maintained its integrity with no moisture ingress. PCM performance was unchanged.
+
+[0068] (4) Vibration testing: Random vibration 10-500 Hz, 3 Grms, 2 hours per axis. No
+
+loosening or damage was observed.
+
+[0069] (5) Drop testing: Free drop from 1 meter onto a hard surface (concrete), one
+
+drop per face (six faces total). After testing, no cracking of the housing or fins was observed.
+
+The sealed housing maintained its integrity. Thermal performance was unchanged.
+
+[0070] (6) Long-term PCM stability: Example 1 was operated continuously at 50W for
+
+5000 hours (approximately 7 months). The LED junction temperature remained in the range
+
+of 77-79°C throughout the test, with no upward trend. This confirms that the PCM does not
+
+degrade or decompose during long-term operation, and the copper foam structure maintains
+
+its structural integrity within the PCM.
+
+[0071] PCM thermal buffer capacity analysis:
+
+[0072] The thermal buffer capacity of the PCM can be quantified as follows. The PCM
+
+mass is m = 190 g, and the latent heat of fusion is L = 250 kJ/kg. The total latent heat that
+
+can be absorbed is Q_latent = m × L = 0.19 kg × 250 kJ/kg = 47.5 kJ.
+
+[0073] During LED startup from cold state to steady state, the LED heat generation
+
+rate increases from 0 to 32.5W over approximately 30 seconds. The average heat
+
+generation rate during startup is approximately 16.25W, and the total heat generated during
+
+startup is Q_startup = 16.25W × 30s = 487.5 J = 0.4875 kJ. This is only about 1% of the
+
+total latent heat capacity (47.5 kJ), confirming that the PCM has ample capacity for startup
+
+thermal buffering.
+
+[0074] The time required to fully melt the PCM (assuming all latent heat is absorbed) is
+
+t_melt = Q_latent / Q = 47500 J / 32.5 W = 1462 seconds ≈ 24 minutes. This means the
+
+PCM can provide thermal buffering for approximately 24 minutes of continuous full-power
+
+operation before transitioning from the solid-liquid coexistence regime to the fully liquid
+
+regime.
+
+[0075] During the solid-liquid coexistence regime (phase change period), the housing
+
+inner wall temperature is "clamped" near the PCM melting point (55°C). This temperature
+
+clamping effect is the primary mechanism by which the PCM reduces temperature
+
+fluctuations. After the PCM is fully melted, the thermal management relies on natural
+
+convection within the liquid PCM and the cooling fins, and the device behaves more like a
+
+conventional heat sink with a large thermal mass.
+
+[0069] Application scenarios:
+
+[0070] The thermal management device of the present invention is suitable for the
+
+following applications:
+
+[0071] (1) Indoor high-power LED lighting: LED downlights, panel lights, and high-bay
+
+lights, power range 30-200W. The PCM thermal buffering effectively suppresses
+
+temperature transients during on/off switching, extending LED lifetime in intelligent lighting
+
+systems with frequent switching.
+
+[0072] (2) Outdoor LED street and tunnel lights: power range 100-400W, operating in
+
+ambient temperatures from -40°C to +50°C. The PCM melting point can be adjusted by
+
+varying the composition to suit different climate conditions. The anodized anti-corrosion
+
+coating protects against rain and salt spray.
+
+[0073] (3) Automotive LED headlamps: power range 10-50W, operating in harsh
+
+vibration and temperature environments. The passive, maintenance-free nature of the
+
+device is particularly suitable for automotive applications. Reliability testing confirms long-
+
+term stability under automotive conditions.
+
+[0074] (4) LED display backlighting: large-format LED TV and monitor backlight units,
+
+power range 50-150W. The PCM provides uniform temperature distribution, preventing
+
+brightness non-uniformity and color shift caused by localized hot spots.
+
+[0075] (5) Specialty LED lighting: stage lighting, film/video lighting, and horticultural
+
+lighting, power range 100-500W. The large-area PCM layer provides excellent temperature
+
+uniformity, meeting the stringent requirements of specialty lighting applications.
+
+[0076] The inventors declare that the above description represents preferred
+
+embodiments of the invention and does not limit the scope of the invention. Any
+
+modifications, equivalent replacements, or improvements made within the spirit and
+
+principles of the present invention shall be included within the scope of protection.
+
+ABSTRACT
+
+A thermal management device for semiconductor light sources includes a sealed
+
+housing containing a phase change material, a porous metal foam structure, a thermally
+
+conductive substrate, and integrally formed cooling fins. The phase change material
+
+absorbs heat through phase transition, providing thermal buffering and reducing
+
+temperature fluctuations. The porous metal foam enhances internal thermal conduction. The
+
+device has no moving parts, requires no maintenance, and provides efficient passive
+
+cooling for high-power LED applications.
+
+[FIG. 1]
+
+ABSTRACT DRAWING DESCRIPTION
+
+FIG. 1 is a perspective view of the thermal management device according to the
+
+present invention. Reference numerals: 1-sealed housing; 2-phase change material; 3-
+
+thermally conductive substrate; 4-LED chip; 6-cooling fins; 7-porous metal foam; 8-
+
+evacuation valve.

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Jev（TypeSafe AI System One）在 agent/harness 环境下的成熟应用调研与 HarnessWindTunnel 落地机会 · v0.1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233b5bdb'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='white' stroke-width='2.4'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='white'/%3E%3C/svg%3E"/>
+<style>
+:root{--bg:#e8eaef;--card:#fcfcfd;--ink:#22272f;--muted:#5d6675;--line:#d4d9e1;--th:#eef1f5;
+--box-y:#f3f5f8;--box-g:#f3f5f8;--box-b:#eef2fb;--box-o:#fdf3e8;--box-gray:#f3f5f8;--box-p:#f4eefc;--accent:#3b5bdb;}
+body.dark{--bg:#14161a;--card:#1e2127;--ink:#d6dae1;--muted:#98a1af;--line:#333944;--th:#282d36;
+--box-y:#262b33;--box-g:#262b33;--box-b:#232838;--box-o:#332a1c;--box-gray:#262b33;--box-p:#2c2145;--accent:#7c9bff;}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+ line-height:1.78;font-size:16px;-webkit-font-smoothing:antialiased}
+.topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--card) 88%,transparent);
+ backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:920px;margin:0 auto;padding:10px 20px;display:flex;gap:12px;align-items:center}
+.topbar .docname{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+details.toc{max-width:920px;margin:0 auto;background:var(--card);border-bottom:1px solid var(--line)}
+details.toc>summary{cursor:pointer;padding:8px 20px;font-size:13px;color:var(--muted);user-select:none}
+.toc-list{max-height:46vh;overflow:auto;padding:4px 20px 14px;margin:0;list-style:none;font-size:13.5px}
+.toc-list a{color:var(--ink);text-decoration:none;display:block;padding:2px 0;border-radius:5px}
+.toc-list a:hover{color:var(--accent)}
+.toc-list .lv1{font-weight:600;margin-top:6px}
+.toc-list .lv2{padding-left:18px;color:var(--muted)}
+article{max-width:880px;margin:26px auto 80px;background:var(--card);border:1px solid var(--line);
+ border-radius:14px;padding:40px 48px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.doc-title{font-size:26px;font-weight:800;line-height:1.4;margin:0 0 6px;letter-spacing:.2px}
+.doc-meta{color:var(--muted);font-size:13px;margin-bottom:18px}
+article{counter-reset:ch}
+article h1{counter-reset:sc;counter-increment:ch;font-size:22px;margin:38px 0 14px;padding-top:18px;
+ border-top:2px solid var(--line);line-height:1.45;scroll-margin-top:64px}
+article h1::before{content:counter(ch);display:inline-block;min-width:1.5em;color:var(--accent);font-weight:800;margin-right:.3em}
+article h2{counter-increment:sc;font-size:18px;margin:26px 0 10px;line-height:1.5;scroll-margin-top:64px}
+article h2::before{content:counter(ch)"."counter(sc);color:var(--accent);font-weight:700;margin-right:.45em;font-size:.92em}
+article h3{font-size:16px;margin:18px 0 8px}
+p{margin:10px 0}
+strong{font-weight:700}
+code{background:var(--th);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:.88em;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+ul,ol{margin:10px 0;padding-left:26px}
+li{margin:5px 0}
+li::marker{color:var(--accent)}
+.callout{border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:14px 16px;margin:16px 0;display:flex;gap:10px;line-height:1.7}
+.callout .emoji{line-height:1.7}
+.callout-body{flex:1;min-width:0}
+.callout-body p:first-child{margin-top:0}.callout-body p:last-child{margin-bottom:0}
+.bd-gray{border-color:var(--line)}.bd-p{border-color:#9775d6}.bd-o{border-color:#e8a35a}.bd-b{border-color:#7c9bff}
+.box-y{background:var(--box-y)}.box-g{background:var(--box-g)}.box-b{background:var(--box-b)}.box-p{background:var(--box-p)}.box-o{background:var(--box-o)}.box-gray{background:var(--box-gray)}
+blockquote{margin:16px 0;padding:10px 16px;border-left:4px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent);border-radius:0 8px 8px 0}
+blockquote p:first-child{margin-top:0}blockquote p:last-child{margin-bottom:0}
+hr.split{border:0;border-top:1px dashed var(--line);margin:22px 0}
+.table-wrap{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13.5px;line-height:1.6}
+th,td{border:1px solid var(--line);padding:8px 10px;vertical-align:top;word-break:break-word}
+th{background:var(--th);font-weight:700;text-align:left}
+th p,td p{margin:.25em 0}
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;margin:1px 2px;white-space:nowrap;border:1px solid transparent}
+.b-official{background:#e8edfb;color:#2b4bc4}.b-third{background:#e7f4ec;color:#1f7a4d}
+.b-paper{background:#f1e9fb;color:#7a3fc0}.b-community{background:#fdeee3;color:#b5651f}
+.b-todo{background:#eceef2;color:#5d6675}
+.hi{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:3px;padding:0 1px}
+/* heat matrix cells */
+.heat{font-weight:700}
+.h-p0{background:#e63946;color:#fff}.h-p1{background:#f4a261;color:#3a2408}.h-p2{background:#e9c46a;color:#3a2f08}.h-watch{background:#b8c0cc;color:#1c2430}
+@media(max-width:680px){article{padding:24px 18px;border-radius:0;border-left:0;border-right:0}.doc-title{font-size:21px}body{font-size:15px}}
+@media print{.topbar,details.toc,.btn{display:none!important}body{background:#fff}article{border:0;box-shadow:none;max-width:100%}}
+</style></head>
+<body>
+<div class="topbar"><div class="topbar-in">
+ <span class="docname">Jev（TypeSafe AI System One）在 agent/harness 环境下的成熟应用调研与 HarnessWindTunnel 落地机会 · v0.1（2026-09-21）</span>
+ <button class="btn" id="themeBtn">深色</button>
+</div></div>
+<details class="toc"><summary>目录（点击展开 / 收起）</summary><ul class="toc-list" id="tocList"></ul></details>
+<article>
+<div class="callout box-gray bd-gray"><span class="emoji">📌</span><div class="callout-body">
+<p><strong>版本与时效：v0.1（2026-09-21）。</strong>调研对象为 TypeSafe AI 于 <strong>2026-09-15</strong> 发布的首个 System One 模型 <strong>Jev</strong>（当前稳定版 <code>jev-1.13.0</code>）。<strong>Jev 自公开发布至本报告成文仅 6 天</strong>，2026-09-21 当天前后才取消 waitlist 全面开放；凡涉及"社区采用、长期稳定性、价格可持续性"的结论，一律按<span class="hi">未经时间检验</span>阅读。</p>
+<p><strong>证据分级徽标：</strong><span class="badge b-official">官方宣称</span><span class="badge b-third">第三方实测</span><span class="badge b-paper">论文实验</span><span class="badge b-community">社区个例</span><span class="badge b-todo">待验证</span>。官方宣称的 <strong>193.6× 更快、444.6× 更便宜</strong> 等倍数<strong>永远只标"官方宣称，未经独立验证"</strong>；底稿未提供的数字、API 字段、论文一律不补。</p>
+</div></div>
+
+<div class="callout box-b bd-b"><span class="emoji">💡</span><div class="callout-body">
+<p><strong>摘要（先给结论）：Jev 不是又一个聊天大模型，而是一个"不生成文本、单次并行吐出带概率分布的结构化判定"的小模型；它最适合替换 agent/harness 主循环里那些"窄、高频、封闭集、带 schema"的判定节点，而不适合开放式推理、长文本生成与精确计算。</strong></p>
+<p>对 HarnessWindTunnel 的落地判断：<strong>值得做一轮 1–2 天的最小实测，但暂不建议直接上线生产路径。</strong>三个 P0 机会（法律屏引用断言五分类、Playground 判分兜底、风洞/演化屏失败标签批量归因）在形态上与 Jev 高度匹配；两个硬约束决定必须先实测——其一，Jev 官方只背书英文，中文短客服实测准确率仅约 64%、明显落后国产中文模型，而本项目是中文法律卷宗场景；其二，官方自认注入式文字可以移动答案，而本项目安全域（trap·gate·leak-check）对漏报接近零容忍。所有官方性能倍数均为厂商自跑口径、尚无独立复现，接入前应以自有数据做小流量 A/B。</p>
+</div></div>
+
+<h1>Jev 本体：能力、API、定价与限制</h1>
+
+<h2>它是什么：一个"判定模型"而非生成模型</h2>
+<p>Jev 是 TypeSafe AI 的旗舰模型，也是官方定义的第一个 <strong>System One model</strong>——命名借用 Kahneman《Thinking, Fast and Slow》的"快思考"；模型名 Jev 致敬经济学家 William Stanley Jevons（Jevons 悖论）。<span class="badge b-official">官方宣称</span></p>
+<p>它与 LLM 根本不同：接收一份 <code>state</code>（文本 / JSON 对象 / 文本数组）+ 一组带类型的问题，在<strong>单次请求内并行</strong>返回带概率分布与置信度的结构化判定，<strong>不生成自由文本、无需再解析</strong>。训练方法命名为 <strong>RLCD（Reinforcement Learning for Calibrated Decisions，面向校准决策的强化学习）</strong>，与 RLHF/RLVR 并列；采样方式为<strong>并行采样</strong>而非自回归逐 token。输入<strong>仅限文本</strong>，官方标注图像/音频/视频"not supported (yet)"。<span class="badge b-official">官方宣称</span></p>
+
+<h2>三种 Question 原语（Choice / Score / Noul）</h2>
+<p>请求顶层字段为 <code>state</code>、<code>model</code>、<code>questions</code>（map，key 为自定义问题 ID；问题 ID 不参与推理，仅用于按同名键取回结果）。三种类型可在<strong>单次请求内自由混用、并行独立</strong>评估，增加问题几乎不增加时延、不互相污染。<span class="badge b-official">官方宣称</span></p>
+<div class="table-wrap"><table>
+<colgroup><col style="width:14%"/><col style="width:24%"/><col style="width:31%"/><col style="width:31%"/></colgroup>
+<thead><tr><th>类型</th><th>语义</th><th>请求要点</th><th>响应要点</th></tr></thead>
+<tbody>
+<tr><td><strong>Choice</strong></td><td>从固定选项中选一个</td><td><code>criteria</code> 为"选项名→描述"的 map；<strong>最多 255 个选项</strong>，建议加 <code>other</code>/<code>none of the above</code></td><td><code>choice</code> + <code>probabilities</code>（各选项概率，和为 1）+ <code>confidence</code></td></tr>
+<tr><td><strong>Score</strong></td><td>在有序等级上打分</td><td><code>criteria</code> 为<strong>有序数组</strong>，2–10 级，须用具体情境描述而非"中等/一般"</td><td><code>score</code>（等级概率加权均值，可落两级之间）+ <code>probabilities</code> + <code>confidence</code></td></tr>
+<tr><td><strong>Noul</strong></td><td>是否成立？返回为真概率</td><td><code>instructions</code> + 可选 <code>criteria</code>（描述 true/false 各指什么）</td><td>仅 <code>noul</code>（0–1）；<strong>无单独 confidence</strong>（二值分布由单值完全描述）</td></tr>
+</tbody></table></div>
+<p>关键语义提醒：<code>noul=0.5</code> 表示 yes/no 等概率，<strong>不代表"中等程度"</strong>，要度量程度应改用 Score。官方建议把复杂判断拆成多个原子问题、在代码里加权组合（Composite scoring）。官方另称把 <strong>13 个问题合到一次调用，比 13 次单独调用便宜 11.5 倍、快 9.6 倍，答案不变</strong>——此为官方口径。<span class="badge b-official">官方宣称</span></p>
+
+<h2>概率、calibration 与"拒答"机制</h2>
+<ul>
+<li><strong>概率分布</strong>：Choice/Score 的 <code>probabilities</code> 和为 1，Noul 为单值；所有答案被约束在你提供的选项/等级之内，官方称"数学上不可能越界"。<span class="badge b-official">官方宣称</span></li>
+<li><strong>Calibration</strong>：官方称经 RLCD 训练，概率针对结果做过校准（置信度越高、准确率越高）；但<strong>明确免责</strong>：calibration 是在一批预测上的统计性质，<strong>不保证单条答案正确</strong>，confidence=1.0 只表示分布集中。<span class="badge b-official">官方宣称</span></li>
+<li><strong>confidence 路由</strong>：<code>confidence</code>（仅 Choice/Score 返回）是从分布形状算出的 0–1 统计量。官方三段式用法：高置信自动执行 / 中置信请用户确认或加标记 / 低置信转人工。阈值按风险设定。<span class="badge b-official">官方宣称</span></li>
+<li><strong>没有独立的 abstain API</strong>：官方的"我不确定"机制就是 confidence 阈值路由；另一种做法是给 Choice 加 <code>other</code>/<code>none of the above</code> 选项，让模型把概率压到该选项上。<strong>"abstain"在官方术语里是架构模式，不是字段。</strong><span class="badge b-official">官方宣称</span></li>
+</ul>
+
+<h2>版本、定价、时延与速率限制</h2>
+<div class="table-wrap"><table>
+<colgroup><col style="width:22%"/><col style="width:52%"/><col style="width:26%"/></colgroup>
+<thead><tr><th>项</th><th>数值</th><th>证据</th></tr></thead>
+<tbody>
+<tr><td>当前版本</td><td><code>jev-1.13.0</code>（<code>jev-latest</code>/<code>jev-preview</code> 均指向它）</td><td><span class="badge b-official">官方宣称</span></td></tr>
+<tr><td>输入定价</td><td><strong>$0.042 / 百万输入 token</strong>（$42 / 十亿），<strong>输出 token 免费</strong></td><td><span class="badge b-official">官方宣称</span></td></tr>
+<tr><td>端到端时延</td><td>官方称 <strong>70–500ms</strong>；use-case 文档称约 150ms；DCVC 称 &lt;100ms</td><td><span class="badge b-official">官方宣称</span><span class="badge b-todo">p50/p95 未公开</span></td></tr>
+<tr><td>速率限制</td><td><strong>250,000 tokens/秒；1,200 requests/分钟</strong>，超限返回 429；官方称正在动态调整</td><td><span class="badge b-official">官方宣称</span></td></tr>
+<tr><td>上下文</td><td>每请求 64k token；其中 state + 最长问题约 32k</td><td><span class="badge b-official">官方宣称</span></td></tr>
+<tr><td>错误码</td><td>401 / 422 / 429 / 529；429/529 建议指数退避</td><td><span class="badge b-official">官方宣称</span></td></tr>
+</tbody></table></div>
+<p>官方 blog 对照称：现有 LLM 输入 $0.20–$10/MTok、输出比输入贵约 5 倍；Jev 端到端比 frontier LLM（3–329 秒）快 40–200×。<strong>新用户送 $5、2026-09-20 前后取消 waitlist 为第三方报道，未经官方文档确认。</strong><span class="badge b-todo">待验证</span></p>
+
+<h2>接入方式与三大托管分发</h2>
+<ul>
+<li><strong>官方端点</strong>：<code>POST https://api.typesafe.ai/v1/systemone</code>，Bearer 认证。<strong>它不是 OpenAI 兼容端点</strong>——没有 <code>/v1/chat/completions</code>，请求/响应 schema 为自有 <code>state</code>/<code>questions</code>/<code>answers</code>。<span class="badge b-official">官方宣称</span></li>
+<li><strong>SDK</strong>：Python <code>pip install typesafe-sdk</code>（Python ≥ 3.10）；TypeScript <code>npm install @typesafe-ai/sdk</code>（Node 20+）。<span class="badge b-official">官方宣称</span></li>
+<li><strong>托管分发</strong>：Vercel AI Gateway（<code>typesafe-ai/jev</code>，AI SDK 7.0.105+ 的 <code>experimental_evaluate</code>）、Cloudflare Workers AI（<code>typesafe/jev</code>，文档标注 32k）、OpenRouter（<code>typesafe/jev-1.13</code>）。<strong>企业接入应走这些已列名网关或官方端点，不要用第三方转售站。</strong><span class="badge b-official">官方宣称</span></li>
+</ul>
+
+<h2>官方自认的限制（jaggedness，9 类失效模式）</h2>
+<p>官方专页《Jev 1.13 jaggedness》（最后复审 2026-09-17）列出 9 类已知失效模式，这是本项目最该逐条对照的"红线清单"。<span class="badge b-official">官方宣称</span></p>
+<ol>
+<li><strong>字面理解</strong>：按字面读，不揣摩言下之意；negation/scoping 被字面读。</li>
+<li><strong>数学与数字</strong>：不是计算器，不可靠计数，hex/RGB 等数字表示处理差；不要用 score 插值反推精确数值。</li>
+<li><strong>日期时间比较</strong>：把日期当文本读，不做有序量比较；日期抽取交给模型、比较放代码。</li>
+<li><strong>间接/多层推理</strong>：双重否定、多层间接指代掉点；System 2 式推理不适合。</li>
+<li><strong>塞满无关细节的大 state</strong>：无关内容当干扰项降低精度（context rot）；应先检索过滤再送 state。</li>
+<li><strong>对抗内容</strong>：state 默认不被当作敌意数据，<strong>注入式诱导可移动答案</strong>。</li>
+<li><strong>instructions 与 criteria 矛盾</strong>（如 true 映射到"否"）会变差。</li>
+<li><strong>不保证结构性恒等式</strong>：官方反例——正/反两个 Noul 概率和为 <strong>0.72+0.47=1.19</strong>（不满足 P(not A)=1-P(A)）。</li>
+<li><strong>不做生成</strong>：强行链式 choice 又慢又差；要生成/抽取自由文本时配合正则或生成式模型。</li>
+</ol>
+<p>总结禁忌：把代码能精确算的事丢给模型；一个问题塞多个判断；System 2 多跳推理；state 超过问题所需。</p>
+
+<h2>公司背景与融资</h2>
+<p>创始人/CEO <strong>Diogo Almeida</strong>，据 DCVC 与官方 blog，其在 OpenAI 作为研究员参与了 InstructGPT、ChatGPT、GPT-4 背后的 RLHF 等核心方法，随后做了约两年 stealth 研发。公司披露 <strong>DCVC 领投的 $40M Series Seed</strong>。联合创始人具名（Erik Gafni、Sasha Sheng）与"2024 年成立"为第三方 AI Wiki 说法，官方公开页未逐一确认。<span class="badge b-official">官方宣称</span><span class="badge b-community">社区个例</span></p>
+
+<h2>官方 benchmark 数字及其口径（全部"官方宣称，未经独立验证"）</h2>
+<p>官方自建"workflow eval"：假设存在一张正确 compute graph，让所有模型跑同一张 workflow，以<strong>最贵外部模型（GPT-6 Astra + Fable 5.1）的平均预测作参考答案</strong>，共 4 个 workflow。官方口径：Jev 平均准确率约 <strong>67.8%</strong>，同图上 frontier 模型约 <strong>68%–74%</strong>；官网首页的 <strong>193.6× 更快、444.6× 更便宜</strong>即出自此 eval，官方自称这是"真实收益的偏高端"。0% 幻觉是<strong>构造性保证</strong>（schema 约束）而非经验实测。官方同时自陈偏差：workflow 由自家能力团队写、参考答案偏向 OpenAI/Anthropic、"短期输入对我方有利"。</p>
+<div class="callout box-o bd-o"><span class="emoji">⚠️</span><div class="callout-body"><p><strong>本报告立场：</strong>上述倍数与准确率一律按<span class="hi">厂商自报</span>阅读，截至成文无第三方独立复现；发布仅 6 天，<strong>未经时间检验</strong>。</p></div></div>
+
+<h1>Jev 专门材料综述：接入点、社区反馈与正反两面</h1>
+
+<h2>LangChain《Building a Harness with Jev》：当前最清晰的参考架构</h2>
+<p>LangChain 官方博客（2026-09-17）是本次调研最关键的一篇，直接回答"Jev 在 agent loop 里放哪"。<span class="badge b-official">官方宣称</span>核心论点意译："Agent 在循环里跑——LLM 决定做什么、工具执行、模型评估结果、再继续……tool calling 和 structured output 让 agent 能集成，但<strong>每个决策仍要一次模型调用，agent loop 依然慢且贵</strong>。"LangChain 的判断是：Jev 不是 LLM 替代品，而是把 loop 里那些"窄、高频、结构化"的判定节点，从一次 LLM 调用换成 70–500ms 的并行判定。</p>
+<p>它把 Jev 封装为 <code>TypeSafeClassifier</code>（分类器，非 chat 模型），给出<strong>两个决策点</strong>：</p>
+<ol>
+<li><strong>Model routing（模型路由中间件）</strong>：简单 lookup 不需要强力模型，让 Jev 先看用户消息，按 criteria 选 fast / powerful 模型；路由结果的 probabilities/confidence 留在 agent state 里可审计。</li>
+<li><strong>Auto Mode（危险工具调用拦截）</strong>：在工具真正执行之前用 Jev 判定是否 risky，block 掉高风险调用（如 bash）。LangChain 点出：Claude Code / Codex / Cursor 这类 coding harness 都内置"危险动作先分类再执行"的 guardrail，但这一步长期锁在闭源 harness 里，现在可以开放给所有 agent。</li>
+</ol>
+<blockquote><p><strong>架构一句话：LLM 负责开放式推理与生成，Jev 负责 loop 里的快速结构化判定——Jev 是 decision layer，不是 replacement。</strong></p></blockquote>
+
+<h2>Vercel / Cloudflare / OpenRouter 的分发与采用热度</h2>
+<ul>
+<li><strong>Vercel</strong>：AI Gateway 2026-09-16 上架，自称 <strong>"Jev is the fastest-adopted model in AI Gateway history"</strong>——上线 24 小时内近 <strong>13% 付费团队</strong>在用（2× GPT-5.6 家族、6× Fable 5.1 份额）。注意这是 <strong>Gateway 内部"把 Jev 加进配置/调用"的口径</strong>，不是生产真实调用量；Vercel 自己也补了一句"下一个考验是早期采用能否持续"。<span class="badge b-official">官方宣称</span></li>
+<li><strong>Cloudflare</strong>：Workers AI 以 <code>typesafe/jev</code> 第三方模型提供，文档给出 4 个官方示例（urgency/department/frustration 三连、结构化退款复核、工单路由、账户风险评分）。<span class="badge b-official">官方宣称</span></li>
+<li><strong>OpenRouter</strong>：2026-09-18 上架 <code>typesafe/jev-1.13</code>。<span class="badge b-official">官方宣称</span></li>
+</ul>
+
+<h2>唯一公开的大规模独立实测（正面与负面并存）</h2>
+<p>开发者"艾特玖"在 dev.to 发布的 benchmark（2026-09-21）是目前最有价值的反面+正面数据：<strong>10 个公开数据集、约 22,500 次 API 调用、52.2M 输入 token、总成本 $2.19</strong>。<span class="badge b-third">第三方实测</span></p>
+<div class="table-wrap"><table>
+<colgroup><col style="width:20%"/><col style="width:80%"/></colgroup>
+<thead><tr><th>表现</th><th>结果</th></tr></thead>
+<tbody>
+<tr><td><strong>能用</strong></td><td>间接 prompt-injection 检测（InjecAgent 1105 条）：阈值 0.10 时 P/R 100%、0 误报，41.1% 流量可在 100% 准确率下自动处理；BEIR SciFact reranking：MRR 0.622→0.843、Hit@1 50%→78.3%；意图分类 SNIPS 7 类 97.9%、Banking77 77 类 80.3%；MetaTool 199 工具路由 96.5%；Shell 命令风险闸：100% 危险命令被拦、98.2% 安全命令放行</td></tr>
+<tr><td><strong>不行</strong></td><td>模型难度路由：<strong>51%（无信号）</strong>，预测不了另一个模型的 failure mode；轨迹失败归因：<strong>AUROC 0.560（随机水平）</strong>，需要跨步因果推理；非英文：韩语 R@1 48.9% vs 英语 61.5%</td></tr>
+</tbody></table></div>
+<p>工程教训：正交分解+代码组合优于单问题提示（shell-gate 误报 14.5%→1.8%）；多标签决策先 choice 竞争再 noul 验证（multi-skill routing R@1 9.0%→81.0%）；<strong>"Low score is not a safety guarantee"——0–0.1 分桶里仍有 16.6% 恶意样本</strong>。结论定性：<strong>模型给出校准的局部判断，控制流由代码掌握。</strong></p>
+
+<h2>社区反馈的正反两面</h2>
+<p><strong>正面（已观察到的好体验）</strong><span class="badge b-third">第三方实测</span><span class="badge b-community">社区个例</span>：价格/时延感知好（独立实测单次 P50 约 0.30s、约 $0.00004）；结构化输出零解析，JSON 直接进 <code>if</code> 分支；典型分类任务强；confidence 做 gate 可行；生态上车快；官方罕见透明（jaggedness 页自列失败模式、自承认"价格可能补贴"）。HN 主帖约 <strong>1924 分</strong>，创始人 CompleteSkeptic 亲自下场答疑。</p>
+<p><strong>负面 / 质疑</strong><span class="badge b-community">社区个例</span><span class="badge b-third">第三方实测</span>：</p>
+<ul>
+<li><strong>"can't hallucinate" 被普遍打回</strong>：HN 高赞共识——"type safety is not factual correctness"，错的值仍然是错的，只是错得"格式正确"；创始人本人在评论区同意"可能选错"。</li>
+<li><strong>苹果对橘子的性能比较</strong>：Jev 不出文本、不做 CoT，拿它和做长 chain-of-thought 的 LLM 比延迟先天占优；官方自己也承认"短期输入对我方有利"。</li>
+<li><strong>Benchmark 禁令争议</strong>：HN 另一帖指出 TypeSafe ToU 1(v) 与 MCA 2.3(f) 禁止用户公开发布 benchmark/性能数据，与"欢迎质疑"姿态矛盾，被称"Oracle-style legal"。</li>
+<li><strong>技术壁垒质疑</strong>：有开发者称 prefill 普通 LLM 前缀+约束生成 1 个 token 已能在 Qwen2.5-1.5B 上拿 2–3× speedup；HN 上有人用本机 0.1813s 跑通等价管线。</li>
+<li><strong>Prior art 纠纷</strong>：r/LocalLLaMA 用户自称 2025-03 就做了同架构（自引 arXiv:2503.23303、2510.01237），TypeSafe 未公开回应；架构相似性是发帖人单方面主张。</li>
+<li><strong>Adversarial / 注入</strong>：state 被当作 data，注入文字会改答案。<strong>黑盒</strong>：未公布权重、参数量、架构、训练数据。</li>
+</ul>
+<div class="callout box-p bd-p"><span class="emoji">🔎</span><div class="callout-body"><p><strong>重要澄清：jevapi.org 不是 TypeSafe 官方文档</strong>，它把请求转发到第三方网关 tokenra.io 并以"no waitlist"为卖点；企业接入请勿误用。</p></div></div>
+
+<h2>学术空白</h2>
+<p><strong>截至 2026-09-21，无任何关于 Jev / TypeSafe AI / RLCD 的同行评审论文或 arXiv 官方技术报告。</strong>最接近的学术工作是 MIT 的 RLCR（arXiv:2507.16806，用 Brier score 增强 binary reward 提升 reasoning LM 校准），但那是在仍生成文本的 reasoning LM 上做，与 Jev"并行采样、不出文本"的产品形态不同。官方 blog 的 workflow eval 是厂商 benchmark 页，不是同行评审论文。<span class="badge b-todo">待验证</span><span class="badge b-paper">论文实验</span></p>
+
+<h1>业界成熟方案地图：按 agent harness 决策点组织</h1>
+<p>"用分类器/小模型做结构化判定替代 LLM"不是新方向，而是 2023–2026 已高度成熟的主线。下表把经典工作按 agent harness 的真实决策点组织，收益数字均为<strong>论文实验</strong>口径。</p>
+<div class="table-wrap"><table>
+<colgroup><col style="width:16%"/><col style="width:30%"/><col style="width:30%"/><col style="width:24%"/></colgroup>
+<thead><tr><th>harness 决策点</th><th>代表工作（arXiv/出处）</th><th>核心结论与收益口径</th><th>与 Jev 的关系</th></tr></thead>
+<tbody>
+<tr><td rowspan="5"><strong>模型路由 / 级联</strong></td><td>FrugalGPT（2305.05176, TMLR 2024）</td><td>匹配 GPT-4 同时<strong>最高降本 98%</strong>（峰值口径）</td><td>同为"廉价判定决定是否升级"，Jev 用原生概率单 pass</td></tr>
+<tr><td>RouteLLM（2406.18665, ICLR 2025）</td><td>轻量 router <strong>降本 &gt;2× 且不损质量</strong></td><td>单 query 单决策；Jev 单 pass 多问题</td></tr>
+<tr><td>Mixture-of-Thought（ICLR 2024）</td><td>答案一致性作难度信号，<strong>只花 40% 成本</strong>达 GPT-4</td><td>Jev 用原生概率替代"多次采样凑置信度"</td></tr>
+<tr><td>C3PO Conformal 级联（NeurIPS 2025）</td><td>用 conformal 把"超预算概率"约束住</td><td>与 Jev"概率当门限"最直接相关的理论框架</td></tr>
+<tr><td>Cascade Routing（2410.10347, ICML 2025）</td><td><strong>"好的 quality estimator 是成败核心"</strong></td><td>为 Jev 背书：价值取决于概率准不准</td></tr>
+<tr><td rowspan="2"><strong>LLM-as-a-Judge</strong></td><td>MT-Bench/Arena（2306.05685）/ CALM（2410.02736）/ Silent Judge（2509.26072）</td><td>judge 与人类一致性 &gt;80%；系统刻画 position/verbosity/self-enhancement bias；judge 依赖表面线索却不承认</td><td>judge 偏差系统性，换小模型不等于没偏差</td></tr>
+<tr><td>Probe Judge（2608.30005）/ J1（2505.10320）/ LoRA Judge（2506.05748）</td><td>小模型+rubric+Yes/No 判定替代大 judge，时间省 10.7×</td><td>Jev"单 pass 多问题"= 把多个 rubric criterion 并行判</td></tr>
+<tr><td rowspan="2"><strong>护栏 / 注入检测</strong></td><td>Llama Guard（2312.06674 / 2411.17713）/ Prompt Guard 86M / WildGuard（2406.01353）</td><td>几 B 小模型+结构化安全判定生产可行；越狱成功率 79.8%→2.4%</td><td>证明路线可行；Jev 泛化到安全外决策点</td></tr>
+<tr><td><strong>LODO（2602.14161）</strong></td><td><strong>同分布训练把 AUC 高估 8.4pp；PromptGuard2/LlamaGuard 对 indirect agentic attack 检测率仅 7–37%</strong></td><td><strong>对 Jev 最重要的警告：安全判定在 OOD/注入下会大面积失效</strong></td></tr>
+<tr><td rowspan="2"><strong>Verifier / Critic</strong></td><td>Let's Verify Step by Step（2305.20050）/ OmegaPRM（2406.06592）</td><td>过程监督 PRM 解决 MATH 子集 78%</td><td>PRM=逐步结构化判定；Jev 把多维判定并行化</td></tr>
+<tr><td><strong>Generative Verifiers（2408.15240, ICLR 2025）</strong> / 自证失效（2310.08118）</td><td>分数表示成 Yes/No token 概率；Best-of-N：GSM8K 73%→93.4%；自批判多半引入新错误</td><td><strong>与 Jev 形态最接近</strong>；判定模型必须独立于被判定对象</td></tr>
+<tr><td><strong>agent loop 内小决策</strong></td><td>TinyAgent（EMNLP 2024）/ Aviary（2412.21154）/ AgentFlux（2510.00229）；<strong>停止/循环判定为文献空白</strong></td><td>端侧小模型 function calling 追平 GPT-4；非前沿 agent 成本低至 100×；停步判定多为启发式</td><td><strong>Jev 最有机会卡位的空白决策点</strong></td></tr>
+<tr><td><strong>RAG 判定</strong></td><td>LLMLingua（2310.05736）/ RAGBench（2407.11005）</td><td>微调的 RoBERTa 小模型在 RAG 评估上打败 LLM-as-judge</td><td>Jev 多问题并行一次判"检索相关+grounded+是否幻觉"</td></tr>
+<tr><td><strong>System1/System2</strong></td><td>CoALA（2309.02427）/ LLM2（NAACL 2025）</td><td>System1 快生成/快判定、System2 慢推理/审慎</td><td>Jev 是 CoALA 里一直空缺的"System-1 判定子程序"实现</td></tr>
+<tr><td><strong>校准 / 选择性预测</strong></td><td>Conformal 入门（2107.07511）/ HCMA（2410.02173）/ To Believe or Not（2406.02543）</td><td>弃权 20% query 把错误率砍 30%，仅需 50–100 样本校准；要区分 epistemic vs aleatoric</td><td><strong>Jev 概率当门限前必须过的三关</strong>：校准、OOD、"不知道"vs"多解"</td></tr>
+</tbody></table></div>
+
+<h2>Jev 的真实增量与未验证点</h2>
+<div class="table-wrap"><table>
+<colgroup><col style="width:18%"/><col style="width:28%"/><col style="width:24%"/><col style="width:30%"/></colgroup>
+<thead><tr><th>维度</th><th>现有成熟工作</th><th>Jev 新形态</th><th>增量 / 风险</th></tr></thead>
+<tbody>
+<tr><td>判定粒度</td><td>单输入→单判定/单路由</td><td><strong>单 pass→多问题并行</strong></td><td>增量：批量省延迟；风险：多问题是否互相串扰，文献无现成答案</td></tr>
+<tr><td>输出形态</td><td>文本/分数/logprob</td><td><strong>原生概率分布</strong></td><td>增量：直接当门限；风险：校准与 OOD 可靠性未验证</td></tr>
+<tr><td>是否生成文本</td><td>多数带 CoT 理由</td><td><strong>完全不生成</strong></td><td>增量：极致便宜快；风险：失去可解释性、难 debug</td></tr>
+<tr><td>升级/弃权</td><td>靠 logprob/agreement 凑置信度</td><td>原生概率直接驱动</td><td>增量：免多次采样；风险：见校准三问</td></tr>
+</tbody></table></div>
+<p>文献给 Jev 落地前的<strong>前置验证清单</strong>：①在真实分布上画 reliability diagram、算 ECE，用 50–100 样本做温度/logistic 校准；②用 Leave-One-Dataset-Out 协议测 OOD（同分布指标会高估约 8.4pp）；③自做多问题独立性 ablation；④Jev 必须独立于被判定对象（自证无效）；⑤区分"不知道"与"多个都合理"，否则门限误杀。</p>
+
+<h1>中文与跨语言支持证据</h1>
+<p>本项目场景是中文法律卷宗，这一节是决定性约束。</p>
+<h2>官方口径：只背书英文<span class="badge b-official">官方宣称</span></h2>
+<p>官方 Models 页原文：<strong>"English is the primary training language and where accuracy is currently best. Other languages, including CJK scripts, are handled but not equally well; test on your own content before relying on Jev for a non-English workload, and pay close attention to Confidence when routing."</strong> 即：中文输入不会被拒绝、可直接写进 state/question，但官方不给中文准确率数字、所有文档示例均为英文、并明确要求非英文场景先用自有数据自测。</p>
+<h2>第三方中文实测：短文本约 64%，落后国产模型<span class="badge b-third">第三方实测</span></h2>
+<p>虎嗅/硅星人 2026-09-20 的对照（50 条真实中文电商客服问题，每条 4 项判断、全对才算对）：<strong>Jev 平均 32/50、完整准确率约 64.0%–65.2%、平均每题 0.75 秒、50 题约 $0.0020</strong>；同批题上 GLM 5.3 Flash 90.4%、Qwen 3.8 Flash 85.6%、Kimi K3 83.6%、GPT-5.5 76.4%。含义：<strong>Jev 在短中文题上不是"最强中文判断模型"，而是"最便宜最快但准确率垫底"的那个，国产中文模型比它高 20–26 个百分点。</strong>另有阈值横跳：人工 2.00、Jev 1.99，重复 15 次有 3 道题在通过/失分间反复横跳。</p>
+<p>36氪/全天候科技 2026-09-21 的实测则呈现另一面：<strong>干净出题（绕开算术等已知短板）时 45/45 全对、三次一致；但把算账还给它时，贴线题 5 次全错且都报 8 成以上把握。</strong>两条看似矛盾，实则指向同一条：<strong>Jev 中文表现高度依赖"出题/选项设计"，没有鲁棒的固定准确率。</strong>另一个关键观察：<strong>同样篇幅，中文比英文折算 token 更多、更容易撞 32k state 上限</strong>（海尔中文版 5 次被接口拒收 vs 泡泡玛特英文版 4.4 万字符 10 次全对）。</p>
+<h2>跨语言（中英混合）：证据不足<span class="badge b-todo">待验证</span></h2>
+<p>没有任何公开实测专门设计过"英文文档+中文提问/反向"的对照矩阵；官方对中英混合 state 无专门说明。混合检索进来的英文片段既可能稀释中文判定准确率、也可能成为注入载体——这正是必须自测的理由。长程浏览器实测另传 Jev 1/20 vs GPT-5.6 Luna 17/20（多步状态推演弱），属社区转述。</p>
+<h2>对本项目的中文硬门槛判断</h2>
+<div class="callout box-b bd-b"><span class="emoji">🧭</span><div class="callout-body"><p>成本不构成障碍（满载 32k state 单次约 $0.00134、约 1 分钱）。真正门槛有三：<strong>① 32k 长度上限 + context rot，35 页整卷不能直塞、必须先检索分块；② 中文准确率与校准未在法律卷宗上验证；③ 官方自认注入式文字可移动答案，安全域零容忍。</strong></p></div></div>
+
+<h1>本项目机会映射（HarnessWindTunnel）</h1>
+<div class="callout box-gray bd-gray"><span class="emoji">📋</span><div class="callout-body">
+<p><strong>项目背景：</strong>HarnessWindTunnel 是 AI Agent harness 的受控消融"风洞"（Agent = 模型 + harness），在建 Playground（#/playground）做 live 评估 + 自演化，场景为中国法院专利司法卷宗审理：35 页中文长卷宗 PDF + RAG 法条知识库 + 本地 patent-law-mcp；45 条任务分三域（通用 field-match / 法律 article-check / 安全 trap·gate·leak-check），三集固定 split（repair21 / gate15 / scorecard9），判分器确定性优先、LLM-as-Judge 兜底。成本现状：每次 run 约 30–80k tokens，演化每代 gate 约 30–90 个 run、约 1–7M tokens。本节仅用屏名 + hash 路由。</p>
+</div></div>
+
+<h2>P0 机会 A：L-MARS 引用断言五分类</h2>
+<ul>
+<li><strong>落在</strong>：法律屏（#/legal）的 Citation Fidelity Audit / Authority Library 相关控件。</li>
+<li><strong>现方案</strong>：把每条引用断言打五类标签（supported / partially_supported / unsupported / citation_unreachable / no_citation），现在用 chat LLM 逐条判。</li>
+<li><strong>Jev 问题设计</strong>：state 放"断言句 + 所引法条原文片段"；用一个 <strong>Choice</strong> 问"该断言落在五类中的哪一类"（务必含 <code>no_citation</code>/<code>citation_unreachable</code> 出口）；同一份 state 再并行加一个 <strong>Score</strong>（0–5，引文对断言的支撑强度）与一个 <strong>Noul</strong>（"是否存在引用实际不可达却被当成 supported 的情形？"）。几十条断言一次 fan-out。</li>
+<li><strong>预期收益</strong>：pointwise 封闭集多选一，结构化程度最高，天然 Choice；一次并行 map 几十条，省 N 次 chat 往返。<span class="badge b-official">官方数：13 问省 11.5×</span><span class="badge b-paper">RAGBench 小模型胜 LLM-judge</span></li>
+<li><strong>错误风险与兜底</strong>：中文法条准确率与校准未验证 → 先在 repair21 固定集跑一致性；低置信（如 &lt;0.9）回落 chat LLM 复核；<code>no_citation</code> 出口必须保留。</li>
+<li><strong>明确不适用</strong>：不能让 Jev 做法条语义三段论推理（jaggedness 第 4 条）。</li>
+</ul>
+
+<h2>P0 机会 B：field-match / trap-check 判分兜底</h2>
+<ul>
+<li><strong>落在</strong>：Playground（#/playground），以及风洞屏（#/tunnel）的判分环节。</li>
+<li><strong>现方案</strong>：field-match 语义不确定、trap-check 语义判定、groundednessCheck 生成后校验，现在用 chat LLM。</li>
+<li><strong>Jev 问题设计</strong>：state 放"任务期望字段/真值描述 + agent 实际产物"；一个 <strong>Choice</strong>（匹不匹配/部分匹配/不匹配）+ 一个 <strong>Score</strong>（语义吻合度 1–5，带具体 rubric）+ 一个 <strong>Noul</strong>（"产物是否被所给证据支撑？"）。每任务多次调用，频次高。</li>
+<li><strong>预期收益</strong>：每次省一次 chat 往返；官方低时延（70–500ms 区间）对 Playground live 体验最对口。<span class="badge b-official">官方数</span><span class="badge b-paper">Generative Verifiers Yes/No 概率验证</span></li>
+<li><strong>错误风险与兜底</strong>：判分是"金标准"下游，错判污染成功率统计 → cascade：高置信直接定分、中置信加标记、低置信转 chat LLM；进 #/tunnel 对比面板时必须打来源徽标（jev-live vs llm-judge）。</li>
+<li><strong>明确不适用</strong>：金额、编号、期间等精确比对留在代码侧（jaggedness 第 2、3 条）。</li>
+</ul>
+
+<h2>P1 机会 C：失败标签批量归因</h2>
+<ul>
+<li><strong>落在</strong>：运行透视屏（#/insight）与演化屏（#/evolution）。</li>
+<li><strong>现方案</strong>：13 个失败标签（premature-victory / fabricated-citation / scope-violation / unaware-of-stopping / step-repetition / context-loss / long-horizon-decay / fail-to-clarify / spec-misinterpretation / task-derailment / weak-grounding / reasoning-action-mismatch / other）现在基本靠 chat LLM 判。</li>
+<li><strong>Jev 问题设计</strong>：state 放一条轨迹回放摘要；一次并行问"是否 premature-victory？是否 step-repetition？是否 context-loss？……"——这正是 Jev <strong>单 pass 并行多 question 的甜点位</strong>（13 个 Noul 一次出）。</li>
+<li><strong>预期收益</strong>：把一条轨迹的归因从多次调用压成一次。<span class="badge b-third">SNIPS 97.9%、MetaTool 96.5%</span></li>
+<li><strong>错误风险与兜底</strong>：<strong>艾特玖实测轨迹失败归因 AUROC 仅 0.560（随机水平）</strong>——跨步因果推理 Jev 做不了。只让 Jev 做"表层、可局部判断"的标签（step-repetition、context-loss），跨越多步的根因归因仍留 LLM；批量打标后在 #/evolution 的 PRISM 编辑面路由里新增"判定器一致性"证伪指标。</li>
+<li><strong>明确不适用</strong>：需要理解整条轨迹因果链的归因。</li>
+</ul>
+
+<h2>P1 机会 D：hook 裁决 / 权限三态路由预筛</h2>
+<ul>
+<li><strong>落在</strong>：安全屏（#/security）的权限三态路由（EXECUTE / ASK / REFUSE）与 hook（allow / deny / rewrite）。</li>
+<li><strong>现方案</strong>：危险动作先分类再执行的 guardrail，目前落在 chat LLM / 规则。</li>
+<li><strong>Jev 问题设计</strong>：state 放"拟执行的工具调用 + 当前上下文"；用 <strong>Choice</strong>（该请求是否越权意图？是否注入？该走 EXECUTE/ASK/REFUSE 哪一档？）做预筛，高置信直接短路。</li>
+<li><strong>预期收益</strong>：时延敏感、高频；LangChain <code>AutoModeMiddleware</code> 已是同款模式。<span class="badge b-official">官方宣称</span></li>
+<li><strong>错误风险与兜底（最高优先）</strong>：<strong>安全场景漏报代价不对称，且官方自认注入可移动答案、LODO 论文显示 indirect 注入检测率仅 7–37%</strong>。门限必须偏保守、全部留痕；<strong>calibration 未验证前只做"旁路观察/打标"，不做"在线拦截"</strong>；任何 REFUSE 不自动放行 EXECUTE。</li>
+<li><strong>明确不适用</strong>：对抗性强的 leak-check / 刻意构造的 trap 样本，不能只信 Jev 单判。</li>
+</ul>
+
+<h2>P1 机会 E：RAG groundedness / rerank</h2>
+<ul>
+<li><strong>落在</strong>：#/playground 与知识库相关流程（知识库设置在 #/settings）。</li>
+<li><strong>现方案</strong>：groundedness 判定用 chat LLM；rerank 用通用检索器。</li>
+<li><strong>Jev 问题设计</strong>：<strong>Score</strong>（该回答是否被该引文支撑，0–1）；rerank 用 Noul/Choice 式成对相关判定。</li>
+<li><strong>预期收益</strong>：BEIR reranking MRR 0.622→0.843；RAGBench 证明小模型可在 RAG 评估上打败 LLM-judge。<span class="badge b-third">第三方实测</span><span class="badge b-paper">论文实验</span></li>
+<li><strong>错误风险与兜底</strong>：中文卷宗 + 中英混合检索片段未验证；先离线比对 rerank 顺序。</li>
+<li><strong>明确不适用</strong>：HyDE、query 改写这类<strong>需要生成文本</strong>的环节。</li>
+</ul>
+
+<h2>P2 机会 F：premature-victory 自查 / 循环检测 / 压缩预算点火</h2>
+<ul>
+<li><strong>落在</strong>：harness 内联判定（#/insight 运行时观察、#/tunnel 模块开关的在线指标）。</li>
+<li><strong>Jev 问题设计</strong>：内联 Noul——"agent 是否过早宣布完成？是否陷入重复循环？压缩预算是否该点火？"——时延敏感，Jev 低时延最对口。</li>
+<li><strong>预期收益</strong>：卡位文献空白；但目前<strong>无成熟成功/失败案例可引用</strong>。<span class="badge b-todo">待验证</span></li>
+<li><strong>兜底</strong>：先离线回放历史轨迹跑命中率，再决定是否内联；误判成本低的可先上线观察。</li>
+</ul>
+
+<h2>P2 机会 G：gate 批量重跑的结果筛选</h2>
+<ul>
+<li><strong>落在</strong>：演化屏（#/evolution）——每代 30–90 个 run 的评分解读与筛选。</li>
+<li><strong>Jev 问题设计</strong>：把"哪个 run 值得人看"做成批量 Choice/Score（一次并行 30–90 个）。</li>
+<li><strong>预期收益</strong>：省的是<strong>人阅读成本</strong>而非 token。<span class="badge b-todo">待实测</span></li>
+<li><strong>兜底</strong>：只做"排序/推荐"，不做最终 gate 通过/拒绝；人控门保留。</li>
+</ul>
+
+<h2>明确不适用点（必须显式排除）</h2>
+<div class="callout box-o bd-o"><span class="emoji">🚫</span><div class="callout-body"><p>任何需要<strong>生成文本</strong>的环节都不要碰 Jev：改动卡内容生成、簇 summary 撰写、HyDE、审理要点/裁判文书撰写、query 改写。需要长链推理的判定（复杂法律三段论）先列为<strong>待验证</strong>而非结论性替代；金额/编号/期间等精确比对留在代码侧。</p></div></div>
+
+<h1>优先级矩阵与 Top 机会清单</h1>
+<h2>打分维度</h2>
+<p>决策频次（高/中/低）× 单次判定消耗 token（大/小）× 判定结构化程度（高=天然 Choice）× 中文风险（中文证据缺口大小）× 实现难度（接入成本）。打分原则：频次越高、单次越贵、结构化越高 → 优先级越高；中文风险越高 → 越要先做最小实测再上生产。</p>
+<h2>优先级矩阵（热力）</h2>
+<div class="table-wrap"><table>
+<colgroup><col style="width:34%"/><col style="width:9%"/><col style="width:9%"/><col style="width:14%"/><col style="width:12%"/><col style="width:10%"/><col style="width:12%"/></colgroup>
+<thead><tr><th>机会点（屏 / 路由）</th><th>频次</th><th>消耗</th><th>结构化</th><th>中文风险</th><th>难度</th><th>综合</th></tr></thead>
+<tbody>
+<tr><td>A 引用断言五分类（#/legal）</td><td>中</td><td>小</td><td>很高</td><td>中</td><td>低</td><td class="heat h-p0">P0</td></tr>
+<tr><td>B 判分兜底 field-match/trap（#/playground、#/tunnel）</td><td>高</td><td>中</td><td>高</td><td>中</td><td>低</td><td class="heat h-p0">P0</td></tr>
+<tr><td>C 失败标签批量归因（#/insight、#/evolution）</td><td>中</td><td>中</td><td>高（跨步弱）</td><td>中高</td><td>低</td><td class="heat h-p1">P1</td></tr>
+<tr><td>D hook/权限三态预筛（#/security）</td><td>高</td><td>小</td><td>高</td><td>高（注入）</td><td>中</td><td class="heat h-watch">P1·仅旁路</td></tr>
+<tr><td>E RAG groundedness/rerank（#/playground、#/settings）</td><td>高</td><td>中</td><td>高</td><td>中</td><td>低</td><td class="heat h-p1">P1</td></tr>
+<tr><td>F 循环/完成/压缩点火（harness 内联）</td><td>高</td><td>小</td><td>中</td><td>中</td><td>中</td><td class="heat h-p2">P2</td></tr>
+<tr><td>G gate 批量筛选（#/evolution）</td><td>低（每代）</td><td>大</td><td>中</td><td>中</td><td>低</td><td class="heat h-p2">P2</td></tr>
+</tbody></table></div>
+
+<h2>Top 机会清单（建议执行顺序）</h2>
+<ol>
+<li><strong>先做 1–2 天最小实测</strong>（不直接上生产）：拿 #/playground 的 repair21 固定集，跑 A+B+E 三个 P0/P1，与现有 chat LLM 判分做同集 A/B，记录准确率、p50/p95、单次 token、置信度校准曲线、注入前后判定差值（含 0 注入与含注入配对 ≥20 条）。总调用约 200–400 次，成本 &lt; $1。</li>
+<li><strong>A 引用断言五分类</strong>：结构化最高、最稳，实测通过后优先接 #/legal。</li>
+<li><strong>B 判分兜底</strong>：频次最高、省 chat 往返最直接，但必须带 cascade 与来源徽标。</li>
+<li><strong>D 安全预筛只做旁路</strong>：calibration 验证前不做在线拦截。</li>
+</ol>
+
+<h2>通过 / 失败判定线（建议，可按业务调整）</h2>
+<div class="table-wrap"><table>
+<colgroup><col style="width:40%"/><col style="width:60%"/></colgroup>
+<thead><tr><th>指标</th><th>通过线（建议）</th></tr></thead>
+<tbody>
+<tr><td>中文 Choice 准确率</td><td>≥ 现有中文模型基线 − 5 个百分点</td></tr>
+<tr><td>含"无法判断"出口的拒绝正确率</td><td>≥ 90%</td></tr>
+<tr><td>置信度校准</td><td>报 80% 的样本实际正确率落在 70%–90%</td></tr>
+<tr><td>重复 3 次答案漂移率</td><td>&lt; 5%</td></tr>
+<tr><td><strong>注入鲁棒性（一票否决）</strong></td><td><strong>含注入 vs 无注入判定变化率 &lt; 10%，注入检出召回 ≥ 90%；否则该场景禁用 Jev</strong></td></tr>
+</tbody></table></div>
+
+<h1>待讨论开放问题</h1>
+<ol>
+<li><strong>中文证据不足期间，是否先拿 #/playground 的 repair21 固定集做 Jev 最小实测（1–2 天实验）再决定？</strong></li>
+<li>安全场景（#/security）对漏报零容忍，Jev 概率输出的 calibration 未验证前，是否只做"旁路观察/打标"、不做"在线拦截"？</li>
+<li><strong>cascade 门限</strong>：低置信回落 chat LLM 的阈值定在哪（0.9？0.95？），abstain（<code>other</code>/"无法判断"）时如何兜底？</li>
+<li><strong>成本模型</strong>：Jev 按输入 token 计费后，一次并行 10 问的成本 vs 一次 chat 判定，哪个更省？需实测。</li>
+<li><strong>数据诚实铁律</strong>：Jev 判定结果进入 #/tunnel 对比面板时，数据来源徽标怎么打（jev-live vs llm-judge vs fixture）？</li>
+<li>失败归因用 Jev 批量打标后，#/evolution 的 PRISM 编辑面路由是否需要新增"判定器一致性"这一维的证伪指标？</li>
+<li>ToU 争议：TypeSafe ToU 禁止公开发布 benchmark/性能数据——团队内部评测与对外报告 #/tunnel 对比面板时，数据披露口径需法务确认。</li>
+</ol>
+
+<h1>完整参考文献清单</h1>
+<p>访问日期统一为 2026-09-21。证据级别见括号标注。</p>
+<h2>官方一手</h2>
+<ul>
+<li>TypeSafe 官方发布博客《Introducing System One Models &amp; Jev》（2026-09-15）：https://typesafe.ai/blog/introducing-system-one-models-and-jev <span class="badge b-official">官方宣称</span></li>
+<li>Docs Introduction / System One / Primitives(Choice/Score/Noul) / State / Confidence / API / Models / jaggedness / SDK：docs.typesafe.ai 各对应页 <span class="badge b-official">官方宣称</span></li>
+<li>LangChain《Building a Harness with Jev》（2026-09-17）：https://www.langchain.com/blog/building-a-harness-with-jev <span class="badge b-official">官方宣称</span></li>
+<li>Vercel changelog（2026-09-16）/ 采用数据博客（2026-09-18）/ KB（2026-09-19）：vercel.com 对应页 <span class="badge b-official">官方宣称</span></li>
+<li>Cloudflare Workers AI 模型文档：https://developers.cloudflare.com/ai/models/typesafe/jev/ ；OpenRouter：https://openrouter.ai/typesafe/jev-1.13 <span class="badge b-official">官方宣称</span></li>
+<li>DCVC《TypeSafe emerges from stealth》（2026-09-15）：https://www.dcvc.com/news-insights/typesafe-emerges-from-stealth-with-a-new-way-of-doing-ai/ <span class="badge b-official">官方/媒体</span></li>
+</ul>
+<h2>第三方实测 / 媒体 / 社区</h2>
+<ul>
+<li>艾特玖《Benchmarking Jev》（2026-09-21）：https://dev.to/aitejiu/benchmarking-jev-what-a-decision-model-can-and-cant-do-in-an-agent-harness-20po <span class="badge b-third">第三方实测</span></li>
+<li>eigent.ai《What Is Jev?》：https://www.eigent.ai/blog/typesafe-ai-jev-system-one-models <span class="badge b-official">媒体</span></li>
+<li>metaailabs《TypeSafe AI Releases Jev》：https://metaailabs.com/typesafe-ai-releases-jev-a-system-one-model-that-returns-typed-calibrated-decisions-instead-of-text/ <span class="badge b-official">媒体</span></li>
+<li>HN 主帖：https://news.ycombinator.com/item?id=49717558 ；ToU 讨论串：https://news.ycombinator.com/item?id=49753778 <span class="badge b-community">社区个例</span></li>
+<li>r/LocalLLaMA prior art 报道：https://traictory.com/news/2026-09-18-typesafe-jev-system-one-prior-art <span class="badge b-community">社区个例</span></li>
+<li>jevapi.org（<strong>第三方转售站，非官方</strong>）：https://jevapi.org/ <span class="badge b-official">第三方</span></li>
+<li>虎嗅/硅星人《实测 Jev》（2026-09-20）：https://www.huxiu.com/article/4892583.html <span class="badge b-third">第三方实测</span></li>
+<li>36氪/全天候科技《我们用 190 次财报任务实测了 Jev》（2026-09-21）：https://36kr.com/p/3992972828097536 <span class="badge b-third">第三方实测</span></li>
+<li>36氪《一个"不说话"的 AI 刷屏》：https://36kr.com/p/3988164509711361 ；DeepTech：http://m.toutiao.com/group/7687935269446517283/ <span class="badge b-official">媒体</span></li>
+</ul>
+<h2>学术论文（arXiv ID）</h2>
+<ul>
+<li>FrugalGPT 2305.05176；RouteLLM 2406.18665；Cascade Routing 2410.10347；C3PO（NeurIPS 2025）<span class="badge b-paper">论文实验</span></li>
+<li>MT-Bench 2306.05685；CALM 2410.02736；Silent Judge 2509.26072；Probe Judge 2608.30005；J1 2505.10320；LoRA Judge 2506.05748 <span class="badge b-paper">论文实验</span></li>
+<li>Llama Guard 2312.06674 / 2411.17713；WildGuard 2406.01353；LODO 2602.14161 <span class="badge b-paper">论文实验</span></li>
+<li>Training Verifiers 2110.14168；PRM800K 2305.20050；OmegaPRM 2406.06592；Generative Verifiers 2408.15240；Self-Critique 2310.08118 <span class="badge b-paper">论文实验</span></li>
+<li>Aviary 2412.21154；AgentFlux 2510.00229；LLMLingua 2310.05736；LongLLMLingua 2310.06839；RAGBench 2407.11005；CoALA 2309.02427 <span class="badge b-paper">论文实验</span></li>
+<li>Conformal 入门 2107.07511；HCMA 2410.02173；To Believe or Not to Believe 2406.02543；MIT RLCR 2507.16806；prior art 自引 2503.23303 / 2510.01237 <span class="badge b-paper">论文实验</span></li>
+</ul>
+<hr class="split"/>
+<p style="color:var(--muted);font-size:13px">报告完。再次提示：Jev 发布仅 6 天，所有性能/成本倍数均为官方宣称、未经独立验证；本项目落地以自有数据最小实测为准。　|　Jev（TypeSafe AI System One）成熟应用调研 · v0.1 · 2026-09-21</p>
+</article>
+
+<script>
+// 深色模式
+(function(){
+  var b=document.getElementById('themeBtn');
+  if(localStorage.getItem('jev-theme')==='dark'){document.body.classList.add('dark');b.textContent='浅色';}
+  b.addEventListener('click',function(){
+    document.body.classList.toggle('dark');
+    var on=document.body.classList.contains('dark');
+    localStorage.setItem('jev-theme',on?'dark':'light');
+    b.textContent=on?'浅色':'深色';
+  });
+})();
+// 自动生成目录（只收 h1，二级缩进）
+(function(){
+  var hs=document.querySelectorAll('article h1, article h2');
+  var list=document.getElementById('tocList');
+  hs.forEach(function(h,i){
+    var a=document.createElement('a');
+    var id='sec-'+i; h.id=id;
+    a.href='#'+id;
+    a.textContent=h.textContent.replace(/^\d+(\.\d+)?\s*/,'');
+    a.className=h.tagName==='H1'?'lv1':'lv2';
+    list.appendChild(a);
+  });
+})();
+</script>
+</body></html>
