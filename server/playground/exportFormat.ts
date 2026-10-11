@@ -65,6 +65,17 @@ export function renderRunTxt(detail: Omit<RunDetail, 'events'>, events: HarnessE
   if (detail.materials) {
     lines.push(`materials    : dossier ${detail.materials.dossier.length} 个文件 / legal-kb ${detail.materials.legalKb.sources} sources, ${detail.materials.legalKb.chunks} chunks (${detail.materials.legalKb.digest})`)
   }
+  lines.push('─────────────────────────────────────────────────────────────── dossier')
+  const dossierWithText = (detail.materials?.dossier ?? []).filter((d) => d.text)
+  if (dossierWithText.length === 0) {
+    lines.push('（本导出件不含卷宗正文——旧版导出或该题无卷宗）')
+  } else {
+    for (const d of dossierWithText) {
+      lines.push(`【卷宗文件】${d.file}（${d.chars} 字符）`)
+      lines.push(d.text ?? '')
+      lines.push('')
+    }
+  }
   lines.push('─────────────────────────────────────────────────────────────── metrics')
   lines.push(`L2 success   : ${detail.success === null ? '—' : detail.success ? 'PASS' : 'FAIL'}  score=${detail.score ?? '—'}  tokens=${detail.tokens ?? '—'}  latencyMs=${detail.latencyMs ?? '—'}`)
   lines.push(`failure tags : ${detail.failureTags.length ? detail.failureTags.join(', ') : '（无）'}`)

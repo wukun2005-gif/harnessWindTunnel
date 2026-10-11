@@ -13,7 +13,7 @@ import { getAssertionTask, loadAssertionSet, runAssertionJudge } from './asserti
 import { getTagTask, loadTagSet, runTagJudge } from './tagJudge'
 import { getRagTask, loadRagSet, runRagJudge } from './ragJudge'
 import { runJevJudge } from './jevJudge'
-import type { JevSettingsPatch } from '../../shared/jev'
+import { isJevScenario, liveRunJevScenario, thresholdForScenario, type JevScenario, type JevSettingsPatch } from '../../shared/jev'
 
 function send(res: ServerResponse, code: number, body: unknown): void {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
@@ -96,10 +96,17 @@ export async function handlePlaygroundRoute(
 
   if (p === '/api/playground/jev' && (method === 'PUT' || method === 'POST')) {
     const body = JSON.parse(await readBody(req)) as JevSettingsPatch
+    // 场景阈值逐项白名单：只认四个已知场景的数值，其余键丢弃（normalize 还会再夹一次范围）。
+    const scenarioThresholds: Partial<Record<JevScenario, number>> = {}
+    for (const [k, v] of Object.entries(body.scenarioThresholds ?? {})) {
+      if (isJevScenario(k) && typeof v === 'number' && Number.isFinite(v)) scenarioThresholds[k] = v
+    }
     putJevSettings({
       ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
       ...(typeof body.confidenceThreshold === 'number' ? { confidenceThreshold: body.confidenceThreshold } : {}),
+      ...(Object.keys(scenarioThresholds).length > 0 ? { scenarioThresholds } : {}),
       ...(typeof body.cascadeToChatJudge === 'boolean' ? { cascadeToChatJudge: body.cascadeToChatJudge } : {}),
+      ...(typeof body.chatJudgeAlways === 'boolean' ? { chatJudgeAlways: body.chatJudgeAlways } : {}),
     })
     send(res, 200, { ok: true, settings: jevSettingsView() })
     return true
@@ -137,7 +144,8 @@ export async function handlePlaygroundRoute(
         answer,
         detSuccess: det.success,
         detScore: det.score,
-        threshold: s.confidenceThreshold,
+        // 与 runJevJudge 内部同源：法律域任务用法律断言阈值，其余用通用实况风洞。
+        threshold: thresholdForScenario(s, liveRunJevScenario(task.domain)),
         cascadeEnabled: s.cascadeToChatJudge,
         result,
       }

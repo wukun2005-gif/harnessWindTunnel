@@ -4,6 +4,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { thresholdForScenario } from '../../shared/jev'
 import type { JevJudgeResult, JevReviewRecord } from '../../shared/jev'
 import { estimateTokens, type JevQuestionSpec } from './jevClient'
 import { callDecisionChain } from './decisionChain'
@@ -138,11 +139,13 @@ export async function runRagJudge(
   opts: { batchId?: string | null } = {},
 ): Promise<JevReviewRecord> {
   const settings = getJevSettings()
+  // 阈值按场景取，不共用全局值（四条管线实测结论冲突）。
+  const threshold = thresholdForScenario(settings, RAG_SCENARIO)
   const batch = opts.batchId ?? null
   const gold = kind === 'good' ? task.goldGood : task.goldBad
   const built = buildRagState(task, answer)
   jevLog(
-    `review task=${task.id} batch=${batch ?? '-'} scenario=${RAG_SCENARIO} enabled=${settings.enabled} threshold=${settings.confidenceThreshold} cascade=${settings.cascadeToChatJudge} answerChars=${answer.length}`,
+    `review task=${task.id} batch=${batch ?? '-'} scenario=${RAG_SCENARIO} enabled=${settings.enabled} threshold=${threshold} cascade=${settings.cascadeToChatJudge} answerChars=${answer.length}`,
   )
 
   const rec = (result: Omit<JevReviewRecord, 'id' | 'time'>): JevReviewRecord => ({
@@ -163,7 +166,7 @@ export async function runRagJudge(
     answer,
     detSuccess: null,
     detScore: null,
-    threshold: settings.confidenceThreshold,
+    threshold,
     cascadeEnabled: settings.cascadeToChatJudge,
   } as const
 
@@ -278,7 +281,6 @@ export async function runRagJudge(
     error: null,
   }
 
-  const threshold = settings.confidenceThreshold
   const finish = (
     source: JevReviewRecord['result']['source'],
     reason: string,
@@ -302,6 +304,33 @@ export async function runRagJudge(
     return finish('needs-human', 'Choice 未返回 confidence，无法按阈值定分 → 交人看。', null)
   }
   if (confidence >= threshold) {
+    // 「无论置信度都调用」：主读数照常，第二意见只记录、失败不动主读数。
+    if (settings.chatJudgeAlways && settings.cascadeToChatJudge) {
+      const chat = resolveChatJudgeTarget()
+      if (chat) {
+        const second = await runChatJudge(built.state, chat, {
+          system: RAG_CHAT_SYSTEM,
+          normalize: normalizeRagChoice,
+        })
+        if ('error' in second) {
+          return finish(
+            'jev-live',
+            `置信度 ${confidence.toFixed(2)} ≥ 阈值 ${threshold} → jev-live 读数（已开「无论置信度都调用」，但判定模型 LLM 复核失败：${second.error}，主读数不受影响）。`,
+            null,
+          )
+        }
+        return finish(
+          'jev-live',
+          `置信度 ${confidence.toFixed(2)} ≥ 阈值 ${threshold} → jev-live 读数；已同时调用 ${chat.providerId}/${chat.model} 复核拿第二意见。`,
+          second.reading,
+        )
+      }
+      return finish(
+        'jev-live',
+        `置信度 ${confidence.toFixed(2)} ≥ 阈值 ${threshold} → jev-live 读数（已开「无论置信度都调用」，但判定卡上没有可用的回落 LLM，仅出 Jev 读数）。`,
+        null,
+      )
+    }
     return finish(
       'jev-live',
       `置信度 ${confidence.toFixed(2)} ≥ 阈值 ${threshold} → jev-live 读数（M1 只做旁路，不写进 success/score）。`,

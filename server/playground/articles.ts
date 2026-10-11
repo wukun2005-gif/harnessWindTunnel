@@ -109,13 +109,52 @@ function intToChinese(n: number): string {
   return s + intToChinese(rest)
 }
 
+/**
+ * Separator that stands between two digits and is therefore part of the value:
+ * `2-5mm`, `0.1-0.3mm`, `2024-03-15`. It is kept as a boundary rather than deleted,
+ * because deleting it is what made `25mm` indistinguishable from `2-5mm`.
+ */
+const DIGIT_SEP = '\u0000'
+
+/**
+ * Normalization for gold-term matching.
+ *
+ * Built on Unicode NFKC — the same compatibility normalization search engines apply
+ * before matching, and the reason this file no longer carries a hand-picked list of
+ * dash characters. NFKC folds full-width and compatibility forms onto ASCII
+ * (`－`→`-`, `２０２４`→`2024`, `（`→`(`), which is the bulk of what a model emits
+ * differently from one run to the next. Accent removal follows the documented ICU
+ * recipe (decompose → drop combining marks → recompose).
+ *
+ * Note on what NFKC does *not* do: it takes U+2011 (non-breaking hyphen) only as far
+ * as U+2010, not to ASCII `-`. There is no Unicode normalization that folds the whole
+ * dash family together — they are distinct characters. (The one spec that drafted such
+ * a table, UTR #30 "Character Foldings", was **withdrawn** by the UTC in 2008 and must
+ * not be cited as a standard.) So the dash family is handled structurally instead: any
+ * non-alphanumeric separator sitting between two digits collapses to `DIGIT_SEP`, which
+ * makes every dash, tilde and slash variant of the same number compare equal without
+ * enumerating them.
+ *
+ * The separator is preserved rather than stripped, which is the fix for the old
+ * behaviour: stripping made `2-5mm` and `25mm` the same string, so the scorer could not
+ * tell a range from a single value.
+ */
 export function normalizeText(s: string): string {
   return s
-    .replace(/[\s　]+/g, '')
-    // Keep ASCII "." — guideline section numbers (3.2.1.1) depend on it.
-    // Only the CJK full stop 。 and fullwidth dot ． are stripped.
-    .replace(/[，,、；;：:。．“”"''「」（）()【】\[\]·•\-—_～~]/g, '')
+    // A literal NUL can only arrive from a hostile import; it would forge a separator.
+    .replace(/\u0000/g, '')
+    .normalize('NFKC')
     .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .normalize('NFC')
+    // Whitespace never carries meaning in this comparison.
+    .replace(/\s+/gu, '')
+    // Collapse digit-adjacent separators (any width, any dash, slash or dot-family run)
+    // onto one boundary, and drop every other non-alphanumeric character. ASCII "." is
+    // kept outright because guideline section numbers (3.2.1.1) depend on it.
+    .replace(/(?<=\d)[^\p{L}\p{N}.]+(?=\d)/gu, DIGIT_SEP)
+    .replace(/[^\p{L}\p{N}.\u0000]/gu, '')
 }
 
 interface LawDoc {

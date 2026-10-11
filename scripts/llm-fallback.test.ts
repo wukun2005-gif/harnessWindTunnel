@@ -15,7 +15,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { JEV_PROVIDER_ID } from '../shared/jev'
-import { chatCompletionWithFallback, resolveChatTarget, resolveChatTargets } from '../server/playground/llmClient'
+import { EVAL_LOCK, chatCompletionWithFallback, resolveChatTarget, resolveChatTargets } from '../server/playground/llmClient'
 import { putProviderBundle } from '../server/settingsStore'
 
 process.env['HWT_SETTINGS_FILE'] = join(mkdtempSync(join(tmpdir(), 'hwt-pfb-')), 'settings.json')
@@ -25,7 +25,7 @@ process.env['HWT_FB_BACKOFF_MS'] = '0,0'
 // ── 假 HTTP 层：真实 fetch 被替换，测试结束后还原 ──────────────────────────
 
 const realFetch = globalThis.fetch
-let calls: Array<{ url: string; model: string }> = []
+let calls: Array<{ url: string; model: string; body: Record<string, unknown> | null }> = []
 let respond: (model: string, init?: RequestInit) => Response | Promise<Response> = () => chatOk('ok')
 
 function chatOk(text: string): Response {
@@ -41,7 +41,7 @@ function chatOk(text: string): Response {
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : String((input as Request).url)
   const model = init?.body ? String(JSON.parse(String(init.body))['model'] ?? '') : ''
-  calls.push({ url, model })
+  calls.push({ url, model, body: init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null })
   if (init?.signal?.aborted) throw new DOMException('This operation was aborted', 'AbortError')
   return respond(model, init)
 }) as typeof globalThis.fetch
@@ -372,4 +372,170 @@ test('超时按可重试类处理：同目标重试后换下一个模型应答',
   const res = await chatCompletionWithFallback(mustTarget(), REQ, { timeoutMs: 15, backoffMs: [0, 0] })
   assert.equal(res.used.model, 'deepseek-reasoner')
   assert.equal(calls.length, 4) // 超时同目标 1 + 重试 2 = 3 次，再换模型 1 次
+})
+
+// ── response_format：把「请输出 JSON」从提示词约定升级成结构性保证 ──────────────
+// 判定链原先只靠提示词要 JSON，遇到不支持 response_format 的模型（或会把散文和
+// JSON 混在一起的推理模型）就解析失败、读数降级为 needs-human。这里钉死两件事：
+// 登记为支持结构化输出的模型必须收到 response_format；未登记的必须被丢弃，否则 400。
+
+const DOTS = {
+  providerId: 'openrouter',
+  apiKey: 'k-or',
+  baseUrl: 'https://openrouter.ai/api/v1',
+  modelIds: ['dots-studio/dots-3-note-preview:free'],
+  defaultModelId: 'dots-studio/dots-3-note-preview:free',
+  enabled: true,
+}
+
+const JUDGE_FORMAT = {
+  type: 'json_schema' as const,
+  json_schema: { name: 'v', strict: true, schema: { type: 'object' } },
+}
+
+test('登记为支持结构化输出的模型：请求里带上 response_format', async () => {
+  putProviderBundle([DOTS, JEV_CARD], { enableProviderFallback: false })
+  calls = []
+  respond = () => chatOk('{"match":"exact","confidence":0.9,"reason":"ok"}')
+
+  await chatCompletionWithFallback(mustTarget(), { ...REQ, responseFormat: JUDGE_FORMAT })
+  assert.deepEqual(calls[0]?.body?.['response_format'], JUDGE_FORMAT)
+})
+
+test('未登记的模型：response_format 被丢弃，不让请求撞 400', async () => {
+  putProviderBundle([DEEPSEEK, JEV_CARD], { enableProviderFallback: false })
+  calls = []
+  respond = () => chatOk('ok')
+
+  await chatCompletionWithFallback(mustTarget(), { ...REQ, responseFormat: JUDGE_FORMAT })
+  assert.equal(calls[0]?.body?.['response_format'], undefined)
+})
+
+test('不传 responseFormat 时请求体里不出现该字段（老行为逐字不变）', async () => {
+  putProviderBundle([DOTS, JEV_CARD], { enableProviderFallback: false })
+  calls = []
+  respond = () => chatOk('ok')
+
+  await chatCompletionWithFallback(mustTarget(), REQ)
+  assert.equal('response_format' in (calls[0]?.body ?? {}), false)
+})
+
+// ── 2xx 但无 choices：必须带出「谁拒的」，且绝不落正文 ────────────────────────
+// 这条路径原先只抛一句「缺少 choices」，响应体被整个丢掉——分不出是 OpenRouter 自己
+// 拒的还是上游 provider 拒的。OpenRouter 的两类 429 区分依据正是 metadata.error_type
+// （平台侧）与 metadata.provider_code（上游原始码），所以要原样带出来。
+
+test('2xx 无 choices：错误里带出 provider_code 与限流余量，便于定位故障方', async () => {
+  putProviderBundle([DOTS, JEV_CARD], { enableProviderFallback: false })
+  calls = []
+  respond = () =>
+    new Response(
+      JSON.stringify({
+        error: { code: 429, message: 'upstream busy' },
+        metadata: { provider_code: 'PROVIDER_OVERLOADED' },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json', 'x-ratelimit-remaining': '47' } },
+    )
+
+  await assert.rejects(
+    () => chatCompletionWithFallback(mustTarget(), REQ),
+    (e: Error) => {
+      assert.match(e.message, /缺少 choices/)
+      assert.match(e.message, /metadata\.provider_code=PROVIDER_OVERLOADED/)
+      assert.match(e.message, /ratelimitRemaining=47/)
+      return true
+    },
+  )
+})
+
+test('2xx 无 choices 的诊断不含正文：答案不因报错泄漏', async () => {
+  putProviderBundle([DOTS, JEV_CARD], { enableProviderFallback: false })
+  calls = []
+  respond = () =>
+    new Response(JSON.stringify({ choices: [], content: 'SECRET-ANSWER-TEXT' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+  await assert.rejects(
+    () => chatCompletionWithFallback(mustTarget(), REQ),
+    (e: Error) => {
+      assert.equal(e.message.includes('SECRET-ANSWER-TEXT'), false)
+      assert.match(e.message, /bodyKeys=choices,content/)
+      return true
+    },
+  )
+})
+
+test('2xx 里嵌的 401：按鉴权失败分类，整链停止不再打下一个服务商', async () => {
+  // 嵌入码不挂到 error.status 时，classifyFallback 读不到状态码会掉到 network 兜底，
+  // 于是「鉴权错误」被当成可重试的网络抖动，白白把回退链打完。
+  putProviderBundle([DOTS, DEEPSEEK, JEV_CARD], { enableProviderFallback: true })
+  calls = []
+  respond = () =>
+    new Response(JSON.stringify({ id: 'gen-x', error: { code: 401, message: 'invalid key' } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+  await assert.rejects(() => chatCompletionWithFallback(mustTarget(), REQ))
+  assert.equal(calls.length, 1, '嵌入 401 必须整链停止')
+})
+
+test('2xx 里嵌的 502：按上游失败分类，同目标退避重试后成功', async () => {
+  putProviderBundle([DOTS, JEV_CARD], { enableProviderFallback: false })
+  calls = []
+  let n = 0
+  respond = () =>
+    ++n === 1
+      ? new Response(JSON.stringify({ id: 'gen-x', error: { code: 502, message: 'upstream failed' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      : chatOk('recovered')
+
+  const res = await chatCompletionWithFallback(mustTarget(), REQ, { backoffMs: [0, 0] })
+  assert.equal(res.text, 'recovered')
+  assert.equal(calls.length, 2, '嵌入 502 应同目标退避重试')
+})
+
+// ── EVAL_LOCK：评测路径锁定单模型 ─────────────────────────────────────────────
+// 一次 run 的答案必须由同一个模型产出。回退会在中途换模型/换服务商，于是「harness 的差异」
+// 和「模型的差异」混在一起，分数不可解释。所以评测路径硬锁单目标——但**同目标重试保留**，
+// 那是应对瞬时抖动的，不会改变模型身份。
+
+test('EVAL_LOCK：卡上开了模型回退，评测路径也不换模型', async () => {
+  putProviderBundle([DS_MODEL_FB, JEV_CARD], { enableProviderFallback: true })
+  calls = []
+  respond = () => new Response('down', { status: 500 })
+
+  await assert.rejects(() => chatCompletionWithFallback(mustTarget(), REQ, EVAL_LOCK))
+  assert.ok(calls.length > 0, '主模型应当被尝试')
+  assert.deepEqual(
+    [...new Set(calls.map((c) => c.model))],
+    ['deepseek-chat'],
+    '回退列表里的 deepseek-reasoner 一次都不许被打',
+  )
+})
+
+test('EVAL_LOCK：Provider 回退开着也不换服务商', async () => {
+  putProviderBundle([DEEPSEEK, KIMI, JEV_CARD], { enableProviderFallback: true })
+  calls = []
+  respond = (model) => (model === 'deepseek-chat' ? new Response('down', { status: 500 }) : chatOk('should-not-happen'))
+
+  await assert.rejects(() => chatCompletionWithFallback(mustTarget(), REQ, EVAL_LOCK))
+  assert.deepEqual([...new Set(calls.map((c) => c.url))], ['https://api.deepseek.com/v1/chat/completions'])
+})
+
+test('EVAL_LOCK：同目标重试仍然保留（瞬时 5xx 不该让 run 白挂）', async () => {
+  putProviderBundle([DEEPSEEK, JEV_CARD], { enableProviderFallback: false })
+  calls = []
+  let n = 0
+  respond = () => (++n === 1 ? new Response('down', { status: 500 }) : chatOk('recovered'))
+
+  const res = await chatCompletionWithFallback(mustTarget(), REQ, EVAL_LOCK)
+  assert.equal(res.text, 'recovered')
+  assert.equal(res.used.model, 'deepseek-chat')
+  assert.equal(calls.length, 2, '同目标重试一次后成功')
+  assert.equal(res.switchedFrom, undefined, '没换过目标，就不该有 switchedFrom')
 })

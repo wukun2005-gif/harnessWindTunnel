@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { hasData, listScenarios, metricsForConfig, resolveReplay, getMetrics, getScenario } from './replayer'
 import { deleteSetting, getSetting, getSettings, putProviderBundle, putSetting } from './settingsStore'
 import { getModelCatalog } from './providers/model-capabilities-registry'
+import { filterChatModels, filterModelInfosForProvider, filterModelsForProvider } from '../shared/modelFilter'
 import { PRESETS } from '../shared/presets'
 import type { HarnessConfig } from '../shared/config'
 import { parseClaudeCodeTranscript } from './importers/claudeCode'
@@ -13,6 +14,7 @@ import { exportNlah, importNlah } from './importers/nlah'
 import { handleRetrievalRoute, handleSearchApiRoute } from './knowledge/routes'
 import { handlePlaygroundRoute } from './playground/routes'
 import { verifyJevTarget } from './playground/jevClient'
+import { recoverQueuedRuns } from './playground/runner'
 import { isDecisionProvider } from '../shared/provider'
 import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID_OPENCODE } from '../shared/jev'
 
@@ -197,7 +199,12 @@ const server = createServer((req, res) => {
     }
 
     if (p === '/api/providers/models') {
-      return json(res, 200, { ok: true, catalog: getModelCatalog() })
+      // 静态目录也过滤：设置屏的模型下拉与元数据都用它
+      const full = getModelCatalog()
+      const catalog = Object.fromEntries(
+        Object.entries(full).map(([pid, list]) => [pid, filterModelInfosForProvider(pid, list)]),
+      )
+      return json(res, 200, { ok: true, catalog })
     }
 
     if (p === '/api/legal') {
@@ -265,8 +272,11 @@ const server = createServer((req, res) => {
                 })
                 if (!r.ok) return json(res, 502, { ok: false, error: `HTTP ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}` })
                 const data = await r.json() as { data?: { id?: string }[] }
-                const models = Array.isArray(data.data) ? data.data.map((m) => m.id).filter((x): x is string => typeof x === 'string') : []
-                return json(res, 200, { ok: true, providerId, models })
+                const all = Array.isArray(data.data) ? data.data.map((m) => m.id).filter((x): x is string => typeof x === 'string') : []
+                // 只回可选模型：先过品类（厂商会把 embedding / rerank / 语音 / 图像一并
+                // 返回，百炼一次 262 条），有免费档的厂商再只留免费档。
+                const models = filterModelsForProvider(providerId, all)
+                return json(res, 200, { ok: true, providerId, models, filteredOut: all.length - models.length })
               }
               if (!modelId) return json(res, 400, { ok: false, error: 'apiKey and modelId are required' })
               const fetchRes = await fetch(`${base}/chat/completions`, {
@@ -326,4 +336,10 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[server] HarnessWindTunnel API on http://localhost:${PORT} (data: ${hasData() ? 'ready' : 'MISSING — run npm run gen:fixtures'})`)
+  // 队列在内存里：重启会静默丢掉所有排队中的实跑（行永远卡在 queued）。启动时补回。
+  try {
+    recoverQueuedRuns()
+  } catch (err) {
+    console.warn('[server] 恢复排队实跑失败：', String((err as Error).message ?? err))
+  }
 })

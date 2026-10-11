@@ -5,6 +5,7 @@
 // gateways work as well).
 import { getSetting } from '../settingsStore'
 import { isDecisionProvider } from '../../shared/provider'
+import { getModelCapabilities } from '../providers/model-capabilities-registry'
 import { estimateTokens } from './tokens'
 import { hostOf, llmLog, llmWarn } from './jevLog'
 
@@ -33,9 +34,21 @@ export interface ChatToolSpec {
   function: { name: string; description: string; parameters: Record<string, unknown> }
 }
 
+export type ChatResponseFormat =
+  | { type: 'json_object' }
+  | { type: 'json_schema'; json_schema: { name: string; strict?: boolean; schema: Record<string, unknown> } }
+
 export interface ChatRequest {
   messages: ChatMessage[]
   tools?: ChatToolSpec[]
+  /**
+   * OpenAI-style response_format. This is what turns "please emit JSON" from a
+   * prompt convention into a structural guarantee: without it a model that does
+   * not volunteer JSON (e.g. a reasoning model) silently breaks the judge.
+   * Sent only when the resolved model is registered as supporting structured
+   * output — an unregistered model would 400 on the field.
+   */
+  responseFormat?: ChatResponseFormat
   temperature?: number
   seed?: number
   maxTokens?: number
@@ -176,6 +189,71 @@ function estimateUsage(text: string): ChatUsage {
 }
 
 /** One OpenAI-compatible chat completion round. Throws on transport/HTTP errors. */
+/**
+ * 结构化失败诊断：只取「定位故障方」所需的元数据，不取正文。
+ *
+ * 之前「2xx 但没有 choices」这条路径把响应体整个丢掉，错误只剩一句
+ * 「LLM API 返回缺少 choices」——既分不出是 OpenRouter 自己拒的还是上游 provider 拒的，
+ * 也看不到限流余量。这里把 OpenRouter 的两类 429 区分依据原样带出来：
+ *   metadata.error_type   = OpenRouter 侧（如 rate_limit_exceeded）
+ *   metadata.provider_code = 上游 provider 的原始错误码
+ * 外加 X-RateLimit-* / Retry-After。**正文（模型输出 / 答案）永不进日志**（B-041）。
+ */
+function describeFailure(r: Response, bodyText: string): string {
+  const parts: string[] = [`status=${r.status}`]
+  for (const [label, header] of [
+    ['ratelimitRemaining', 'x-ratelimit-remaining'],
+    ['ratelimitLimit', 'x-ratelimit-limit'],
+    ['retryAfter', 'retry-after'],
+  ] as const) {
+    const v = r.headers.get(header)
+    if (v != null) parts.push(`${label}=${v}`)
+  }
+  try {
+    const j = JSON.parse(bodyText) as {
+      error?: { code?: unknown; message?: unknown; type?: unknown }
+      metadata?: { provider_code?: unknown; error_type?: unknown; raw?: unknown }
+    }
+    // 顶层键本身就很能说明问题：正常应答是 id/choices/...，异常回包是 error/metadata。
+    parts.push(`bodyKeys=${Object.keys(j).join(',') || '(none)'}`)
+    if (j.error?.code != null) parts.push(`error.code=${String(j.error.code)}`)
+    if (j.error?.type != null) parts.push(`error.type=${String(j.error.type)}`)
+    if (j.error?.message != null) parts.push(`error.message=${String(j.error.message).slice(0, 160)}`)
+    if (j.metadata?.error_type != null) parts.push(`metadata.error_type=${String(j.metadata.error_type)}`)
+    if (j.metadata?.provider_code != null) parts.push(`metadata.provider_code=${String(j.metadata.provider_code)}`)
+  } catch {
+    // 解析不了就只报长度，绝不落正文。
+    parts.push(`body=unparseable(${bodyText.length} chars)`)
+  }
+  return parts.join(' ')
+}
+
+/**
+ * 2xx 里嵌的错误码。OpenRouter 会把上游失败塞进一个 HTTP 200 的响应体里
+ * （实测：`{"id":…,"error":{"code":502,"message":"JSON error injected into SSE stream"}}`），
+ * 这时 `response.ok` 为真、状态码毫无信息量。把嵌入码取出来挂到 error.status 上，
+ * classifyFallback 才能按真实语义分类：401＝整链停、429＝换目标、5xx＝同目标退避重试。
+ */
+function embeddedStatusCode(bodyText: string): number | null {
+  try {
+    const j = JSON.parse(bodyText) as { error?: { code?: unknown } }
+    const c = j.error?.code
+    if (typeof c === 'number' && Number.isFinite(c)) return c
+    if (typeof c === 'string' && /^\d{3}$/.test(c)) return Number(c)
+  } catch {
+    /* 非 JSON：由 describeFailure 报长度 */
+  }
+  return null
+}
+
+/** 构造带状态码的错误，供 classifyFallback 使用。 */
+function httpLikeError(message: string, bodyText: string): Error {
+  const err = new Error(message)
+  const code = embeddedStatusCode(bodyText)
+  if (code != null) (err as Error & { status?: number }).status = code
+  return err
+}
+
 export async function chatCompletion(target: ResolvedTarget, req: ChatRequest): Promise<ChatResponse> {
   const body: Record<string, unknown> = {
     model: target.model,
@@ -198,6 +276,16 @@ export async function chatCompletion(target: ResolvedTarget, req: ChatRequest): 
     body['tools'] = req.tools
     body['tool_choice'] = 'auto'
   }
+  if (req.responseFormat) {
+    // Capability-gated on purpose: sending response_format to a model that does
+    // not advertise it earns a 400, and that failure used to look like "the
+    // judge model cannot produce JSON" rather than "we asked for the wrong thing".
+    if (getModelCapabilities(target.model).supportsStructuredOutput) {
+      body['response_format'] = req.responseFormat
+    } else {
+      llmWarn(`response_format skipped ← ${target.providerId}/${target.model}: not registered as supporting structured output`)
+    }
+  }
 
   const started = Date.now()
   const where = `${target.providerId}/${target.model}@${hostOf(target.baseUrl)}`
@@ -212,7 +300,7 @@ export async function chatCompletion(target: ResolvedTarget, req: ChatRequest): 
       })
       if (!r.ok) {
         const text = await r.text().catch(() => '')
-        llmWarn(`HTTP ${r.status} ← ${where} latencyMs=${Date.now() - started}: ${text.slice(0, 400)}`)
+        llmWarn(`HTTP ${r.status} ← ${where} latencyMs=${Date.now() - started}: ${describeFailure(r, text)}`)
         const httpErr = new Error(`LLM API HTTP ${r.status}: ${text.slice(0, 400)}`)
         ;(httpErr as Error & { status?: number }).status = r.status
         throw httpErr
@@ -224,12 +312,25 @@ export async function chatCompletion(target: ResolvedTarget, req: ChatRequest): 
       throw err
     }
   })()
-  const data = (await response.json()) as {
+  // 先取原文再解析：2xx 但没有 choices 时也要能说清是谁拒的（见 describeFailure）。
+  const rawBody = await response.text()
+  let data: {
     choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: string } }> }; finish_reason?: string }>
     usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
   }
+  try {
+    data = JSON.parse(rawBody) as typeof data
+  } catch {
+    const diag = describeFailure(response, rawBody)
+    llmWarn(`非 JSON 应答 ← ${where} latencyMs=${Date.now() - started}: ${diag}`)
+    throw httpLikeError(`LLM API 返回非 JSON 应答（${diag}）`, rawBody)
+  }
   const choice = data.choices?.[0]
-  if (!choice) throw new Error('LLM API 返回缺少 choices')
+  if (!choice) {
+    const diag = describeFailure(response, rawBody)
+    llmWarn(`缺少 choices ← ${where} latencyMs=${Date.now() - started}: ${diag}`)
+    throw httpLikeError(`LLM API 返回缺少 choices（${diag}）`, rawBody)
+  }
 
   const text = choice.message?.content ?? ''
   const toolCalls: ChatToolCall[] = (choice.message?.tool_calls ?? [])
@@ -279,7 +380,25 @@ export interface ChatFallbackOptions {
   backoffMs?: [number, number]
   /** 单请求超时；缺省 120_000ms（可用 HWT_FB_TIMEOUT_MS 覆盖）。 */
   timeoutMs?: number
+  /**
+   * false ＝ 只打主目标的主模型：不换模型、不换服务商。
+   * **同目标的重试与退避照旧**（那不会改变模型身份），被砍掉的只有「换目标」。
+   * 评测路径固定传 false —— 见 EVAL_LOCK。
+   */
+  allowFallback?: boolean
 }
+
+/**
+ * 评测路径的硬锁：一次 run（及其判定复核）的模型必须全程不变。
+ *
+ * 为什么必须锁：回退会在 run 中途换模型或换服务商，于是同一条 run 的答案由不同模型产出，
+ * 「harness 的差异」就和「模型的差异」混在一起，分数不可解释。做 harness 对比时，
+ * 宁可让 run 明确失败，也不要悄悄换一个模型把结果变得看似成功。
+ *
+ * 这是**代码常量，不是设置项**：设置屏那两个「启用 Provider 回退 / 模型回退」开关
+ * 在评测路径上不生效（它们仍供非评测用途的 chatCompletionWithFallback 默认行为使用）。
+ */
+export const EVAL_LOCK: ChatFallbackOptions = { allowFallback: false }
 
 type FbClass = 'auth' | 'bad-request' | 'quota' | 'server' | 'timeout' | 'validate' | 'network'
 
@@ -347,6 +466,8 @@ export async function chatCompletionWithFallback(
   const backoffMs = opts.backoffMs ?? parseBackoffEnv(process.env['HWT_FB_BACKOFF_MS']) ?? ([500, 1500] as [number, number])
   const timeoutMs = opts.timeoutMs ?? (Number(process.env['HWT_FB_TIMEOUT_MS'] ?? '') || 120_000)
   const MAX_TOTAL_ATTEMPTS = 8
+  /** 评测路径传 false：只打主目标主模型，同目标重试照旧。 */
+  const allowFallback = opts.allowFallback !== false
 
   /** 尝试链摘要：过长时截断（一张卡可以配几百个回退模型，逐条进错误没有意义）。 */
   const summarize = (): string =>
@@ -392,7 +513,7 @@ export async function chatCompletionWithFallback(
 
   /** 单张卡的模型回退链：主模型在前；链尽/封顶抛最后一次错误（每次换模型失败都进 attempts）。 */
   const runCard = async (t: ResolvedTarget): Promise<ChatResponseWithFallback> => {
-    const models = modelChain(t)
+    const models = allowFallback ? modelChain(t) : [t.model]
     for (let i = 0; i < models.length; i++) {
       if (modelTries >= MAX_TOTAL_ATTEMPTS) {
         llmWarn(`回退封顶（${MAX_TOTAL_ATTEMPTS} 次模型尝试） ← ${attempts[0] ?? `${origin.providerId}/${origin.model}`}`)
@@ -437,7 +558,7 @@ export async function chatCompletionWithFallback(
   } catch (err) {
     if (req.signal?.aborted) throw err
     if ((err as Error & { noFallback?: boolean })?.noFallback) throw err
-    const chain = providerFallbackEnabled() ? resolveChatTargets({}) : { targets: [] as ResolvedTarget[] }
+    const chain = allowFallback && providerFallbackEnabled() ? resolveChatTargets({}) : { targets: [] as ResolvedTarget[] }
     const candidates = 'error' in chain ? [] : chain.targets.filter((t) => t.providerId !== primary.providerId)
     // 没有下一个可用服务商：只试过一次＝原始错误原样透出；多试过（模型回退发生过）＝带整条链。
     if (candidates.length === 0) {

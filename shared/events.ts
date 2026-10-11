@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { MastTag } from './mast'
-import type { LegalAssertion } from './legal'
+import { LEGAL_ASSERTIONS, type LegalAssertion } from './legal'
 
 // model-visible means logged: everything reaching the model must be fully reconstructible from the append-only event stream.
 export const CONTEXT_LAYERS = ['system', 'memory', 'skillsMeta', 'toolSchema', 'history', 'toolResult'] as const
@@ -60,8 +60,10 @@ export const event = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('router.decision'), step: z.number(), tool: z.string(), route: z.enum(['EXECUTE', 'ASK', 'REFUSE']), matchedRule: z.string(), policyVersion: z.string() }),
   z.object({ ...base, type: z.literal('verifier.verdict'), step: z.number(), verifier: z.string(), verdict: z.enum(['pass', 'reject']), failureTag: z.custom<MastTag>().optional(), reason: z.string() }),
   // M2: one row per statute claim. verifier.verdict only carries failureTag +
-  // reason and cannot hold the 5-class L-MARS assertion label.
-  z.object({ ...base, type: z.literal('legal.assertion'), step: z.number(), claimText: z.string(), citedAuthority: z.string(), label: z.custom<LegalAssertion>(), evidenceEventId: z.string().optional() }),
+  // reason and cannot hold the 5-class L-MARS assertion label. The label is a
+  // real enum (not z.custom) so a missing or misspelled label is rejected at
+  // write time instead of silently landing in the fact table.
+  z.object({ ...base, type: z.literal('legal.assertion'), step: z.number(), claimText: z.string(), citedAuthority: z.string(), label: z.enum(LEGAL_ASSERTIONS), evidenceEventId: z.string().optional() }),
   z.object({ ...base, type: z.literal('sensor.lint'), step: z.number(), lint: z.string(), verdict: z.enum(['pass', 'reject']), reason: z.string() }),
   z.object({ ...base, type: z.literal('agent.fork'), step: z.number(), childId: z.string(), purpose: z.string() }),
   z.object({ ...base, type: z.literal('agent.join'), step: z.number(), childId: z.string(), summary: z.string() }),

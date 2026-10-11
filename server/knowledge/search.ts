@@ -51,10 +51,12 @@ export async function knowledgeSearch(
   if (!queryVec) throw new Error('Embedding API returned no vector for query')
 
   // 2. cosine 相似度（相对阈值 + 下限双闸门）
+  // 全量余弦分留一份 map：RRF 融合后只剩名次分数（~1/(60+rank)，不是相似度），
+  // 重排还必须拿得到真实余弦分（见下面 candidates 处）。
   const vectors = getAllVectors()
-  const scored = vectors
-    .map((v) => ({ chunkId: v.chunkId, score: cosineSimilarity(queryVec, v.vector) }))
-    .filter((s) => s.score >= SCORE_FLOOR)
+  const cosineAll = vectors.map((v) => ({ chunkId: v.chunkId, score: cosineSimilarity(queryVec, v.vector) }))
+  const cosineByChunk = new Map(cosineAll.map((s) => [s.chunkId, s.score]))
+  const scored = cosineAll.filter((s) => s.score >= SCORE_FLOOR)
 
   const maxScore = scored.length > 0 ? Math.max(...scored.map((s) => s.score)) : 0
   const threshold = Math.max(SCORE_FLOOR, maxScore * RELATIVE_THRESHOLD)
@@ -79,7 +81,12 @@ export async function knowledgeSearch(
       } catch {
         metadata = {}
       }
-      return { chunkId: f.chunkId, text: chunk.text, metadata, score: f.score }
+      // 回填真实余弦分。RRF 融合只保留名次（分数 ~1/(60+rank)），而本地重排把
+      // candidate.score 当作「语义相似度」信号（权重 0.3–0.4）——直接传 RRF 分会把
+      // 语义信号清零，重排退化成关键词/文档类型/条号启发式：查询词面越像的错误文档
+      // 分越高，真正相关的条文反而被压下去（实测假司法解释 top 0.96、真法条 0.28）。
+      // 向量闸门筛掉的 chunk 若只经 BM25 进来，余弦分照查（真实值，通常很低）。
+      return { chunkId: f.chunkId, text: chunk.text, metadata, score: cosineByChunk.get(f.chunkId) ?? f.score }
     })
 
   if (candidates.length === 0) return []

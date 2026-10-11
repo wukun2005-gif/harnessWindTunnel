@@ -12,12 +12,13 @@ import type {
 import { ScoreReport } from './ScoreReport'
 import { JevJudgeBlock } from './JevPanel'
 import AnalysisPanel from './AnalysisPanel'
+import LivePanel from './LivePanel'
 import { ackBatchComplete, assertionScenario, cancelBatch, getBatchSnapshot, playgroundScenario, ragScenario, resetBatch, setBatchSelection, startBatch, subscribeBatch, tagScenario, type BatchScenario } from './batchRunner'
 import type { JevJudgeResult, JevSettingsView } from '../../../shared/jev'
 
 export default function Playground() {
   const t = useT()
-  const [tab, setTab] = useState<'evalset' | 'sandbox' | 'batch' | 'analysis'>('evalset')
+  const [tab, setTab] = useState<'evalset' | 'sandbox' | 'live' | 'batch' | 'analysis'>('evalset')
   const [sandboxTaskId, setSandboxTaskId] = useState<string | undefined>(undefined)
   const [data, setData] = useState<PlaygroundTaskList | null>(null)
   const [failed, setFailed] = useState(false)
@@ -45,7 +46,8 @@ export default function Playground() {
     return () => {
       live = false
     }
-  }, [t])
+    // t() is a fresh closure every render; listing it here refetches in a loop.
+  }, [])
 
   useEffect(() => {
     let live = true
@@ -86,18 +88,25 @@ export default function Playground() {
           <span className="screen-nav-num">B</span>{t('playground.tab.sandbox')}
         </button>
         <button
+          className={`screen-nav-item ${tab === 'live' ? 'active' : ''}`}
+          onClick={() => setTab('live')}
+          style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
+        >
+          <span className="screen-nav-num">C</span>{t('playground.tab.live')}
+        </button>
+        <button
           className={`screen-nav-item ${tab === 'batch' ? 'active' : ''}`}
           onClick={() => setTab('batch')}
           style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
         >
-          <span className="screen-nav-num">C</span>{t('playground.tab.batch')}
+          <span className="screen-nav-num">D</span>{t('playground.tab.batch')}
         </button>
         <button
           className={`screen-nav-item ${tab === 'analysis' ? 'active' : ''}`}
           onClick={() => setTab('analysis')}
           style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
         >
-          <span className="screen-nav-num">D</span>{t('playground.tab.analysis')}
+          <span className="screen-nav-num">E</span>{t('playground.tab.analysis')}
         </button>
       </div>
 
@@ -110,6 +119,8 @@ export default function Playground() {
         }} />
       ) : tab === 'sandbox' ? (
         <Sandbox data={data} initialTaskId={sandboxTaskId} jevEnabled={!!jev?.enabled} />
+      ) : tab === 'live' ? (
+        <LivePanel tasks={data.tasks} />
       ) : tab === 'batch' ? (
         <BatchPanel data={data} jevEnabled={!!jev?.enabled} />
       ) : (

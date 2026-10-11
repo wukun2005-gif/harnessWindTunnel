@@ -261,6 +261,17 @@ export const api = {
       `/api/playground/runs/${encodeURIComponent(id)}/fork`,
       body,
     ),
+  pgDeleteRun: async (id: string) => {
+    const r = await fetch(`/api/playground/runs/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    if (!r.ok) {
+      let detail = `${r.status}`
+      try {
+        detail = ((await r.json()) as { error?: string }).error ?? detail
+      } catch { /* keep status */ }
+      throw new Error(detail)
+    }
+    return r.json() as Promise<{ ok: boolean; events: number; verdicts: number; assertions: number; killChain: number; blastRadius: number }>
+  },
   pgMetrics: () => jget<LiveMetrics>('/api/playground/metrics'),
   pgImport: async (rawText: string) => {
     const r = await fetch('/api/playground/import', {

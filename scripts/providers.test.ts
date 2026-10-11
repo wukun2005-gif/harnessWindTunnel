@@ -10,7 +10,7 @@ import {
   trimBaseUrl,
 } from '../shared/provider'
 import { JEV_DEFAULT_BASE_URL, JEV_MODEL_IDS, JEV_OPENCODE_DEFAULT_BASE_URL, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID, JEV_PROVIDER_ID_OPENCODE } from '../shared/jev'
-import { getModelCatalog } from '../server/providers/model-capabilities-registry'
+import { getModelCapabilities, getModelCatalog } from '../server/providers/model-capabilities-registry'
 
 process.env['HWT_SETTINGS_FILE'] = join(mkdtempSync(join(tmpdir(), 'hwt-settings-')), 'settings.json')
 const { deleteSetting, getSetting, getSettings, putProviderBundle, putSetting } = await import('../server/settingsStore')
@@ -87,4 +87,48 @@ test('static model catalog covers providers with id metadata', () => {
     assert.ok(Array.isArray(catalog[id]) && catalog[id].length > 0, id)
     for (const m of catalog[id]) assert.ok(typeof m.id === 'string' && m.id.length > 0)
   }
+})
+
+// ── 结构化输出能力登记：判定链能否「强制 JSON」取决于这一位 ──────────────────
+// 判定链只对登记为支持结构化输出的模型发 response_format。登记错了会有两种后果：
+// 该发没发（模型仍靠自觉，读数降级 needs-human）；不该发却发（不支持该字段的模型直接 400）。
+
+test('dots-3 登记为支持结构化输出，带 :free 后缀走前缀匹配', () => {
+  const exact = getModelCapabilities('dots-studio/dots-3-note-preview')
+  assert.equal(exact.supportsStructuredOutput, true)
+  assert.equal(exact.contextWindow, 512_000)
+  assert.equal(exact.maxOutputTokens, 460_800)
+  assert.equal(exact.supportsVision, true)
+
+  const free = getModelCapabilities('dots-studio/dots-3-note-preview:free')
+  assert.equal(free.supportsStructuredOutput, true, ':free 变体必须命中同一条目')
+})
+
+test('未登记的模型落到保守默认值：不支持结构化输出', () => {
+  // nemotron 在 OpenRouter 上不提供 response_format；未登记就该按「不支持」处理，
+  // 这样 llmClient 会丢弃该字段而不是发出去撞 400。
+  assert.equal(getModelCapabilities('nvidia/nemotron-3-ultra-550b-a55b:free').supportsStructuredOutput, false)
+  assert.equal(getModelCapabilities('some/unknown-model-xyz').supportsStructuredOutput, false)
+})
+
+test('nemotron-3-super-120b 登记为支持结构化输出，且不与旧条目串味', () => {
+  const free = getModelCapabilities('nvidia/nemotron-3-super-120b-a12b:free')
+  assert.equal(free.supportsStructuredOutput, true, '判定链要靠这一位才发 response_format')
+  assert.equal(free.contextWindow, 262_144)
+  assert.equal(free.maxOutputTokens, 235_929)
+  assert.equal(free.supportsFunctionCalling, true)
+
+  // 不带 :free 的同一型号走前缀匹配，能力必须一致
+  assert.equal(getModelCapabilities('nvidia/nemotron-3-super-120b-a12b').supportsStructuredOutput, true)
+
+  // 旧条目 "nemotron-3-super-free" 是另一个型号（OpenCode 托管），必须保持「不支持」，
+  // 且不能被新条目的前缀匹配误伤。
+  assert.equal(getModelCapabilities('nemotron-3-super-free').supportsStructuredOutput, false)
+})
+
+test('实测不可用的免费模型保持未登记 → 保守默认（不发 response_format）', () => {
+  // liquid/lfm-2.5-2.6b 实测忽略 json_schema；apodex/apodex-1.1-mini 实测直接 400。
+  // 两者都不登记，落到默认「不支持」，判定链因此不会把 response_format 发出去撞 400。
+  assert.equal(getModelCapabilities('liquid/lfm-2.5-2.6b:free').supportsStructuredOutput, false)
+  assert.equal(getModelCapabilities('apodex/apodex-1.1-mini:free').supportsStructuredOutput, false)
 })

@@ -12,9 +12,12 @@ import fs from 'node:fs'
 import type { HarnessConfig } from '../../shared/config'
 import type { HarnessEvent } from '../../shared/events'
 import type { LegalAssertion } from '../../shared/legal'
+import type { JevJudgeResult } from '../../shared/jev'
 import type { MastTag } from '../../shared/mast'
 import type {
+  BlastRadiusEntry,
   ControlsSnapshot,
+  KillChainObservation,
   LadderRung,
   MaterialsInfo,
   PgDomain,
@@ -28,6 +31,13 @@ import type {
   ScoreResult,
 } from '../../shared/playground'
 import { ALL_LEGAL_CONTROLS, ALL_SECURITY_CONTROLS } from './presets'
+import { designedChain } from './killChain'
+import { getTask } from './evalset'
+
+/** L0 attack id for a question, straight from the eval set annotation. */
+function taskAttackId(taskId: string): string | null {
+  return getTask(taskId)?.attackChain?.attackId ?? null
+}
 
 function emptyControlsSnapshot(): ControlsSnapshot {
   const security = Object.fromEntries(ALL_SECURITY_CONTROLS.map((k) => [k, false])) as ControlsSnapshot['security']
@@ -51,6 +61,11 @@ function getDb(): DatabaseSync {
     fs.mkdirSync(path.dirname(file), { recursive: true })
   }
   db = new DatabaseSync(file)
+  // SQLite 默认 busy_timeout 为 0：只要有并发写就立刻抛 "database is locked"。
+  // 实跑队列是并发的（runner 同时写事件/判分/观察表），创建 run 的请求也会
+  // 同时写 —— 没有等待窗口时批量实跑必然丢格。改成等锁而不是失败。
+  db.exec('PRAGMA busy_timeout = 5000')
+  db.exec('PRAGMA journal_mode = WAL')
   db.exec(`
     CREATE TABLE IF NOT EXISTS pg_runs (
       run_id TEXT PRIMARY KEY,
@@ -75,6 +90,7 @@ function getDb(): DatabaseSync {
       error TEXT,
       materials_json TEXT,
       verdict_json TEXT,
+      jev_result_json TEXT,
       failure_tags_json TEXT NOT NULL DEFAULT '[]',
       success INTEGER,
       score REAL,
@@ -131,7 +147,42 @@ function getDb(): DatabaseSync {
       chars INTEGER NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    -- L2 measured attack chain (design §15.2). The designed chain stays in
+    -- data/redteam/attacks.json and is never written here: the two are
+    -- separate names and neither may overwrite the other (§11.1#7).
+    CREATE TABLE IF NOT EXISTS pg_killchain_observations (
+      run_id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      attack_id TEXT,
+      derive_version TEXT NOT NULL,
+      observed_stages_json TEXT NOT NULL,
+      observed_blast_radius_json TEXT NOT NULL,
+      breached INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS pg_blast_radius_observations (
+      run_id TEXT NOT NULL,
+      target TEXT NOT NULL,
+      via TEXT NOT NULL,
+      reached INTEGER NOT NULL,
+      evidence_event_ids_json TEXT NOT NULL,
+      PRIMARY KEY (run_id, target)
+    );
   `)
+
+  // CREATE TABLE IF NOT EXISTS never widens a table that already exists, so a
+  // database created by an earlier build keeps its old shape. Additive columns
+  // added later must be declared here or every write against them throws
+  // "no such column". Keep this list append-only; never drop or retype a column.
+  for (const [table, column, ddl] of [
+    ['pg_runs', 'jev_result_json', 'TEXT'],
+  ] as const) {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+    if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`)
+  }
+
   return db
 }
 
@@ -218,6 +269,8 @@ export interface RunPatch {
   latencyMs?: number | null
   error?: string | null
   verdict?: ScoreResult | null
+  /** Jev side review (bypass only — never affects success/score). */
+  jevResult?: JevJudgeResult | null
   success?: boolean | null
   score?: number | null
   failureTags?: MastTag[]
@@ -237,6 +290,7 @@ export function patchRun(runId: string, patch: RunPatch): void {
   if (patch.latencyMs !== undefined) { sets.push('latency_ms = ?'); vals.push(patch.latencyMs) }
   if (patch.error !== undefined) { sets.push('error = ?'); vals.push(patch.error) }
   if (patch.verdict !== undefined) { sets.push('verdict_json = ?'); vals.push(patch.verdict ? JSON.stringify(patch.verdict) : null) }
+  if (patch.jevResult !== undefined) { sets.push('jev_result_json = ?'); vals.push(patch.jevResult ? JSON.stringify(patch.jevResult) : null) }
   if (patch.success !== undefined) { sets.push('success = ?'); vals.push(patch.success === null ? null : patch.success ? 1 : 0) }
   if (patch.score !== undefined) { sets.push('score = ?'); vals.push(patch.score) }
   if (patch.failureTags !== undefined) { sets.push('failure_tags_json = ?'); vals.push(JSON.stringify(patch.failureTags)) }
@@ -293,6 +347,166 @@ export function insertLegalAssertions(rows: LegalAssertionRow[]): void {
   for (const [i, r] of rows.entries()) {
     const id = `${r.runId}-${r.origin}-${i}-${Math.random().toString(36).slice(2, 8)}`
     stmt.run(id, r.runId, r.origin, r.claimText, r.citedAuthority, r.label, r.evidenceEventId ?? null, new Date().toISOString())
+  }
+}
+
+// ── kill chain / blast radius observations ──────────────────────────────────
+
+/**
+ * Store one run's measured attack chain. Upsert semantics per run: the row is
+ * keyed by run_id and the derivation is a pure function of the event stream,
+ * so re-deriving after a correction replaces the row rather than accumulating
+ * duplicates (the event log itself stays append-only).
+ */
+export function insertKillChainObservation(obs: KillChainObservation, blast: BlastRadiusEntry[]): void {
+  const database = getDb()
+  database
+    .prepare(
+      `INSERT INTO pg_killchain_observations
+         (run_id, task_id, attack_id, derive_version, observed_stages_json, observed_blast_radius_json, breached, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(run_id) DO UPDATE SET
+         derive_version = excluded.derive_version,
+         observed_stages_json = excluded.observed_stages_json,
+         observed_blast_radius_json = excluded.observed_blast_radius_json,
+         breached = excluded.breached`,
+    )
+    .run(
+      obs.runId,
+      obs.taskId,
+      obs.attackId,
+      obs.deriveVersion,
+      JSON.stringify(obs.observedStages),
+      JSON.stringify(obs.observedBlastRadius),
+      obs.breached ? 1 : 0,
+      new Date().toISOString(),
+    )
+
+  const del = database.prepare('DELETE FROM pg_blast_radius_observations WHERE run_id = ?')
+  const ins = database.prepare(
+    `INSERT INTO pg_blast_radius_observations (run_id, target, via, reached, evidence_event_ids_json)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(run_id, target) DO UPDATE SET
+       via = excluded.via, reached = excluded.reached, evidence_event_ids_json = excluded.evidence_event_ids_json`,
+  )
+  del.run(obs.runId)
+  for (const b of blast) {
+    ins.run(obs.runId, b.target, b.via, b.reached ? 1 : 0, JSON.stringify(b.evidenceEventIds))
+  }
+}
+
+export function getKillChainObservation(runId: string): KillChainObservation | null {
+  const row = getDb()
+    .prepare('SELECT * FROM pg_killchain_observations WHERE run_id = ?')
+    .get(runId) as Record<string, string | number> | undefined
+  if (!row) return null
+  return {
+    runId: String(row['run_id']),
+    taskId: String(row['task_id']),
+    attackId: row['attack_id'] == null ? null : String(row['attack_id']),
+    deriveVersion: String(row['derive_version']),
+    observedStages: JSON.parse(String(row['observed_stages_json'])),
+    observedBlastRadius: JSON.parse(String(row['observed_blast_radius_json'])),
+    breached: Number(row['breached']) === 1,
+  }
+}
+
+export function getBlastRadiusObservations(runId: string): BlastRadiusEntry[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM pg_blast_radius_observations WHERE run_id = ? ORDER BY target')
+    .all(runId) as Array<Record<string, string | number>>
+  return rows.map((r) => ({
+    target: String(r['target']),
+    via: String(r['via']) as BlastRadiusEntry['via'],
+    reached: Number(r['reached']) === 1,
+    evidenceEventIds: JSON.parse(String(r['evidence_event_ids_json'])),
+  }))
+}
+
+// ── queue recovery ──────────────────────────────────────────────────────────
+
+/**
+ * The execution queue is in-memory, so a server restart silently drops every
+ * run that was still waiting: the row stays `queued` in the DB forever and
+ * neither runs nor fails. Callers use this on boot to re-admit them.
+ */
+export function listQueuedRunIds(): string[] {
+  return (getDb().prepare("SELECT run_id FROM pg_runs WHERE status = 'queued' ORDER BY created_at").all() as Array<{ run_id: string }>)
+    .map((r) => r.run_id)
+}
+
+/**
+ * Runs that were mid-flight when the process died. They are neither queued nor
+ * finished, so they must be closed out explicitly rather than reported as
+ * still running forever.
+ */
+export function listOrphanedRunIds(): string[] {
+  return (getDb().prepare("SELECT run_id FROM pg_runs WHERE status = 'running'").all() as Array<{ run_id: string }>)
+    .map((r) => r.run_id)
+}
+
+// ── deletion ─────────────────────────────────────────────────────────────────
+
+export interface DeleteRunResult {
+  runId: string
+  deleted: boolean
+  /** Rows removed per table, so the caller reports what actually went. */
+  events: number
+  verdicts: number
+  assertions: number
+  killChain: number
+  blastRadius: number
+  reason?: 'not-found' | 'in-flight'
+}
+
+/**
+ * Drop one run and every row keyed by it.
+ *
+ * §14.3 calls pg_events append-only, and that still holds for anything the
+ * harness itself writes. This is the one deliberate exception, and it is
+ * user-initiated rather than automatic: purging a run is an explicit request to
+ * stop counting a result, not a silent rewrite of history. Two guards keep it
+ * from being a data-integrity hole:
+ *
+ *  - **in-flight runs are refused.** The runner holds the id in a module-level
+ *    queue and would keep appending events to it, resurrecting rows seconds
+ *    after they were deleted.
+ *  - **shared tables are left alone.** pg_config_versions is keyed by
+ *    fingerprint and pg_materials by file id; other runs point at the same
+ *    rows, so deleting one run must not strip their config provenance.
+ *
+ * Everything else goes in one transaction — a run that survives without its
+ * trajectory is exactly the "仅指标 · 无轨迹" state this codebase refuses to
+ * fabricate, and a half-deleted run would fake it.
+ */
+export function deleteRun(runId: string): DeleteRunResult {
+  const database = getDb()
+  const base = { runId, events: 0, verdicts: 0, assertions: 0, killChain: 0, blastRadius: 0 }
+  const row = database.prepare('SELECT status FROM pg_runs WHERE run_id = ?').get(runId) as { status: RunStatus } | undefined
+  if (!row) return { ...base, deleted: false, reason: 'not-found' }
+  if (row.status === 'queued' || row.status === 'running') return { ...base, deleted: false, reason: 'in-flight' }
+
+  database.exec('BEGIN')
+  try {
+    const blast = database.prepare('DELETE FROM pg_blast_radius_observations WHERE run_id = ?').run(runId)
+    const chain = database.prepare('DELETE FROM pg_killchain_observations WHERE run_id = ?').run(runId)
+    const assertions = database.prepare('DELETE FROM pg_legal_assertions WHERE run_id = ?').run(runId)
+    const verdicts = database.prepare('DELETE FROM pg_verdicts WHERE run_id = ?').run(runId)
+    const events = database.prepare('DELETE FROM pg_events WHERE run_id = ?').run(runId)
+    database.prepare('DELETE FROM pg_runs WHERE run_id = ?').run(runId)
+    database.exec('COMMIT')
+    return {
+      runId,
+      deleted: true,
+      events: Number(events.changes),
+      verdicts: Number(verdicts.changes),
+      assertions: Number(assertions.changes),
+      killChain: Number(chain.changes),
+      blastRadius: Number(blast.changes),
+    }
+  } catch (err) {
+    database.exec('ROLLBACK')
+    throw err
   }
 }
 
@@ -360,6 +574,7 @@ interface RawRunRow {
   error: string | null
   materials_json: string | null
   verdict_json: string | null
+  jev_result_json: string | null
   failure_tags_json: string
   success: number | null
   score: number | null
@@ -373,6 +588,7 @@ const SELECT_COLUMNS = `
   r.run_id, r.scenario_id, r.task_id, r.task_title, r.domain, r.split, r.preset_id, r.fingerprint,
   r.status, r.source, r.config_json, r.mounts_json, r.provider_json, r.temperature, r.seed,
   r.max_tokens, r.answer, r.tokens, r.latency_ms, r.error, r.materials_json, r.verdict_json,
+  r.jev_result_json,
   r.failure_tags_json, r.success, r.score, r.created_at, r.started_at, r.finished_at,
   (SELECT COUNT(*) FROM pg_events e WHERE e.run_id = r.run_id) AS event_count`
 
@@ -460,6 +676,7 @@ export function getRunDetail(runId: string) {
     maxTokens: row.max_tokens,
     answer: row.answer,
     verdict: safeParse<ScoreResult | null>(row.verdict_json, null),
+    jevResult: safeParse<JevJudgeResult | null>(row.jev_result_json, null),
     events: getEvents(runId),
     materials: safeParse<MaterialsInfo | null>(row.materials_json, null),
     configVersion: cvRow
@@ -475,6 +692,14 @@ export function getRunDetail(runId: string) {
           ladderRung: 'bare' as LadderRung,
           ladderVersion: 'unknown',
         },
+    // Measured attack chain + blast radius. `designed` is read from the
+    // fixture attack catalogue on demand; it is not stored on the run row so
+    // the two states can never overwrite one another (§11.1#7).
+    security: {
+      designed: designedChain(taskAttackId(row.task_id)),
+      observed: getKillChainObservation(runId),
+      blastRadius: getBlastRadiusObservations(runId),
+    },
   }
 }
 

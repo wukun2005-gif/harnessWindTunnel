@@ -11,6 +11,7 @@ import {
   JEV_QUESTION_IDS,
   JEV_PROVIDER_ID,
   JEV_PROVIDER_ID_OPENCODE,
+  readingAgreesWithVerdict,
   type JevChoiceReading,
   type JevScoreReading,
 } from '../shared/jev'
@@ -76,11 +77,18 @@ function chatAnswers(match: string, confidence: number): Response {
   )
 }
 
-/** chat provider（deepseek）+ Jev 卡同时启用：Jev 能开，chat 目标也不被判定模型劫持。 */
+/**
+ * chat provider（deepseek）+ 两张 Jev 卡同时启用：判定与回落同源。
+ * 回落目标只从判定卡里挑，且那张卡必须带一个非判定型号的 LLM —— 这里用真实形状：
+ * TypeSafe Jev 卡只挂判定型号（jev-1.13.0）；OpenCode Jev 卡是从 OpenCode 大模型卡
+ * 整卡复制来的，判定型号 jev-1.13 与回落型号 step-5-preview-free 同卡共存。
+ * deepseek 大模型卡照旧在场，但它不再是回落目标（回落不回落到大模型 Provider 卡）。
+ */
 function configureProviders(): void {
   putProviderBundle([
     { providerId: 'deepseek', apiKey: 'sk-chat', baseUrl: 'https://api.deepseek.com/v1', modelIds: ['deepseek-chat'], defaultModelId: 'deepseek-chat', enabled: true },
     { providerId: JEV_PROVIDER_ID, apiKey: 'jev-key', baseUrl: 'https://api.typesafe.ai/v1', modelIds: ['jev-1.13.0'], defaultModelId: 'jev-1.13.0', enabled: true },
+    { providerId: JEV_PROVIDER_ID_OPENCODE, apiKey: 'oc-key', baseUrl: 'https://opencode.ai/zen/v1', modelIds: ['jev-1.13', 'step-5-preview-free'], defaultModelId: 'jev-1.13', modelFallbacks: ['jev-1.13', 'step-5-preview-free'], enabled: true },
   ])
 }
 
@@ -246,6 +254,32 @@ test('consistency compares the Jev reading against the deterministic verdict', (
   assert.equal(judgeConsistency(null, pass).kind, 'incomparable')
 })
 
+test('readingAgreesWithVerdict is the one agreement rule, and judgeConsistency follows it', () => {
+  // The run detail labels every channel with this rule. A second copy on the
+  // client would let the panel contradict the `consistency` field it explains.
+  assert.equal(readingAgreesWithVerdict('exact', true), true)
+  assert.equal(readingAgreesWithVerdict('exact', false), false)
+  assert.equal(readingAgreesWithVerdict('partial', false), true)
+  assert.equal(readingAgreesWithVerdict('partial', true), false)
+  assert.equal(readingAgreesWithVerdict('none', false), true)
+  assert.equal(readingAgreesWithVerdict(null, true), null)
+  assert.equal(readingAgreesWithVerdict('unclear', true), null)
+
+  const pass = scoreAnswer(general, general.referenceAnswer)
+  const fail = scoreAnswer(general, '完全无关的回答。')
+  for (const choice of ['exact', 'partial', 'none', 'unclear']) {
+    for (const det of [pass, fail]) {
+      const expected = readingAgreesWithVerdict(choice, det.success)
+      const kind = judgeConsistency(choice, det).kind
+      assert.equal(
+        kind,
+        expected == null ? 'incomparable' : expected ? 'consistent' : 'divergent',
+        `${choice} vs det.success=${det.success}`,
+      )
+    }
+  }
+})
+
 
 // ── 设置存储：默认关、阈值夹紧、密钥不回显、可与 chat 同时启用 ─────────────
 
@@ -271,11 +305,11 @@ test('Jev and a chat provider can be enabled at once, and the chat target is nev
   // B-041：视图里没有密钥字段。
   assert.equal('apiKey' in view.provider, false)
   assert.equal('apiKeyRef' in view.provider, false)
-  // 回落目标必须是 chat provider，不能被判定模型劫持。
+  // 回落目标与判定卡同源，且回落型号不是判定型号（jev- 命名走 /systemone，没有 chat 端点）。
   const chat = resolveChatJudgeTarget()
-  assert.equal(chat?.providerId, 'deepseek')
-  assert.equal(chat?.model, 'deepseek-chat')
-  assert.equal(view.chatJudge.providerId, 'deepseek')
+  assert.equal(chat?.providerId, JEV_PROVIDER_ID_OPENCODE)
+  assert.equal(chat?.model, 'step-5-preview-free')
+  assert.equal(view.chatJudge.providerId, JEV_PROVIDER_ID_OPENCODE)
 })
 
 // ── 级联：关 / jev-live / llm-judge / needs-human / bypass / error ─────────
@@ -318,10 +352,27 @@ test('low confidence falls back to the chat LLM and is labelled llm-judge', asyn
   const result = await runJevJudge(general, '只写了一半要点的回答。')
   assert.equal(result.source, 'llm-judge')
   assert.equal(result.chatJudge?.choice, 'partial')
-  assert.equal(result.chatJudge?.model, 'deepseek-chat')
+  assert.equal(result.chatJudge?.model, 'step-5-preview-free')
   assert.equal(calls.length, 2)
   assert.ok(calls[0]!.endsWith('/systemone'))
   assert.ok(calls[1]!.endsWith('/chat/completions'), calls[1])
+})
+
+test('legal-domain reviews use the assertion-pipeline threshold (0.5), not the general 0.7', async () => {
+  // 法律域（法条检索与反编造）与「法律断言」管线同一标定：Jev 自报置信系统性偏低。
+  // 此前实跑旁路复核一刀切通用场景的 0.7，法律域任务被误回落——回归钉死。
+  putJevSettings({ enabled: true, cascadeToChatJudge: true })
+  configureProviders()
+  calls = []
+  respond = (url) => (url.includes('/systemone') ? jevAnswers('partial', 0.62, 3, 0.58, 0.4) : chatAnswers('partial', 0.8))
+  const legalOut = await runJevJudge(legal, '只写了一半要点的回答。')
+  assert.equal(legalOut.source, 'jev-live', legalOut.reason)
+  assert.ok(legalOut.reason.includes('阈值 0.5'), legalOut.reason)
+  // 同一条读数落在通用域任务上仍按 0.7 判低置信、照常回落。
+  calls = []
+  const generalOut = await runJevJudge(general, '只写了一半要点的回答。')
+  assert.equal(generalOut.source, 'llm-judge', generalOut.reason)
+  assert.equal(calls.length, 2)
 })
 
 test('low confidence with the cascade switched off goes to a human, not to the chat model', async () => {

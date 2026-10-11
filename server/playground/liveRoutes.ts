@@ -14,13 +14,32 @@ import type {
 } from '../../shared/playground'
 import { getSetting } from '../settingsStore'
 import { getAllChunks, getAllSources } from '../knowledge/db'
-import { PRESET_PROVIDERS } from '../../shared/provider'
+import { PRESET_PROVIDERS, isDecisionProvider } from '../../shared/provider'
 import { getTask, loadEvalSet } from './evalset'
 import { PG_PRESETS, resolveConfig } from './presets'
 import { computeLiveMetrics } from './metrics'
 import { renderRunTxt } from './exportFormat'
-import { getRunDetail, importRun, listRuns } from './liveDb'
-import { createRun, enqueueRun } from './runner'
+import { deleteRun, getRunDetail, importRun, listRuns } from './liveDb'
+import { createRun, dossierTexts, enqueueRun } from './runner'
+import { rougeAgainstReference } from './rouge'
+
+type RunDetailShape = NonNullable<ReturnType<typeof getRunDetail>>
+
+/**
+ * Runs scored before ROUGE joined the verdict carry no `rouge` reading. It is a
+ * pure function of the answer and the task's reference answer, both of which are
+ * stored, so fill it in on read instead of forcing every historical run to be
+ * re-scored just to see the number.
+ */
+function withRouge(detail: RunDetailShape): RunDetailShape {
+  if (!detail.verdict || detail.verdict.rouge || !detail.answer) return detail
+  const reference = getTask(detail.taskId)?.referenceAnswer
+  if (!reference) return detail
+  return {
+    ...detail,
+    verdict: { ...detail.verdict, rouge: rougeAgainstReference(detail.answer, reference) },
+  }
+}
 
 function send(res: ServerResponse, code: number, body: unknown): void {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
@@ -63,6 +82,9 @@ function listTargets(): RunTargets {
       models: p.modelIds ?? (p.defaultModelId ? [p.defaultModelId] : []),
       enabled: !!p.enabled,
       hasKey,
+      // Same predicate the runner uses to pick a live model: the Jev cards have
+      // keys but no /chat/completions, so they are never a valid run target.
+      kind: isDecisionProvider(p.providerId ?? '') ? ('decision' as const) : ('chat' as const),
     }
   })
   const sources = getAllSources()
@@ -79,14 +101,20 @@ function listTargets(): RunTargets {
 }
 
 function envelopeFor(runId: string): PlaygroundRunFile | { error: string } {
-  const detail = getRunDetail(runId)
-  if (!detail) return { error: `run not found: ${runId}` }
-  const { events, ...run } = detail
+  const found = getRunDetail(runId)
+  if (!found) return { error: `run not found: ${runId}` }
+  const { events, ...run } = withRouge(found)
+  // 卷宗正文只在导出时补上（export-only）：入库的 materials 只存元信息（sha/字符数），
+  // 正文不落库避免每条 run 都背着一份卷宗。复盘导出件必须能独立看——不回源文件也能读到题面材料。
+  const texts = dossierTexts(getTask(run.taskId))
+  const dossier = run.materials
+    ? { ...run.materials, dossier: run.materials.dossier.map((d, i) => ({ ...d, text: texts[i] ?? '' })) }
+    : null
   return {
     kind: 'hwt-playground-run',
     schemaVersion: 1,
     exportedAt: new Date().toISOString(),
-    run,
+    run: { ...run, materials: dossier },
     events,
   }
 }
@@ -106,13 +134,35 @@ function parseEnvelopes(raw: string): PlaygroundRunFile[] {
   return lines.map((l) => JSON.parse(l) as PlaygroundRunFile)
 }
 
+/**
+ * Schema gate for imported trajectories. Anti-forgery rule (design §14.5):
+ * reject with a field-level 400 — never "best effort" a guess. This must check
+ * the run object too: a payload missing `config` used to reach SQLite and blow
+ * up as a 500, which tells the caller nothing about which field was wrong.
+ */
+const RUN_STRING_FIELDS = [
+  'scenarioId', 'taskId', 'taskTitle', 'domain', 'split', 'fingerprint', 'status', 'source', 'model', 'createdAt',
+] as const
+
 function validateEnvelope(env: PlaygroundRunFile): string | null {
-  if (!env || env.kind !== 'hwt-playground-run') return '缺少 kind=hwt-playground-run'
+  if (!env || typeof env !== 'object') return '不是合法的 JSON 对象'
+  if (env.kind !== 'hwt-playground-run') return '缺少 kind=hwt-playground-run'
   if (env.schemaVersion !== 1) return `不支持的 schemaVersion：${String(env.schemaVersion)}`
-  if (!env.run?.runId || !env.run?.taskId) return 'run 缺少 runId/taskId'
+
+  const run = env.run as Record<string, unknown> | undefined
+  if (!run) return '缺少 run 对象'
+  for (const f of RUN_STRING_FIELDS) {
+    if (typeof run[f] !== 'string' || !(run[f] as string).trim()) return `run.${f} 缺失或不是非空字符串`
+  }
+  if (!run['config'] || typeof run['config'] !== 'object') return 'run.config 缺失（配置快照是必填项，不能猜）'
+  if (!Array.isArray(env.events)) return 'events 必须是数组（可以为空数组，不能缺省）'
+
   for (const ev of env.events ?? []) {
     const parsed = eventSchema.safeParse(ev)
-    if (!parsed.success) return `事件 ${(ev as { id?: string }).id ?? '?'} 校验失败：${parsed.error.issues[0]?.message ?? 'invalid event'}`
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return `事件 ${(ev as { id?: string }).id ?? '?'} 校验失败：${issue ? `${issue.path.join('.')} ${issue.message}` : 'invalid event'}`
+    }
   }
   return null
 }
@@ -257,19 +307,41 @@ export async function handleLiveRoute(
     }
     if (runMatch[2] === '/export') {
       const format = url.searchParams.get('format') ?? 'json'
+      const env = envelopeFor(runId)
+      if ('error' in env) {
+        send(res, 404, { ok: false, error: env.error })
+        return true
+      }
       if (format === 'txt') {
-        sendText(res, 200, renderRunTxt(detail, detail.events), 'text/plain', `playground-run-${runId}.txt`)
+        sendText(res, 200, renderRunTxt(env.run, env.events), 'text/plain', `playground-run-${runId}.txt`)
       } else {
-        const { events, ...run } = detail
-        const env: PlaygroundRunFile = { kind: 'hwt-playground-run', schemaVersion: 1, exportedAt: new Date().toISOString(), run, events }
         sendText(res, 200, JSON.stringify(env, null, 2), 'application/json', `playground-run-${runId}.json`)
       }
       return true
     }
     if (!runMatch[2]) {
-      send(res, 200, detail)
+      send(res, 200, withRouge(detail))
       return true
     }
+  }
+
+  // DELETE /api/playground/runs/:id — drop one run and its trajectory/verdicts.
+  // Single-run only: a bulk wipe would take the C0 reference out from under the
+  // lift calculation in computeLiveMetrics(), silently rewriting every other
+  // config's comparison rather than removing one row.
+  const deleteMatch = p.match(/^\/api\/playground\/runs\/([^/]+)$/)
+  if (deleteMatch && method === 'DELETE') {
+    const out = deleteRun(decodeURIComponent(deleteMatch[1]!))
+    if (out.reason === 'not-found') {
+      send(res, 404, { ok: false, error: `run not found: ${out.runId}` })
+      return true
+    }
+    if (out.reason === 'in-flight') {
+      send(res, 409, { ok: false, error: 'run is still queued or running' })
+      return true
+    }
+    send(res, 200, { ok: true, ...out })
+    return true
   }
 
   // POST /api/playground/runs/:id/fork — rerun same task from a frozen config,

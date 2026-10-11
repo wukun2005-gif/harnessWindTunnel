@@ -141,10 +141,14 @@ export async function callPatentLawTool(name: string, args: Record<string, unkno
       source: String((h.metadata as Record<string, unknown>)['name'] ?? (h.metadata as Record<string, unknown>)['sourceId'] ?? ''),
       chunkId: h.chunkId,
     }))
+    // 措辞刻意是「相似片段」不是「命中」：向量近邻检索在库里没有对应条文时照样返回
+    // 最相似的 k 条，写「5 条命中（top 0.96）」会被 agent 读成「条文存在」——反编造题
+    // （L3）实测被这个措辞带偏：检索说高分命中、核验说不存在，模型采信了检索。
+    const top = results[0]?.score ?? 0
     return {
       ok: true,
       tool: name,
-      summary: `${results.length} 条命中（top ${results[0]?.score ?? 0}）：${results[0]?.source ?? ''}`,
+      summary: `${results.length} 条相似片段（top ${top}；相似≠存在，引用前必须调用 patent_law_verify_citation 核验）：${results[0]?.source ?? ''}`,
       data: { query, results },
     }
   }

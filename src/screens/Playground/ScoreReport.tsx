@@ -5,6 +5,9 @@ import { useFixture, useT } from '../../i18n'
 export function ScoreReport({ result }: { result: ScoreResult }) {
   const t = useT()
   const fx = useFixture()
+  // Extra-credit points are listed but never counted: the header must agree with
+  // `score`/`success`, which only look at what the question actually asked.
+  const requiredFacts = result.factChecks.filter((c) => c.required)
   return (
     <div>
       <div
@@ -59,10 +62,34 @@ export function ScoreReport({ result }: { result: ScoreResult }) {
       ))}
 
       {result.factChecks.length > 0 && (
-        <Section title={t('playground.report.goldHits', { hit: result.factChecks.filter((c) => c.hit).length, total: result.factChecks.length })}>
-          {result.factChecks.map((c) => (
-            <Row key={c.id} ok={c.hit} label={c.label} sub={c.hit ? undefined : t('playground.report.missing', { terms: c.missingTerms.join(' / ') })} />
-          ))}
+        <Section title={t('playground.report.goldHits', { hit: requiredFacts.filter((c) => c.hit).length, total: requiredFacts.length })}>
+          {/* Point / result / what was missing — a bare pass-fail tells you nothing
+              about which point failed, so the detail is the whole point of this list. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 28px minmax(0,1.1fr)', columnGap: 8, rowGap: 3 }}>
+            {result.factChecks.map((c) => (
+              <Row
+                key={c.id}
+                ok={c.hit}
+                bonus={!c.required}
+                label={c.label}
+                sub={!c.hit && c.required ? c.missingTerms.join(' / ') : undefined}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {result.rouge && (
+        <Section title={t('playground.report.rouge')}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'max-content minmax(0,1fr)', columnGap: 10, rowGap: 3, fontSize: 12 }}>
+            <span className="faint">{t('playground.report.rougeRecall')}</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
+              ROUGE-1 {result.rouge.rouge1.toFixed(3)} · ROUGE-L {result.rouge.rougeL.toFixed(3)}
+            </span>
+            <span className="faint">{t('playground.report.rougeRef')}</span>
+            <span className="faint" style={{ fontSize: 11 }}>{result.rouge.referenceTokens}</span>
+          </div>
+          <div className="faint" style={{ fontSize: 11, marginTop: 4 }}>{t('playground.report.rougeNote')}</div>
         </Section>
       )}
 
@@ -150,14 +177,19 @@ export function Section({ title, children }: { title: string; children: React.Re
   )
 }
 
-export function Row({ ok, label, sub }: { ok: boolean; label: string; sub?: string }) {
+/** One grid row: point / result / what was missing. `display: contents` lets the
+ *  caller own the columns, so the list lines up as a table. */
+export function Row({ ok, label, sub, bonus }: { ok: boolean; label: string; sub?: string; bonus?: boolean }) {
+  const t = useT()
   return (
-    <div style={{ fontSize: 12, padding: '3px 0', display: 'flex', gap: 8 }}>
-      <span>{ok ? '✓' : '✗'}</span>
-      <div>
-        <span>{label}</span>
-        {sub && <div className="faint" style={{ fontSize: 11, color: '#c06a6a' }}>{sub}</div>}
-      </div>
+    <div className={bonus ? 'faint' : undefined} style={{ display: 'contents' }}>
+      <span style={{ fontSize: 12 }}>
+        {label}
+        {/* Extra credit is not a pass/fail: a missed one is not a ✗, it is simply absent. */}
+        {bonus && <span style={{ fontSize: 11 }}> {t('playground.report.bonus')}</span>}
+      </span>
+      <span style={{ fontSize: 12, textAlign: 'center' }}>{bonus ? (ok ? '+' : '·') : ok ? '✓' : '✗'}</span>
+      <span className="faint" style={{ fontSize: 11 }}>{sub ?? ''}</span>
     </div>
   )
 }

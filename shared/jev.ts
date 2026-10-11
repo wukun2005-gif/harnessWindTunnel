@@ -40,6 +40,47 @@ export const JEV_MIN_CONFIDENCE_THRESHOLD = 0.5
 export const JEV_MAX_CONFIDENCE_THRESHOLD = 0.99
 
 /**
+ * 低置信阈值按场景分开配（M2 拍板）。
+ *
+ * 四条判分管线的实测结论互相冲突，凑不出一个全局最优值，因此按场景各存一个：
+ *   通用实况风洞 0.7 —— 282 条复核一致率 100%、漂移 0%，沿用 M1 全测后调至的值；
+ *   法律断言    0.5 —— 156 条一致率 87.8%，Jev 自报置信系统性偏低（≥0.7 桶才 100%）；
+ *   失败标签    0.5 —— 终局纪元 48/48 一致、0% 漂移，低置信段 conf 0.49 的读数本已判对；
+ *   RAG 支撑    0.7 —— 96/96 一致、0% 漂移，低置信 11 条全为好答案且方向全对。
+ *
+ * 回落（低置信转 chat LLM 复核）保持全局常开、不按场景拆分：M2 拍板「回落永远开」，
+ * 取舍是法律断言 / 失败标签两个场景要多付一次模型调用与延迟，换低置信读数不直接交人。
+ *
+ * 实跑详情页那次 Jev 旁路复核按任务域选场景（见 liveRunJevScenario）：法律域任务
+ * （法条检索与反编造，L1 起）与「法律断言」管线同一标定，用 p0a-assertions 的 0.5；
+ * 其余域沿用通用实况风洞的 0.7。此前一刀切取 0.7，法律域任务置信系统性偏低被误回落。
+ */
+export const JEV_SCENARIOS = ['playground', 'p0a-assertions', 'p1c-tags', 'p1e-rag'] as const
+export type JevScenario = (typeof JEV_SCENARIOS)[number]
+
+export const JEV_SCENARIO_LABEL: Record<JevScenario, string> = {
+  playground: '通用实况风洞',
+  'p0a-assertions': '法律断言',
+  'p1c-tags': '失败标签',
+  'p1e-rag': 'RAG 支撑',
+}
+
+export const DEFAULT_JEV_SCENARIO_THRESHOLDS: Record<JevScenario, number> = {
+  playground: 0.7,
+  'p0a-assertions': 0.5,
+  'p1c-tags': 0.5,
+  'p1e-rag': 0.7,
+}
+
+export function clampJevThreshold(v: number): number {
+  return Math.min(JEV_MAX_CONFIDENCE_THRESHOLD, Math.max(JEV_MIN_CONFIDENCE_THRESHOLD, v))
+}
+
+export function isJevScenario(v: unknown): v is JevScenario {
+  return typeof v === 'string' && (JEV_SCENARIOS as readonly string[]).includes(v)
+}
+
+/**
  * 安全域（trap / gate / leak / 良性对照）只做旁路观察，永不当判定来源：
  * 调研「通过 / 失败判定线」把注入鲁棒性列为一票否决项，且在拿到实测数字前禁止在线使用。
  */
@@ -62,6 +103,20 @@ export const JEV_QUESTION_IDS = {
   agreement: 'answer_agreement_score',
   grounded: 'answer_is_grounded',
 } as const
+
+/**
+ * Whether a match reading points the same way as the deterministic verdict.
+ * `null` = not comparable (no reading, or the model abstained).
+ *
+ * Shared on purpose: the server derives `consistency` from it and the run detail
+ * labels every channel with it. Two copies of this rule would let the panel
+ * contradict the field it is explaining.
+ */
+export function readingAgreesWithVerdict(choice: string | null, detSuccess: boolean): boolean | null {
+  if (!choice) return null
+  if (choice === 'unclear') return null
+  return (choice === 'exact') === detSuccess
+}
 
 /** Score 原语：2–10 级有序数组，必须用具体情境描述（官方建议，避免「中等/一般」）。 */
 export const JEV_AGREEMENT_CRITERIA: string[] = [
@@ -100,18 +155,49 @@ export const JEV_SOURCE_LABEL: Record<JevSource, string> = {
 export interface JevSettings {
   /** Playground 是否启用 Jev。关闭时 playground 全程不调用。 */
   enabled: boolean
-  /** 低置信回落的阈值。 */
+  /**
+   * 全局兜底阈值：某场景在 scenarioThresholds 里没有取值时用这个。
+   * 判分时优先取场景值（见 thresholdForScenario）。
+   */
   confidenceThreshold: number
-  /** 低置信时是否回落 chat LLM 复核（关掉则直接转人）。 */
+  /** 各判分场景的低置信回落阈值（0.5–0.99）。四条管线实测结论冲突，不能共用一个值。 */
+  scenarioThresholds: Record<JevScenario, number>
+  /** 低置信时是否回落 chat LLM 复核（关掉则直接转人）。M2 拍板：全局常开，不按场景拆。 */
   cascadeToChatJudge: boolean
+  /**
+   * 无论置信度都调用判定模型 Provider 卡里的 LLM 复核：高置信时 Jev 读数照常生效，
+   * 同时总是拿一次第二意见（chatJudge 字段记录，失败不影响主读数）。
+   * 需要 cascadeToChatJudge 开启才生效（回落通路的总闸）。
+   */
+  chatJudgeAlways: boolean
   updatedAt: string | null
 }
 
 export const DEFAULT_JEV_SETTINGS: JevSettings = {
   enabled: false,
   confidenceThreshold: JEV_DEFAULT_CONFIDENCE_THRESHOLD,
+  scenarioThresholds: { ...DEFAULT_JEV_SCENARIO_THRESHOLDS },
   cascadeToChatJudge: true,
+  chatJudgeAlways: false,
   updatedAt: null,
+}
+
+/**
+ * 某场景实际生效的阈值：场景值优先，取不到（老配置 / 非法值）回落全局兜底。
+ * 唯一取用入口——判分侧不要直接读 confidenceThreshold。
+ */
+export function thresholdForScenario(settings: JevSettings, scenario: JevScenario | string): number {
+  const v = settings.scenarioThresholds?.[scenario as JevScenario]
+  return typeof v === 'number' && Number.isFinite(v) ? clampJevThreshold(v) : settings.confidenceThreshold
+}
+
+/**
+ * 实跑（通用判分管线）的 Jev 旁路复核该用哪个场景的阈值。
+ * 法律域（legal，法条检索与反编造）与「法律断言」管线同一标定（0.5）；
+ * 其余域沿用「通用实况风洞」（0.7）。判分侧与落盘侧都必须走这里，别各写各的。
+ */
+export function liveRunJevScenario(domain: string): JevScenario {
+  return domain === 'legal' ? 'p0a-assertions' : 'playground'
 }
 
 /** 只读状态视图（GET /api/playground/jev）：密钥永不回显（B-041）。 */
@@ -132,7 +218,10 @@ export interface JevSettingsView extends JevSettings {
 export interface JevSettingsPatch {
   enabled?: boolean
   confidenceThreshold?: number
+  /** 局部更新：只传要改的场景，未传的保持原值。 */
+  scenarioThresholds?: Partial<Record<JevScenario, number>>
   cascadeToChatJudge?: boolean
+  chatJudgeAlways?: boolean
 }
 
 // ── 判定结果 ──────────────────────────────────────────────────────────────

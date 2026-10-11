@@ -31,7 +31,7 @@ export const PG_PRESETS: PgPreset[] = [
   },
   {
     id: 'C1',
-    name: 'C1 +File-backed',
+    name: 'C0 + File-backed',
     domainFocus: 'general',
     summary: '通用域：filesystem=file-backed-state，长卷宗带文件态',
     config: cfg({ filesystem: 'file-backed-state' }),
@@ -41,11 +41,13 @@ export const PG_PRESETS: PgPreset[] = [
     id: 'C2',
     name: 'C2 法律组',
     domainFocus: 'legal',
-    summary: '挂载本地 patent-law-mcp（先检索后生成）＋sensors=verifier 引用核验＋guides=domain-checklist',
+    summary: '挂载本地 patent-law-mcp（先检索后生成）＋sensors=verifier 引用核验＋guides=domain-checklist＋observability=trace+mast 全程留痕',
     config: cfg({
       guides: 'domain-checklist',
       sensors: 'verifier',
-      observability: 'trace',
+      // §13 maps the legal hash-audit-chain control to `trace+mast`; plain
+      // `trace` lit nothing, so the preset claimed a control it did not have.
+      observability: 'trace+mast',
     }),
     mounts: { patentLawMcp: true },
   },

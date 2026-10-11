@@ -2,14 +2,64 @@
 // Fixture screens (MRI/tunnel/Forge/security/legal) stay untouched; this file
 // only serves the new #/playground screen and its /api/playground routes.
 import type { HarnessConfig } from './config'
+import type { JevJudgeResult } from './jev'
 import type { HarnessEvent } from './events'
 import type { LegalAssertion, LegalControl } from './legal'
-import type { SecurityControl } from './redteam'
+import type { SecurityControl, KillChainStage } from './redteam'
 import type { MastTag } from './mast'
 
 export type PgDomain = 'general' | 'legal' | 'security'
 export type PgSplit = 'repair' | 'gate' | 'scorecard'
 export type ScorerType = 'field-match' | 'article-check' | 'trap-check' | 'gate-check' | 'leak-check'
+
+/** L0 designed attack chain attached to a security question (design §15.2). */
+export interface AttackChainSpec {
+  /** Fixture attack case id in data/redteam/attacks.json (design state, L0). */
+  attackId: string
+  /** Stages this attack actually walks in the pure-text scenario. */
+  expectedStages: KillChainStage[]
+}
+
+/** One stage's measured state (L2, derived from the run's event stream). */
+export interface ObservedStage {
+  stage: KillChainStage
+  /**
+   * blocked   — a control point stopped it (evidence below names which)
+   * breached  — it got through (sensitive data left)
+   * safe      — attack reached this stage but no sensitive data left (DLP not needed)
+   * n/a       — the text scenario has no real event source for this stage
+   * not-reached — in the expected chain, but the run never got that far
+   */
+  status: 'blocked' | 'breached' | 'safe' | 'n/a' | 'not-reached'
+  /** Control point that blocked it (design §11.1#6: must name which one). */
+  blockedBy?: string
+  /** Event ids proving the verdict — the row is reproducible from these. */
+  evidenceEventIds: string[]
+  note: string
+}
+
+/** L2 kill-chain observation for one run (never overwrites the design state). */
+export interface KillChainObservation {
+  runId: string
+  taskId: string
+  attackId: string | null
+  /** Bumped when the stage-mapping rules change; observations are versioned. */
+  deriveVersion: string
+  observedStages: ObservedStage[]
+  /** Tools / data actually reached at the deepest breach. */
+  observedBlastRadius: string[]
+  /** Any stage actually reached the model = the attack landed. */
+  breached: boolean
+}
+
+/** One reachable tool / data source, with how it was reached. */
+export interface BlastRadiusEntry {
+  /** Tool name from tool.call, or a gate scope (e.g. nonpublic-case-materials). */
+  target: string
+  via: 'tool-call' | 'permission-gate' | 'egress-dlp'
+  reached: boolean
+  evidenceEventIds: string[]
+}
 
 export type EvalTaskSource = 'led-heatsink' | 'golden-review' | 'evalset-reexam' | 'authored'
 
@@ -23,6 +73,17 @@ export interface GoldFact {
   id: string
   label: string
   match: string[]
+  /**
+   * Whether the question actually asks for this point. Defaults to true.
+   *
+   * `success` means "answered everything the question asked", so a point the
+   * question never asks for must not gate it — that makes the task impossible
+   * to pass however well it is answered. Mark such a point `required: false`:
+   * it stays visible as extra credit but leaves both `success` and the `score`
+   * denominator alone. Prefer rewriting the question to ask for the point when
+   * the point is what the task is really about.
+   */
+  required?: boolean
 }
 
 /** Structured statute / guideline citation the answer is expected to rely on. */
@@ -107,6 +168,15 @@ export interface EvalTask {
   /** Benign security control: the question is legitimate; refusing = over-refusal. */
   benign?: boolean
   variantOf?: string
+  /**
+   * L0 designed attack chain for this question (design §15.2/§11.1#6-7).
+   * `expectedStages` is the chain this attack actually walks in the text
+   * scenario — stages outside it are reported N/A, never hard-filled.
+   * `attackId` points at a data/redteam/attacks.json case whose *designed*
+   * stages are the fixture's design state; the run's measured state is
+   * derived separately and the two never overwrite each other.
+   */
+  attackChain?: AttackChainSpec
 
   // ── Scorer Sandbox samples ──
   referenceAnswer: string
@@ -124,6 +194,8 @@ export interface FactCheck {
   hit: boolean
   matchedTerms: string[]
   missingTerms: string[]
+  /** False = extra credit: shown, but excluded from `success` and from `score`. */
+  required: boolean
 }
 
 export type ArticleAssertion = LegalAssertion
@@ -157,12 +229,34 @@ export interface AntiHallucinationCheck {
   detail: string
 }
 
+/**
+ * Reference-based reading from ROUGE (Lin, 2004), computed by
+ * `server/playground/rouge.ts`. Reported next to the per-point checks rather than
+ * replacing them: it answers "how much of the reference answer is present",
+ * which no keyword group can, but it is blind to *where* in the answer a term
+ * appears, which the per-point checks are not.
+ */
+export interface RougeReading {
+  /** ROUGE-1, recall-weighted (β = 32). */
+  rouge1: number
+  /** ROUGE-L, recall-weighted. */
+  rougeL: number
+  /** ROUGE-1 at the textbook β = 1, for comparability with published numbers. */
+  rouge1F: number
+  /** ROUGE-L at the textbook β = 1. */
+  rougeLF: number
+  /** Reference length in tokens — a thin reference makes every score noisy. */
+  referenceTokens: number
+}
+
 export interface ScoreResult {
   taskId: string
   scorerType: ScorerType
   success: boolean
   /** 0..1 overall. */
   score: number
+  /** ROUGE against the task's reference answer. Absent only on hand-built fixtures. */
+  rouge?: RougeReading
   factChecks: FactCheck[]
   articleChecks: ArticleCheckResult[]
   securityChecks: SecurityCheck[]
@@ -218,6 +312,8 @@ export interface DossierMaterialInfo {
   txt: string
   sha256: string
   chars: number
+  /** 卷宗正文。只在导出时填充（export-only），不落库——见 liveRoutes.envelopeFor。 */
+  text?: string
 }
 
 export interface MaterialsInfo {
@@ -267,9 +363,27 @@ export interface RunDetail extends RunSummary {
   maxTokens: number | null
   answer: string | null
   verdict: ScoreResult | null
+  /** Jev side review, present only when the Jev switch was on for this run. */
+  jevResult: JevJudgeResult | null
   events: HarnessEvent[]
   materials: MaterialsInfo | null
   configVersion: ConfigVersionInfo
+  /**
+   * Designed vs measured attack chain, kept under separate names so neither
+   * can overwrite the other (design §11.1#7). `designed` is the fixture
+   * catalogue's chain for the attack this question exercises; `observed` is
+   * derived from this run's own event stream.
+   */
+  security: {
+    designed: {
+      attackId: string
+      title: string
+      designedStages: { stage: KillChainStage; status: 'blocked' | 'breached'; note: string }[]
+      designedBlastRadius: string[]
+    } | null
+    observed: KillChainObservation | null
+    blastRadius: BlastRadiusEntry[]
+  }
 }
 
 export interface CreateRunsRequest {
@@ -294,6 +408,12 @@ export interface ChatTarget {
   models: string[]
   enabled: boolean
   hasKey: boolean
+  /**
+   * decision = the Jev adjudication cards. They carry a key but have no
+   * /chat/completions, so the server never picks them as a live run's model
+   * (see llmClient.resolveChatTargets). The UI must not offer them either.
+   */
+  kind: 'chat' | 'decision'
 }
 
 export interface RunTargets {

@@ -173,6 +173,16 @@ const CAPABILITY_PRESETS: Record<string, Partial<ModelCapabilities>> = {
   "minimax-m2.5":    { isReasoning: false, contextWindow: 131_072, maxOutputTokens: 8_192, temperature: { supported: true, range: [0, 1] }, supportsStructuredOutput: false, supportsVision: false, systemPromptMode: "message", recommendation: "MiniMax M2.5" },
   "minimax-m2.7":    { isReasoning: false, contextWindow: 131_072, maxOutputTokens: 8_192, temperature: { supported: true, range: [0, 1] }, supportsStructuredOutput: false, supportsVision: false, systemPromptMode: "message", recommendation: "MiniMax M2.7 (最新)" },
   "nemotron-3-super-free": { isReasoning: false, contextWindow: 128_000, maxOutputTokens: 8_192, temperature: { supported: true, range: [0, 1] }, supportsStructuredOutput: false, supportsVision: false, systemPromptMode: "message", recommendation: "Nemotron 3 Super Free (免费)" },
+  // OpenRouter 元数据实查（supported_parameters 含 response_format + structured_outputs + tools）：
+  // 这是判定链能真正「强制 JSON」的前提——不支持 response_format 的模型只能靠提示词自觉。
+  // 前缀匹配会命中 `dots-studio/dots-3-note-preview:free`。
+  "dots-studio/dots-3-note-preview": { isReasoning: true, contextWindow: 512_000, maxOutputTokens: 460_800, temperature: { supported: true, range: [0, 2] }, supportsStructuredOutput: true, supportsVision: true, supportsFunctionCalling: true, systemPromptMode: "message", recommendation: "Dots3-Note Preview (免费, 512K/460K, 支持 JSON schema)" },
+  // OpenRouter 免费档实测（2026-10-09）：json_schema 生效、10 路并发全 200、延迟 1.0–1.4s。
+  // 同一批里 liquid/lfm-2.5-2.6b 与 apodex/apodex-1.1-mini 官方也标了 response_format，
+  // 实测一个忽略 schema、一个直接 400，故只登记本条目。
+  // 注意不要与上面的 "nemotron-3-super-free" 混淆——那是另一个型号（且不支持结构化输出）；
+  // 本条目带 `nvidia/` 前缀，不会与之互相命中。`:free` 变体走前缀匹配。
+  "nvidia/nemotron-3-super-120b-a12b": { isReasoning: true, contextWindow: 262_144, maxOutputTokens: 235_929, temperature: { supported: true, range: [0, 2] }, supportsStructuredOutput: true, supportsVision: false, supportsFunctionCalling: true, systemPromptMode: "message", recommendation: "Nemotron 3 Super 120B (免费, 262K, JSON schema 实测生效)" },
 
   // ── 非推理模型（前缀匹配）──
   "gemini-2.0":     { isReasoning: false, contextWindow: 1_048_576, maxOutputTokens: 8_192,  temperature: { supported: true, range: [0, 2] },  supportsStructuredOutput: true,  supportsVision: true,  systemPromptMode: "parameter" },
