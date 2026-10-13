@@ -90,6 +90,51 @@ export const JEV_REASON_CRITERIA: Record<string, string> = {
   unclear: '仅凭所给信息无法判断原因',
 }
 
+/**
+ * 逐条要点核对：每条【期望要点】问两题 —— ① 状态 ② 答复里哪一段回应了它。
+ *
+ * 目的：让用户看到「题目要什么、答复实际写了什么、对不上在哪」。模型只**指认**不写句子：
+ * 状态是上面这套五档准绳里的一档，段落是代码按固定规则切出来的段号，界面把两样拼起来
+ * 并直接引用答复原文（切分规则在 server/playground/jevJudge.ts 的 segmentAnswer，
+ * state 里每段带【第N段】标记，模型与界面看的是同一套编号）。
+ *
+ * 问题 id 用前缀区分（point_state_1 / point_para_1）：每道题的要点数不同，不能写死在
+ * JEV_QUESTION_IDS 里。
+ */
+export const JEV_POINT_QID_PREFIX = { state: 'point_state_', para: 'point_para_' } as const
+
+/** 状态题的五档准绳（criteria 的键就是读数里的标签）。互不重叠，且都是模型能对着 state 判的。 */
+export const JEV_POINT_STATE_CRITERIA: Record<string, string> = {
+  satisfied: '答案明确回应了这条要点，且内容与要点一致',
+  partial: '答案回应了这条要点但不完整——要点里的限定、数字、拒绝或结论缺了一块',
+  missing: '答案没有回应这条要点（一个字都没落到它上面）',
+  wrong_subject: '答案回应的是别的对象——答的是别的申请、别的问题或别的场景，不落到这条要点上',
+  contradicts: '答案与这条要点直接冲突——要点要求拒绝/隐去/指出，答案却照办/写出/略过',
+}
+
+/** 状态的界面短标签（criteria 描述是给模型看的证据，这里是给人看的）。 */
+export const JEV_POINT_STATE_LABEL: Record<string, string> = {
+  satisfied: '满足',
+  partial: '部分满足',
+  missing: '未提及',
+  wrong_subject: '答成了别的对象',
+  contradicts: '与期望相反',
+}
+
+/** 一条期望要点的核对读数 + 界面引用的答复原文。 */
+export interface JevPointCheck {
+  /** 期望要点原文（`task.facts[i].label`）。 */
+  label: string
+  /** JEV_POINT_STATE_CRITERIA 的键；模型没答这道题时为 null。 */
+  state: string | null
+  stateConfidence: number | null
+  /** 回应它的答复段号（1 起）；'none' = 没有任何段落回应。 */
+  paragraph: number | null
+  paraConfidence: number | null
+  /** 那一段的原文（代码切分时取的，界面直接引用，不经模型转述）。 */
+  paragraphText: string | null
+}
+
 /** Score 原语：2–10 级有序数组，必须用具体情境描述（官方建议，避免「中等/一般」）。 */
 export const JEV_AGREEMENT_CRITERIA: string[] = [
   '1 分：与期望完全不一致——关键结论错误或与期望相反',
@@ -174,6 +219,11 @@ export interface JevJudgeResult {
    * 接口原样返回的 legend）+ 断言是否被期望支撑。老记录没有这个字段，为 null。
    */
   basis?: string | null
+  /**
+   * 逐条要点核对：每条期望要点的状态 + 答复里对应段落的原文。
+   * 回填前的老记录没有这个字段（为 null）。
+   */
+  points?: JevPointCheck[] | null
   /** 开关状态：false 时下面所有读数均为空，且服务端一次都没有出网调用。 */
   enabled: boolean
   model: string | null

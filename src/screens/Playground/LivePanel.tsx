@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { useT } from '../../i18n'
 import { KILL_CHAIN, KILL_CHAIN_LABEL, type KillChainStage } from '../../../shared/redteam'
+import { JEV_POINT_STATE_LABEL } from '../../../shared/jev'
 import type { HarnessEvent } from '../../../shared/events'
 import type {
   EvalTask,
@@ -20,7 +21,7 @@ import type {
 import { buildRows, pickActiveRun, type ResultRow } from './resultOrder'
 import { ScoreReport } from './ScoreReport'
 import { Scorecard } from './Scorecard'
-import { altReadingLine, pickJudgeReading } from './channelText'
+import { isUiJudgeModel, pickUiJudgeReading, uiJudgeReadingLine } from './channelText'
 import { moduleActivity, eventAttributions, type ModuleActivity } from './harnessModules'
 import type { ControlsSnapshot } from '../../../shared/playground'
 
@@ -1097,25 +1098,46 @@ function AnswerView({ detail, query }: { detail: RunDetail; query: string | null
 }
 
 /**
- * 详情页的判定读数区：**只显示 mercury**（`inception/mercury-decide:free`），
- * 旧读数的 source / model / reason / basis 一律不再呈现。
+ * 详情页的判定读数区：**只呈现 mercury（判定模型）的读数**，旧判分器（jev-1.13.0）
+ * 的读数一律不显示。
  *
- * 「取哪条读数」的逻辑与 Scorecard 共用 `pickJudgeReading`，两处不可能各说一套。
+ * 三种情况：
+ *   1. 主槽是 mercury（回填后所有 run）→ 完整区块：徽标 / 型号 / 时延 / 通过与否 /
+ *      原因与报错 / 原始读数 / 判定理由；
+ *   2. 主槽是旧判分器、侧槽留着 2026-10-12 那轮 mercury 的 choice（回填前的老 run）
+ *      → 只显示型号 + 那条 choice 读数；
+ *   3. 连 mercury 的读数都没有 → 一行"不再呈现"。
+ *
+ * 「取哪条读数」与 Scorecard 共用 `pickUiJudgeReading`，两处不可能各说一套。
  */
 function JevReading({ detail }: { detail: RunDetail }) {
   const t = useT()
-  const picked = pickJudgeReading(detail.jevResult)
+  const jv = detail.jevResult
+  const picked = pickUiJudgeReading(jv)
+  // 主槽就是判定模型的读数：这次读数是本条 run 的定分依据，理由与报错都随它一起显示。
+  const full = picked != null && isUiJudgeModel(jv?.model)
+  // 未通过的 run：逐条要点里不达标的那些（不是「满足」的）红底标出来，一眼能看到是哪条拖的。
+  const failed = jv?.success === false
+  const isBadPoint = (p: { state: string | null }): boolean => p.state != null && p.state !== 'satisfied'
+  const hasBadPoint = (jv?.points ?? []).some(isBadPoint)
   return (
     <div style={{ display: 'grid', gap: 6 }}>
       <b style={{ color: 'var(--text)', fontSize: 12 }}>{t('playground.live.jevTitle')}</b>
       {!picked ? (
-        <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.jevOff')}</span>
+        <span className="faint" style={{ fontSize: 12 }}>
+          {jv ? t('playground.live.jevLegacy') : t('playground.live.jevOff')}
+        </span>
       ) : (
         <>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="badge">{picked.model}</span>
-            {picked.reading.latencyMs != null && (
-              <span className="faint" style={{ fontSize: 11 }}>{picked.reading.latencyMs}ms</span>
+            {picked.latencyMs != null && (
+              <span className="faint" style={{ fontSize: 11 }}>{picked.latencyMs}ms</span>
+            )}
+            {full && jv?.success != null && (
+              <span className="faint" style={{ fontSize: 11 }}>
+                {jv.success ? `✓ ${t('playground.live.judgePass')}` : `✗ ${t('playground.live.judgeFail')}`}
+              </span>
             )}
           </div>
 
@@ -1131,8 +1153,76 @@ function JevReading({ detail }: { detail: RunDetail }) {
             }}
           >
             <span className="faint">{t('playground.live.cmpJev')}</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{altReadingLine(picked.reading)}</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{uiJudgeReadingLine(picked)}</span>
           </div>
+
+          {full && jv?.reason && <span className="faint" style={{ fontSize: 12 }}>{jv.reason}</span>}
+          {full && jv?.error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{jv.error}</span>}
+
+          {/* 判分依据：模型不写自由文本，这段是代码按我们写的准绳把上面读数翻出来的。 */}
+          {full && jv?.basis && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'max-content minmax(0,1fr)',
+                columnGap: 10,
+                rowGap: 4,
+                fontSize: 12,
+                alignItems: 'baseline',
+              }}
+            >
+              <span className="faint">{t('playground.live.judgeBasis')}</span>
+              <span style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{jv.basis}</span>
+            </div>
+          )}
+
+          {/* 逐条要点核对：题目要什么 / 答复写了什么 / 对不上在哪 —— 三样同屏。
+              状态是模型在五档准绳里挑的一档，段落是模型指认的段号，
+              引出来的那句原文由代码从答复里取，不经模型转述。
+              本条 run 未通过时：不达标（非「满足」）的要点红底标出；
+              若条条都达标，写明未通过来自整体读数，不让"没一处红"看起来像漏了。 */}
+          {full && jv && (jv.points?.length ?? 0) > 0 && (
+            <div style={{ display: 'grid', gap: 6 }}>
+              <span className="faint" style={{ fontSize: 11 }}>{t('playground.live.pointCheck')}</span>
+              {jv.points!.map((pt, i) => {
+                const bad = failed && isBadPoint(pt)
+                return (
+                  <div
+                    key={`${pt.label}-${i}`}
+                    style={{
+                      display: 'grid',
+                      gap: 2,
+                      fontSize: 12,
+                      padding: bad ? '4px 6px' : 0,
+                      borderRadius: 4,
+                      background: bad ? 'rgba(220,38,38,0.10)' : undefined,
+                      border: bad ? '1px solid rgba(220,38,38,0.45)' : '1px solid transparent',
+                    }}
+                  >
+                    <span style={bad ? { color: 'var(--red)' } : undefined}>
+                      {bad ? '✗ ' : ''}
+                      {i + 1}. 「{pt.label}」→{' '}
+                      <b>{JEV_POINT_STATE_LABEL[pt.state ?? ''] ?? pt.state ?? '—'}</b>
+                      {pt.stateConfidence != null && (
+                        <span className={bad ? undefined : 'faint'}>（{Math.round(pt.stateConfidence * 100)}%）</span>
+                      )}
+                      {pt.paragraph != null ? ` · 答复第 ${pt.paragraph} 段` : ' · 答复里没有对应段落'}
+                    </span>
+                    {pt.paragraphText && (
+                      <span className="faint" style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>
+                        「{pt.paragraphText}」
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+              {failed && !hasBadPoint && (
+                <span className="faint" style={{ fontSize: 11, color: 'var(--red)' }}>
+                  {t('playground.live.pointCheckAllOk')}
+                </span>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

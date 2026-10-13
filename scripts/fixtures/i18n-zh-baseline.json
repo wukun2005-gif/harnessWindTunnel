@@ -1,7 +1,7 @@
 // Frozen snapshot of the Chinese dictionaries (zh + fixtureZh).
 // Used by scripts/i18n.test.ts: any intentional Chinese copy change must
 // regenerate this file; unintentional drift fails the test.
-// zh: 763 keys, sha256 b2543c159ce1b0d36e8c71ce0d84fb869d8a62eeda94aa5c6d289b114dfbc160
+// zh: 766 keys, sha256 53ccf75e1bd9690b6fdd07bbf837aca65b29b69005c7e8f52b5f59e22de74e9c
 // fixtureZh: 200 keys, sha256 1e991d8e98dbb072302e0cf0611f658b2de8d518b56c79b93f3680e30d6ad69e
 {
   "zh": {
@@ -464,10 +464,13 @@
     "playground.live.jevSource.decided": "判定模型已定分",
     "playground.live.jevSource.off": "判定模型已关闭",
     "playground.live.jevSource.error": "判定模型调用失败",
+    "playground.live.jevLegacy": "旧判分器的读数不再呈现。",
     "playground.live.cmpChannel": "通道",
     "playground.live.cmpReading": "读数",
     "playground.live.cmpJev": "判定模型读数",
     "playground.live.judgeBasis": "判定理由",
+    "playground.live.pointCheck": "要点逐条核对",
+    "playground.live.pointCheckAllOk": "逐条要点全部达标——本条未通过来自上方的整体读数（吻合度 / 支撑概率），不是哪一条要点造成的。",
     "playground.live.judgeVerdict": "判分结论",
     "playground.live.judgePass": "通过",
     "playground.live.judgeFail": "未通过",
