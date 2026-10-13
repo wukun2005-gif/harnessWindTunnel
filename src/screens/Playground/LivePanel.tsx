@@ -20,7 +20,7 @@ import type {
 import { buildRows, pickActiveRun, type ResultRow } from './resultOrder'
 import { ScoreReport } from './ScoreReport'
 import { Scorecard } from './Scorecard'
-import { jevReadingLine } from './channelText'
+import { altReadingLine, pickJudgeReading } from './channelText'
 import { moduleActivity, eventAttributions, type ModuleActivity } from './harnessModules'
 import type { ControlsSnapshot } from '../../../shared/playground'
 
@@ -1097,32 +1097,27 @@ function AnswerView({ detail, query }: { detail: RunDetail; query: string | null
 }
 
 /**
- * 详情页的判定读数区：显示这条 run 的判分方（主槽）读数。
- * `jevResult` 为 null 才表示"没有判分结论"（开关关闭或这条 run 没判过）；
- * 调用失败（source='error'）要显示报错，不能也归到"开关是关的"里去。
+ * 详情页的判定读数区：**只显示 mercury**（`inception/mercury-decide:free`），
+ * 旧读数的 source / model / reason / basis 一律不再呈现。
+ *
+ * 「取哪条读数」的逻辑与 Scorecard 共用 `pickJudgeReading`，两处不可能各说一套。
  */
 function JevReading({ detail }: { detail: RunDetail }) {
   const t = useT()
-  const jv = detail.jevResult
+  const picked = pickJudgeReading(detail.jevResult)
   return (
     <div style={{ display: 'grid', gap: 6 }}>
       <b style={{ color: 'var(--text)', fontSize: 12 }}>{t('playground.live.jevTitle')}</b>
-      {!jv ? (
+      {!picked ? (
         <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.jevOff')}</span>
       ) : (
         <>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="badge">{t(`playground.live.jevSource.${jv.source}`)}</span>
-            {jv.model && <span className="faint" style={{ fontSize: 11 }}>{jv.model}</span>}
-            {jv.latencyMs != null && <span className="faint" style={{ fontSize: 11 }}>{jv.latencyMs}ms</span>}
-            {jv.success != null && (
-              <span className="faint" style={{ fontSize: 11 }}>
-                {jv.success ? `✓ ${t('playground.live.judgePass')}` : `✗ ${t('playground.live.judgeFail')}`}
-              </span>
+            <span className="badge">{picked.model}</span>
+            {picked.reading.latencyMs != null && (
+              <span className="faint" style={{ fontSize: 11 }}>{picked.reading.latencyMs}ms</span>
             )}
           </div>
-          {jv.reason && <span className="faint" style={{ fontSize: 12 }}>{jv.reason}</span>}
-          {jv.error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{jv.error}</span>}
 
           {/* 判定模型的原始读数：它给出结论的依据，逐项原样回显。 */}
           <div
@@ -1136,25 +1131,8 @@ function JevReading({ detail }: { detail: RunDetail }) {
             }}
           >
             <span className="faint">{t('playground.live.cmpJev')}</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{jevReadingLine(jv)}</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{altReadingLine(picked.reading)}</span>
           </div>
-
-          {/* 判分依据：模型不写自由文本，这段是代码按我们写的准绳把上面读数翻出来的。 */}
-          {jv.basis && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'max-content minmax(0,1fr)',
-                columnGap: 10,
-                rowGap: 4,
-                fontSize: 12,
-                alignItems: 'baseline',
-              }}
-            >
-              <span className="faint">{t('playground.live.judgeBasis')}</span>
-              <span style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{jv.basis}</span>
-            </div>
-          )}
         </>
       )}
     </div>

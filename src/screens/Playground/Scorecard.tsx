@@ -10,7 +10,7 @@ import { api } from '../../api'
 import { useT } from '../../i18n'
 import type { PgPreset, RunDetail, RunSummary } from '../../../shared/playground'
 import { allSettled, buildRows } from './resultOrder'
-import { jevReadingLine } from './channelText'
+import { altReadingLine, pickJudgeReading } from './channelText'
 
 /** Same cadence as the run list, so the two never disagree about what is in flight. */
 const POLL_MS = 1500
@@ -103,9 +103,10 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
     {
       label: t('playground.live.cmpJev'),
       of: (k) => {
-        // 与详情页同一口径：读这条 run 判分方的主槽读数。
-        const j = detailOf(k)?.jevResult
-        return j ? jevReadingLine(j) : DASH
+        // 与详情页同一口径：只呈现判定模型（UI_JUDGE_MODEL）的读数。
+        // 旧读数不再显示，否则同一题在两处会写成两台不同的模型。
+        const picked = pickJudgeReading(detailOf(k)?.jevResult)
+        return picked ? altReadingLine(picked.reading) : DASH
       },
     },
     {
