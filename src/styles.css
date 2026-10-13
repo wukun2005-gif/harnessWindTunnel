@@ -445,6 +445,32 @@ input[type='range'] { accent-color: var(--accent); width: 130px; }
 .pg-align-thought { white-space: pre-wrap; max-width: 280px; }
 .pg-align-tools { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; }
 .pg-align-tag { font-size: 10px; color: var(--red); margin-top: 2px; }
+
+/* PRD F2-7 轨迹分叉 diff：分叉点高亮 + 字段级差异 + 分叉后各自路径 */
+.pg-fork-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-dim); }
+.pg-fork-run b { color: var(--text); }
+.pg-align tr.fork { background: rgba(220,38,38,.12); box-shadow: inset 3px 0 0 var(--red); }
+.pg-fork-badge { margin-top: 3px; font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: #fff; background: var(--red); border-radius: 3px; padding: 1px 4px; }
+.pg-fork-cell { width: 42%; }
+.pg-fork-legend { font-size: 10px; font-weight: 700; color: var(--red); margin-bottom: 2px; }
+.pg-fork-thought { white-space: pre-wrap; max-width: 340px; color: var(--text-dim); }
+.pg-fork-line { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
+.pg-fork-line.hot, .pg-fork-tag.hot { color: var(--red); font-weight: 600; }
+.pg-fork-tag { font-size: 10px; color: var(--red); margin-top: 2px; }
+.pg-fork-none { color: var(--text-faint); }
+.pg-tail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pg-tail { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+.pg-tail-head { font-size: 11px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+.pg-tail-none { font-size: 11px; color: var(--text-faint); }
+.pg-tail-step { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-top: 1px dashed var(--border); }
+.pg-tail-n { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); min-width: 16px; text-align: right; }
+.pg-cfgdiff { border-collapse: collapse; font-size: 11.5px; }
+.pg-cfgdiff th, .pg-cfgdiff td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
+.pg-cfgdiff th { background: var(--bg-panel2); font-weight: 600; color: var(--text-dim); }
+.pg-cfgdiff-field { color: var(--text-dim); white-space: nowrap; }
+.pg-cfgdiff-a { font-family: var(--mono); color: var(--violet); }
+.pg-cfgdiff-b { font-family: var(--mono); color: var(--accent); }
 .pg-empty { font-size: 12px; color: var(--text-faint); padding: 12px; text-align: center; }
 
 /* 演化 */
