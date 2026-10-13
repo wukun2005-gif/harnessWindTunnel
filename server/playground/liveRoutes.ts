@@ -19,9 +19,12 @@ import { getTask, loadEvalSet } from './evalset'
 import { PG_PRESETS, resolveConfig } from './presets'
 import { computeLiveMetrics } from './metrics'
 import { renderRunTxt } from './exportFormat'
-import { deleteRun, getRunDetail, importRun, listRuns } from './liveDb'
+import { deleteRun, getRunDetail, importRun, listRuns, relinkRun } from './liveDb'
+import { parseExternalImport } from './importFormat'
 import { createRun, dossierTexts, enqueueRun } from './runner'
+import { scoreAnswer } from './scorer'
 import { rougeAgainstReference } from './rouge'
+import { analyze, applyCard, rollbackTo, getEvoState, startGateVerify, startAutoEvolve, startTopRace } from './evolve'
 
 type RunDetailShape = NonNullable<ReturnType<typeof getRunDetail>>
 
@@ -119,19 +122,44 @@ function envelopeFor(runId: string): PlaygroundRunFile | { error: string } {
   }
 }
 
+const NO_NATIVE = 'NO_NATIVE_ENVELOPE'
+
 function parseEnvelopes(raw: string): PlaygroundRunFile[] {
   const trimmed = raw.trim()
-  if (!trimmed) throw new Error('空文件')
-  if (trimmed.startsWith('[')) {
-    const arr = JSON.parse(trimmed) as PlaygroundRunFile[]
-    if (!Array.isArray(arr)) throw new Error('JSON 数组格式不正确')
-    return arr
+  if (!trimmed) throw new Error('empty file')
+  // A single JSON document first (object or array).
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    let doc: unknown
+    try {
+      doc = JSON.parse(trimmed)
+    } catch {
+      doc = undefined // bracketed body that is not one JSON — JSONL below
+    }
+    if (doc !== undefined) {
+      if (Array.isArray(doc)) {
+        const rows = (doc as PlaygroundRunFile[]).filter((e) => e && e.kind === 'hwt-playground-run')
+        if (rows.length === 0) throw new Error(NO_NATIVE)
+        return rows
+      }
+      if ((doc as PlaygroundRunFile).kind === 'hwt-playground-run') return [doc as PlaygroundRunFile]
+      throw new Error(NO_NATIVE)
+    }
   }
-  if (!trimmed.startsWith('{')) throw new Error('仅支持 JSON / JSONL 导入（TXT 为只读报告格式）')
-  // Single JSON object, or JSONL (one envelope per line).
-  const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-  if (lines.length === 1) return [JSON.parse(lines[0]!) as PlaygroundRunFile]
-  return lines.map((l) => JSON.parse(l) as PlaygroundRunFile)
+  // JSONL: one JSON object per line, keep hwt envelopes.
+  const rows = trimmed
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        return JSON.parse(l) as PlaygroundRunFile
+      } catch {
+        return null
+      }
+    })
+    .filter((e): e is PlaygroundRunFile => e != null && e.kind === 'hwt-playground-run')
+  if (rows.length === 0) throw new Error(NO_NATIVE)
+  return rows
 }
 
 /**
@@ -145,23 +173,23 @@ const RUN_STRING_FIELDS = [
 ] as const
 
 function validateEnvelope(env: PlaygroundRunFile): string | null {
-  if (!env || typeof env !== 'object') return '不是合法的 JSON 对象'
-  if (env.kind !== 'hwt-playground-run') return '缺少 kind=hwt-playground-run'
-  if (env.schemaVersion !== 1) return `不支持的 schemaVersion：${String(env.schemaVersion)}`
+  if (!env || typeof env !== 'object') return 'not a valid JSON object'
+  if (env.kind !== 'hwt-playground-run') return 'missing kind=hwt-playground-run'
+  if (env.schemaVersion !== 1) return `unsupported schemaVersion: ${String(env.schemaVersion)}`
 
   const run = env.run as Record<string, unknown> | undefined
-  if (!run) return '缺少 run 对象'
+  if (!run) return 'missing the run object'
   for (const f of RUN_STRING_FIELDS) {
-    if (typeof run[f] !== 'string' || !(run[f] as string).trim()) return `run.${f} 缺失或不是非空字符串`
+    if (typeof run[f] !== 'string' || !(run[f] as string).trim()) return `run.${f} is missing or not a non-empty string`
   }
-  if (!run['config'] || typeof run['config'] !== 'object') return 'run.config 缺失（配置快照是必填项，不能猜）'
-  if (!Array.isArray(env.events)) return 'events 必须是数组（可以为空数组，不能缺省）'
+  if (!run['config'] || typeof run['config'] !== 'object') return 'run.config is missing (the config snapshot is required — it cannot be guessed)'
+  if (!Array.isArray(env.events)) return 'events must be an array (an empty array is fine, omitting it is not)'
 
   for (const ev of env.events ?? []) {
     const parsed = eventSchema.safeParse(ev)
     if (!parsed.success) {
       const issue = parsed.error.issues[0]
-      return `事件 ${(ev as { id?: string }).id ?? '?'} 校验失败：${issue ? `${issue.path.join('.')} ${issue.message}` : 'invalid event'}`
+      return `event ${(ev as { id?: string }).id ?? '?'} failed validation: ${issue ? `${issue.path.join('.')} ${issue.message}` : 'invalid event'}`
     }
   }
   return null
@@ -197,7 +225,7 @@ export async function handleLiveRoute(
   if (p === '/api/playground/runs' && method === 'POST') {
     const body = JSON.parse(await readBody(req)) as CreateRunsRequest
     if (!Array.isArray(body.taskIds) || body.taskIds.length === 0) {
-      send(res, 400, { ok: false, error: 'taskIds 不能为空' })
+      send(res, 400, { ok: false, error: 'taskIds must not be empty' })
       return true
     }
     const { config, mounts, presetId } = resolveConfig(body.presetId, body.config as HarnessConfig | undefined)
@@ -277,23 +305,46 @@ export async function handleLiveRoute(
 
   // POST /api/playground/import
   if (p === '/api/playground/import' && method === 'POST') {
-    let envelopes: PlaygroundRunFile[]
-    try {
-      envelopes = parseEnvelopes(await readBody(req))
-    } catch (err) {
-      send(res, 400, { ok: false, error: `导入解析失败：${(err as Error).message}` })
-      return true
-    }
+    const body = await readBody(req)
     const imported: string[] = []
-    for (const env of envelopes) {
-      const problem = validateEnvelope(env)
-      if (problem) {
-        send(res, 400, { ok: false, error: problem, imported })
+    let formats: string[] = []
+    let skipped = 0
+
+    // Native hwt envelopes first (validated), then external formats.
+    let native: PlaygroundRunFile[] | null = null
+    try {
+      native = parseEnvelopes(body)
+    } catch (err) {
+      if ((err as Error).message !== 'NO_NATIVE_ENVELOPE') {
+        send(res, 400, { ok: false, error: `import parse failed: ${(err as Error).message}` })
         return true
       }
-      imported.push(importRun({ run: env.run, events: env.events ?? [] }))
     }
-    send(res, 200, { ok: true, imported })
+
+    if (native) {
+      for (const env of native) {
+        const problem = validateEnvelope(env)
+        if (problem) {
+          send(res, 400, { ok: false, error: problem, imported })
+          return true
+        }
+        imported.push(importRun({ run: env.run, events: env.events ?? [] }))
+      }
+      formats = native.map(() => 'hwt')
+    } else {
+      let external
+      try {
+        external = parseExternalImport(body)
+      } catch (err) {
+        send(res, 400, { ok: false, error: `import parse failed: ${(err as Error).message}` })
+        return true
+      }
+      for (const item of external.items) imported.push(importRun(item))
+      formats = external.formats
+      skipped = external.skipped
+    }
+
+    send(res, 200, { ok: true, imported, formats, skipped })
     return true
   }
 
@@ -384,6 +435,138 @@ export async function handleLiveRoute(
     }
     enqueueRun(made.runId)
     send(res, 202, { ok: true, created: made, forkedFrom: src.runId })
+    return true
+  }
+
+  // POST /api/playground/runs/:id/rescore — link an imported run to a real eval
+  // task and score its answer with our own scorer. Until this succeeds the run
+  // stays unlinked and excluded from every aggregate.
+  const rescoreMatch = p.match(/^\/api\/playground\/runs\/([^/]+)\/rescore$/)
+  if (rescoreMatch && method === 'POST') {
+    const runId = decodeURIComponent(rescoreMatch[1]!)
+    const detail = getRunDetail(runId)
+    if (!detail) {
+      send(res, 404, { ok: false, error: 'run not found' })
+      return true
+    }
+    let body: { taskId?: string }
+    try {
+      body = JSON.parse(await readBody(req)) as { taskId?: string }
+    } catch {
+      send(res, 400, { ok: false, error: 'request body is not valid JSON' })
+      return true
+    }
+    const task = getTask(body.taskId ?? '')
+    if (!task) {
+      send(res, 404, { ok: false, error: `task not found: ${body.taskId ?? ''}` })
+      return true
+    }
+    const answer = detail.answer ?? ''
+    if (!answer.trim()) {
+      send(res, 400, { ok: false, error: 'this imported run has no final answer to score' })
+      return true
+    }
+    const verdict = scoreAnswer(task, answer)
+    relinkRun(runId, { id: task.id, title: task.title, domain: task.domain, split: task.split }, verdict)
+    send(res, 200, { ok: true, run: getRunDetail(runId) })
+    return true
+  }
+
+  // ── M4 evolution (PRISM) ─────────────────────────────────────────────────
+  // GET /api/playground/evolve — clusters, cards, generations, mutations
+  if (p === '/api/playground/evolve' && method === 'GET') {
+    send(res, 200, { ok: true, ...getEvoState() })
+    return true
+  }
+
+  // POST /api/playground/evolve — cluster + route + propose cards
+  if (p === '/api/playground/evolve' && method === 'POST') {
+    let body: { runIds?: string[] }
+    try {
+      body = JSON.parse(await readBody(req)) as { runIds?: string[] }
+    } catch {
+      send(res, 400, { ok: false, error: 'request body is not valid JSON' })
+      return true
+    }
+    const analysis = await analyze(Array.isArray(body.runIds) ? body.runIds : undefined)
+    send(res, 200, { ok: true, ...analysis, state: getEvoState() })
+    return true
+  }
+
+  // POST /api/playground/cards/:id/apply — falsify + approve + new version
+  const applyMatch = p.match(/^\/api\/playground\/cards\/([^/]+)\/apply$/)
+  if (applyMatch && method === 'POST') {
+    const cardId = decodeURIComponent(applyMatch[1]!)
+    let body: { mode?: 'manual' | 'auto'; autonomyLevel?: number }
+    try {
+      body = JSON.parse(await readBody(req)) as { mode?: 'manual' | 'auto'; autonomyLevel?: number }
+    } catch {
+      send(res, 400, { ok: false, error: 'request body is not valid JSON' })
+      return true
+    }
+    const result = await applyCard(cardId, {
+      mode: body.mode === 'auto' ? 'auto' : 'manual',
+      autonomyLevel: body.autonomyLevel ?? 0,
+    })
+    send(res, result.started ? 202 : result.ok ? 200 : 422, { ...result, state: getEvoState() })
+    return true
+  }
+
+  // POST /api/playground/generations/:id/rollback — repoint current version
+  const rollbackMatch = p.match(/^\/api\/playground\/generations\/([^/]+)\/rollback$/)
+  if (rollbackMatch && method === 'POST') {
+    const generationId = decodeURIComponent(rollbackMatch[1]!)
+    const out = rollbackTo(generationId)
+    send(res, out.ok ? 200 : 404, { ...out, state: getEvoState() })
+    return true
+  }
+
+  // POST /api/playground/mutations/:commitId/gate — §7.2④ held-out gate verify
+  // Body may carry §3.2 repeats / temperature; omitted → derived from temperature.
+  const gateMatch = p.match(/^\/api\/playground\/mutations\/([^/]+)\/gate$/)
+  if (gateMatch && method === 'POST') {
+    const commitId = decodeURIComponent(gateMatch[1]!)
+    let body: { repeats?: number; temperature?: number } = {}
+    try {
+      body = JSON.parse(await readBody(req)) as { repeats?: number; temperature?: number }
+    } catch {
+      body = {}
+    }
+    const out = startGateVerify(commitId, {
+      repeats: typeof body.repeats === 'number' ? body.repeats : undefined,
+      temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
+    })
+    send(res, out.ok ? 202 : 422, { ...out, state: getEvoState() })
+    return true
+  }
+
+  // POST /api/playground/evolve/race — §7.2④ top-N side-by-side Pareto race
+  if (p === '/api/playground/evolve/race' && method === 'POST') {
+    let body: { autonomyLevel?: number; topN?: number; repeats?: number } = {}
+    try {
+      body = JSON.parse(await readBody(req)) as { autonomyLevel?: number; topN?: number; repeats?: number }
+    } catch {
+      body = {}
+    }
+    const out = startTopRace({
+      autonomyLevel: body.autonomyLevel ?? 0,
+      topN: typeof body.topN === 'number' ? body.topN : undefined,
+      repeats: typeof body.repeats === 'number' ? body.repeats : undefined,
+    })
+    send(res, out.ok ? 202 : 422, { ...out, state: getEvoState() })
+    return true
+  }
+
+  // POST /api/playground/evolve/auto — continuous auto-evolution loop
+  if (p === '/api/playground/evolve/auto' && method === 'POST') {
+    let body: { autonomyLevel?: number }
+    try {
+      body = JSON.parse(await readBody(req)) as { autonomyLevel?: number }
+    } catch {
+      body = {}
+    }
+    const out = startAutoEvolve(body.autonomyLevel ?? 0)
+    send(res, out.ok ? 202 : 422, { ...out, state: getEvoState() })
     return true
   }
 

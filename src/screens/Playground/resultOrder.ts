@@ -50,7 +50,7 @@ export function allSettled(runs: RunSummary[]): boolean {
 export interface ResultRow {  taskId: string
   taskTitle: string
   domain: PgDomain
-  /** config key (preset id, or 'custom') → newest run under it, plus how many exist. */
+  /** configuration fingerprint → newest run under it, plus how many exist. */
   cells: Map<string, { run: RunSummary; count: number }>
 }
 
@@ -65,7 +65,10 @@ export function buildRows(runs: RunSummary[]): ResultRow[] {
   for (const [taskId, list] of byTask) {
     const cells = new Map<string, { run: RunSummary; count: number }>()
     for (const r of list) {
-      const key = r.presetId ?? 'custom'
+      // Keyed by configuration fingerprint, not by a display label: two runs of
+      // the same configuration must land in one column even when one of them
+      // carries no preset name.
+      const key = r.fingerprint
       const cur = cells.get(key)
       if (!cur) {
         cells.set(key, { run: r, count: 1 })

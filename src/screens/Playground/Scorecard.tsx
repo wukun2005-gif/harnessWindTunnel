@@ -5,6 +5,7 @@
 // "why", by putting the four readings (deterministic, ROUGE, Jev, LLM) side by
 // side for the same question. Comparing two configs off a single `score` is what
 // made the C1/G1 false negative look like a harness difference.
+import { fingerprint } from '../../../shared/config'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { api } from '../../api'
 import { useT } from '../../i18n'
@@ -51,11 +52,23 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
   }
 
   // The newest run per config, in preset order — the same cells the matrix shows.
+  // Columns are the configuration identities; the display name comes from the
+  // run itself so this card can never invent a name the run list does not use.
   const { map, order, title, taskId } = useMemo(() => {
     const row = buildRows(runs)[0]
     const cells = row?.cells ?? new Map<string, { run: RunSummary; count: number }>()
-    const cols: string[] = presets.map((p) => p.id).filter((id) => cells.has(id))
-    if (cells.has('custom')) cols.push('custom')
+    const rank = new Map(presets.map((p, i) => [fingerprint(p.config), i]))
+    const cols = [...cells.keys()]
+      .map((k) => ({
+        key: k,
+        label: cells.get(k)!.run.configLabel,
+        title: cells.get(k)!.run.configTitle,
+      }))
+      .sort((a, b) => {
+        const ra = rank.get(a.key) ?? 99
+        const rb = rank.get(b.key) ?? 99
+        return ra !== rb ? ra - rb : a.label.localeCompare(b.label)
+      })
     return { map: cells, order: cols, title: row?.taskTitle ?? '', taskId: row?.taskId ?? '' }
   }, [runs, presets])
 
@@ -63,7 +76,7 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
   // Keyed by run ids so the list's 1.5s poll does not trigger a refetch — but a run
   // that is still in flight is polled until it settles, because its detail carries no
   // answer/verdict/ROUGE yet and one fetch would freeze that empty snapshot forever.
-  const ids = order.map((k) => map.get(k)!.run.runId).join(',')
+  const ids = order.map((c) => map.get(c.key)!.run.runId).join(',')
   useEffect(() => {
     if (!ids) return
     let live = true
@@ -171,12 +184,12 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
             }}
           >
             <span />
-            {order.map((k) => {
-              const s = summaryOf(k)!
-              const c = map.get(k)!.count
+            {order.map((col) => {
+              const s = summaryOf(col.key)!
+              const c = map.get(col.key)!.count
               return (
-                <span key={k} style={{ textAlign: 'right', fontSize: 11, whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                  <b style={{ color: 'var(--text)' }}>{k}</b>
+                <span key={col.key} title={col.title ?? undefined} style={{ textAlign: 'right', fontSize: 11, whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                  <b style={{ color: 'var(--text)' }}>{col.label}</b>
                   <span className="faint">{shortTime(s.createdAt)}</span>
                   <span className="faint" style={{ fontFamily: 'var(--mono)', fontSize: 10 }}>{s.model}</span>
                   {c > 1 && <span className="faint" title={t('playground.live.latestOf', { count: c })}> ×{c}</span>}
@@ -189,9 +202,9 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
                 <span className="faint" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
                   {ln.label}
                 </span>
-                {order.map((k) => (
-                  <span key={k} style={{ fontFamily: 'var(--mono)', fontSize: 11, textAlign: 'right', wordBreak: 'break-word' }}>
-                    {ln.of(k)}
+                {order.map((col) => (
+                  <span key={col.key} style={{ fontFamily: 'var(--mono)', fontSize: 11, textAlign: 'right', wordBreak: 'break-word' }}>
+                    {ln.of(col.key)}
                   </span>
                 ))}
               </Fragment>

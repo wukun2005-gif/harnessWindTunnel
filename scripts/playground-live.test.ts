@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { resolve, join } from 'node:path'
 import { readFileSync } from 'node:fs'
-import { cfg, BASE_CONFIG, type HarnessConfig } from '../shared/config'
+import { cfg, fingerprint, BASE_CONFIG, type HarnessConfig } from '../shared/config'
 import { event as eventSchema, AUTHOR } from '../shared/events'
 import {
   controlsSnapshot,
@@ -46,6 +46,7 @@ import {
   useLiveDbPath,
 } from '../server/playground/liveDb'
 import { DEFAULT_JEV_SETTINGS } from '../shared/jev'
+import { computeLiveMetrics } from '../server/playground/metrics'
 import { KILL_CHAIN } from '../shared/redteam'
 import { keyTerms, supportOf, UNREACHABLE } from '../server/playground/assertionSupport'
 import { runtimeVerifyCitations, dossierTexts } from '../server/playground/runner'
@@ -585,6 +586,129 @@ test('an in-flight run cannot be deleted, and deleting an unknown run says so', 
   const missing = deleteRun('r-nope')
   assert.equal(missing.deleted, false)
   assert.equal(missing.reason, 'not-found')
+})
+
+// ── lift vs C0 (pairing must not launder task selection into a "lift") ──────
+
+/** Insert a scored run under an explicit fingerprint, bypassing the shared helper. */
+function scoredRun(
+  runId: string,
+  taskId: string,
+  domain: EvalTask['domain'],
+  presetId: 'C0' | 'C1' | 'C2' | 'C3' | null,
+  config: HarnessConfig,
+  success: boolean,
+  seq = 0,
+): void {
+  insertRun({
+    runId,
+    scenarioId: 'sc',
+    taskId,
+    taskTitle: taskId,
+    domain,
+    split: 'scorecard',
+    presetId,
+    fingerprint: fingerprint(config),
+    config,
+    mounts: {},
+    provider: null,
+    temperature: 0.2,
+    seed: null,
+    maxTokens: null,
+    source: 'live',
+    materials: null,
+    createdAt: new Date(Date.UTC(2026, 0, 1, 0, seq)).toISOString(),
+  })
+  patchRun(runId, { status: 'scored', answer: 'a', tokens: 100, latencyMs: 10, success })
+}
+
+test('lift vs C0 is paired per task, so a task set C0 never ran cannot become an improvement', () => {
+  useLiveDbPath(':memory:')
+  const c1 = PG_PRESETS.find((p) => p.id === 'C1')!.config
+
+  // C0 runs all four tasks: it wins t1/t2 and loses t3/t4.
+  scoredRun('b1', 't1', 'general', 'C0', cfg(), true, 1)
+  scoredRun('b2', 't2', 'general', 'C0', cfg(), true, 2)
+  scoredRun('b3', 't3', 'general', 'C0', cfg(), false, 3)
+  scoredRun('b4', 't4', 'general', 'C0', cfg(), false, 4)
+  // C1 only ever ran the two tasks C0 is good at, and did no better on either.
+  scoredRun('a1', 't1', 'general', 'C1', c1, true, 5)
+  scoredRun('a2', 't2', 'general', 'C1', c1, true, 6)
+
+  const m = computeLiveMetrics()
+  const c0 = m.groups.find((g) => g.fingerprint === fingerprint(cfg()))!
+  const cand = m.groups.find((g) => g.fingerprint === fingerprint(c1))!
+
+  assert.equal(c0.successRate, 50)
+  assert.equal(cand.successRate, 100)
+  assert.equal(cand.runs, 2)
+  assert.equal(cand.distinctTasks, 2)
+
+  // 100% − 50% reads as "+50 pp", but head-to-head on the 2 shared tasks both
+  // configs are at 100%, so the lift is zero. Reporting +50 here would credit
+  // the config for the tasks C0 was never asked.
+  assert.equal(cand.liftVsC0Pp, 0)
+  assert.equal(cand.liftPairedTasks, 2)
+  assert.equal(c0.liftVsC0Pp, null, 'the baseline has nothing to be lifted against')
+})
+
+test('a repeated task counts once in the lift, and the baseline averages its own repeats', () => {
+  useLiveDbPath(':memory:')
+  const c1 = PG_PRESETS.find((p) => p.id === 'C1')!.config
+
+  // C0 ran t1 four times with mixed outcomes and t2 once, failing.
+  scoredRun('b1', 't1', 'general', 'C0', cfg(), true, 1)
+  scoredRun('b2', 't1', 'general', 'C0', cfg(), false, 2)
+  scoredRun('b3', 't1', 'general', 'C0', cfg(), true, 3)
+  scoredRun('b4', 't1', 'general', 'C0', cfg(), false, 4)
+  scoredRun('b5', 't2', 'general', 'C0', cfg(), false, 5)
+  // C1 ran t1 once and won, t2 once and lost: same task-level rates as C0.
+  scoredRun('a1', 't1', 'general', 'C1', c1, true, 6)
+  scoredRun('a2', 't2', 'general', 'C1', c1, false, 7)
+
+  const cand = computeLiveMetrics().groups.find((g) => g.fingerprint === fingerprint(c1))!
+
+  // t1 → C0 2/4 = 50%, C1 100%. t2 → C0 0%, C1 0%. Mean delta = +25 pp.
+  // Keeping the last C0 row per task as the reference, or weighting t1 by how
+  // many times C1 re-ran it, both produce a different and wrong answer.
+  assert.equal(cand.liftVsC0Pp, 25)
+  assert.equal(cand.liftPairedTasks, 2)
+})
+
+test('the C0 baseline uses every run of the C0 configuration, including untagged re-runs', () => {
+  useLiveDbPath(':memory:')
+  const c1 = PG_PRESETS.find((p) => p.id === 'C1')!.config
+
+  scoredRun('b1', 't1', 'general', 'C0', cfg(), true, 1)
+  scoredRun('b2', 't2', 'general', 'C0', cfg(), false, 2)
+  // Same configuration, no preset tag — the run list and the C0 row both show
+  // it, so the lift cannot be measured against a rate that omits it.
+  scoredRun('b3', 't1', 'general', null, cfg(), false, 3)
+
+  scoredRun('a1', 't1', 'general', 'C1', c1, true, 4)
+  scoredRun('a2', 't2', 'general', 'C1', c1, true, 5)
+
+  const m = computeLiveMetrics()
+  const c0 = m.groups.find((g) => g.fingerprint === fingerprint(cfg()))!
+  const cand = m.groups.find((g) => g.fingerprint === fingerprint(c1))!
+
+  assert.equal(c0.runs, 3, 'the C0 row counts all three runs of that configuration')
+  assert.equal(c0.successRate, 33.3, '…and the rate printed in that row is the one behind the lift')
+  // t1 → C0 1/2 = 50%, C1 100%. t2 → C0 0%, C1 100%. Mean delta = +75 pp.
+  assert.equal(cand.liftVsC0Pp, 75)
+  assert.equal(cand.liftPairedTasks, 2)
+})
+
+test('lift stays empty when a config shares too few tasks with C0', () => {
+  useLiveDbPath(':memory:')
+  const c1 = PG_PRESETS.find((p) => p.id === 'C1')!.config
+
+  scoredRun('b1', 't1', 'general', 'C0', cfg(), false, 1)
+  scoredRun('a1', 't1', 'general', 'C1', c1, true, 2)
+
+  const cand = computeLiveMetrics().groups.find((g) => g.fingerprint === fingerprint(c1))!
+  assert.equal(cand.liftVsC0Pp, null, 'one shared task cannot support a comparison')
+  assert.equal(cand.liftPairedTasks, null)
 })
 
 // ── 注入陷阱运行时拼入 ─────────────────────────────────────────────────────

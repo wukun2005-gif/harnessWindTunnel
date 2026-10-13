@@ -12,18 +12,26 @@ import { JEV_POINT_STATE_LABEL } from '../../../shared/jev'
 import type { HarnessEvent } from '../../../shared/events'
 import type {
   EvalTask,
+  LiveMetrics,
   PgDomain,
   PgPreset,
   RunDetail,
   RunSummary,
   RunTargets,
+  RunsQuery,
 } from '../../../shared/playground'
+import { fingerprint } from '../../../shared/config'
 import { buildRows, pickActiveRun, type ResultRow } from './resultOrder'
 import { ScoreReport } from './ScoreReport'
 import { Scorecard } from './Scorecard'
 import { isUiJudgeModel, pickUiJudgeReading, uiJudgeReadingLine } from './channelText'
 import { moduleActivity, eventAttributions, type ModuleActivity } from './harnessModules'
-import type { ControlsSnapshot } from '../../../shared/playground'
+import { ImportBar } from './ImportBar'
+import { SearchBar } from './SearchBar'
+import { BulkToolbar } from './BulkToolbar'
+import { MetricsPanel } from './MetricsPanel'
+import { ComparePanel } from './ComparePanel'
+import { RescoreImport } from './RescoreImport'
 
 const DOMAINS: PgDomain[] = ['general', 'legal', 'security']
 const POLL_MS = 1500
@@ -34,6 +42,31 @@ const POLL_MS = 1500
 const PICKED_KEY = 'hwt-playground-picked'
 const PRESET_KEY = 'hwt-playground-preset'
 const FILTER_KEY = 'hwt-playground-filter'
+/** Collapsed/expanded state of the three M3 review sections, persisted. */
+const SECTIONS_KEY = 'hwt-playground-sections'
+
+function loadFilters(): RunsQuery {
+  // Back-compat: FILTER_KEY used to hold a bare preset id string.
+  try {
+    const raw = localStorage.getItem(FILTER_KEY)
+    if (raw != null) {
+      if (raw.trim().startsWith('{')) {
+        const parsed = JSON.parse(raw) as RunsQuery
+        return { limit: 1000, ...parsed }
+      }
+      return { limit: 1000, presetId: (raw.trim() || undefined) as RunsQuery['presetId'] }
+    }
+  } catch { /* fall through */ }
+  return { limit: 1000 }
+}
+
+function loadSections(): { search: boolean; metrics: boolean; compare: boolean } {
+  try {
+    const raw = localStorage.getItem(SECTIONS_KEY)
+    if (raw) return { search: false, metrics: false, compare: false, ...(JSON.parse(raw) as object) }
+  } catch { /* defaults */ }
+  return { search: false, metrics: false, compare: false }
+}
 
 function loadPicked(): string[] {
   try {
@@ -121,14 +154,21 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   )
   const [runs, setRuns] = useState<RunSummary[] | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
-  /** '' = 全部配置。列表里每条都带配置标签，不筛就分不出同一题跑过哪几套。 */
-  const [filterPreset, setFilterPreset] = useState<string>(() => loadString(FILTER_KEY, ''))
+  /** Full search/review query (domain/source/status/tag/model/preset/date). */
+  const [filters, setFilters] = useState<RunsQuery>(() => loadFilters())
+  const [metrics, setMetrics] = useState<LiveMetrics | null>(null)
+  const [sections, setSections] = useState(loadSections)
+  /** Run ids ticked for bulk export (matrix cell checkbox). */
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   /** runIds created by the last 跑 click, so the panel can say how far that batch got. */
-  const [batch, setBatch] = useState<string[]>([]) 
+  const [batch, setBatch] = useState<string[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const toggleSection = (k: keyof typeof sections) =>
+    setSections((prev) => ({ ...prev, [k]: !prev[k] }))
 
   // Nothing is pre-ticked: which questions to run is the user's call. Saved ids
   // are re-validated against the loaded set so a question that no longer exists
@@ -148,7 +188,16 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   }, [picked])
 
   useEffect(() => { saveString(PRESET_KEY, presetId) }, [presetId])
-  useEffect(() => { saveString(FILTER_KEY, filterPreset) }, [filterPreset])
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_KEY, JSON.stringify(filters))
+    } catch { /* ignore */ }
+  }, [filters])
+  useEffect(() => {
+    try {
+      localStorage.setItem(SECTIONS_KEY, JSON.stringify(sections))
+    } catch { /* ignore */ }
+  }, [sections])
 
   // A saved config that no longer exists would leave the <select> with no matching
   // option, so validate against what the server actually offers.
@@ -156,7 +205,11 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
     if (presets.length === 0) return
     const first = presets[0]!.id
     setPresetId((cur) => (presets.some((p) => p.id === cur) ? cur : first))
-    setFilterPreset((cur) => (cur === '' || presets.some((p) => p.id === cur) ? cur : ''))
+    setFilters((cur) => {
+      const pid = cur.presetId
+      if (!pid || presets.some((p) => p.id === pid)) return cur
+      return { ...cur, presetId: undefined }
+    })
   }, [presets])
 
   useEffect(() => {
@@ -175,18 +228,20 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   }, [])
 
   const refresh = useCallback(() => {
+    const q: Record<string, string> = { limit: String(filters.limit ?? 1000) }
+    for (const [k, v] of Object.entries(filters)) {
+      if (k === 'limit' || v == null || v === '') continue
+      q[k] = String(v)
+    }
     api
-      // 200 was a silent ceiling: past it the list froze at the newest 200 runs
-      // and the per-config counts were computed over that slice only, so a run
-      // full-test looked like it had stopped. 1000 covers the 45-question matrix
-      // with re-runs and the audit-kept rejected runs on top.
-      .pgRuns({ limit: '1000', presetId: filterPreset || undefined })
+      .pgRuns(q)
       .then((r) => {
         setRuns(r)
         setActiveId((cur) => pickActiveRun(r, cur))
       })
       .catch(() => setRuns([]))
-  }, [filterPreset])
+    api.pgMetrics().then(setMetrics).catch(() => setMetrics(null))
+  }, [filters])
 
   useEffect(() => {
     setActiveId(null)
@@ -283,10 +338,38 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div className="panel" style={{ display: 'grid', gap: 10 }}>
-        <div>
-          <b style={{ color: 'var(--text)' }}>{t('playground.live.title')}</b>
-          <div className="faint" style={{ fontSize: 12 }}>{t('playground.live.desc')}</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <b style={{ color: 'var(--text)' }}>{t('playground.live.title')}</b>
+            <div className="faint" style={{ fontSize: 12 }}>{t('playground.live.desc')}</div>
+          </div>
+          <ImportBar onImported={refresh} />
         </div>
+
+        {/* 检索 / 复盘表单 */}
+        <div className="pg-section-head" onClick={() => toggleSection('search')}>
+          <span>{sections.search ? '▾' : '▸'} Search / review</span>
+          <span className="faint" style={{ fontSize: 11 }}>
+            Domain / source / status / failure tag / model / time
+          </span>
+        </div>
+        {sections.search && (
+          <SearchBar filters={filters} setFilters={setFilters} resultCount={(runs ?? []).length} />
+        )}
+
+        {/* 指标区：聚合表 + 失败×配置 + Pareto + 模型×Harness */}
+        <div className="pg-section-head" onClick={() => toggleSection('metrics')}>
+          <span>{sections.metrics ? '▾' : '▸'} Metrics / matrices</span>
+          <span className="faint" style={{ fontSize: 11 }}>Success rate · lift · failure mode × config · Pareto · model × harness</span>
+        </div>
+        {sections.metrics && <MetricsPanel runs={runs ?? []} metrics={metrics} />}
+
+        {/* 轨迹分叉对比：同任务双配置逐步对齐 + 失败模式转移 */}
+        <div className="pg-section-head" onClick={() => toggleSection('compare')}>
+          <span>{sections.compare ? '▾' : '▸'} Trajectory divergence</span>
+          <span className="faint" style={{ fontSize: 11 }}>Same task, two configs, step-aligned · failure-mode transfer</span>
+        </div>
+        {sections.compare && <ComparePanel runs={runs ?? []} />}
 
         {usable.length === 0 && <div className="warn">{t('playground.live.noProvider')}</div>}
         {usable.length > 0 && targets?.kb && !targets.kb.ready && <div className="warn">{t('playground.live.kbNotReady')}</div>}
@@ -430,13 +513,27 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
         )}
       </div>
 
+      <BulkToolbar
+        selected={[...selected]}
+        onClear={() => setSelected(new Set())}
+        onChanged={refresh}
+      />
       <ResultMatrix
         runs={runs ?? []}
         activeId={activeId}
         onPick={setActiveId}
         presets={presets}
-        filterPreset={filterPreset}
-        onFilter={setFilterPreset}
+        filterFingerprint={filters.fingerprint ?? ''}
+        onFilter={(fp) => setFilters((cur) => ({ ...cur, fingerprint: fp || undefined }))}
+        selected={selected}
+        onToggle={(id) =>
+          setSelected((cur) => {
+            const next = new Set(cur)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+          })
+        }
       />
       {/* One question, all configs side by side. Sits above the detail because the
           detail is the drill-down and this is the comparison. */}
@@ -445,7 +542,12 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
       )}
 
       {activeId && (
-        <RunDetailView runId={activeId} tasks={tasks} onDeleted={() => { setActiveId(null); refresh() }} />
+        <RunDetailView
+          runId={activeId}
+          tasks={tasks}
+          onDeleted={() => { setActiveId(null); refresh() }}
+          onChanged={refresh}
+        />
       )}
     </div>
   )
@@ -466,15 +568,20 @@ function ResultMatrix({
   activeId,
   onPick,
   presets,
-  filterPreset,
+  filterFingerprint,
   onFilter,
+  selected,
+  onToggle,
 }: {
   runs: RunSummary[]
   activeId: string | null
   onPick: (id: string) => void
   presets: PgPreset[]
-  filterPreset: string
-  onFilter: (id: string) => void
+  /** Selected configuration, identified by fingerprint (stable, not a label). */
+  filterFingerprint: string
+  onFilter: (fingerprint: string) => void
+  selected: Set<string>
+  onToggle: (id: string) => void
 }) {
   const t = useT()
   const rows = useMemo(() => buildRows(runs), [runs])
@@ -508,36 +615,49 @@ function ResultMatrix({
       return next
     })
 
+  // Everything below is keyed by configuration fingerprint, so a configuration
+  // is one column / one count no matter which code path created the run.
+  const presetFp = new Map(presets.map((p) => [p.id, fingerprint(p.config)]))
+
   const counts = new Map<string, { total: number; passed: number }>()
   for (const r of runs) {
-    const k = r.presetId ?? 'custom'
-    const cur = counts.get(k) ?? { total: 0, passed: 0 }
+    const cur = counts.get(r.fingerprint) ?? { total: 0, passed: 0 }
     cur.total++
     if (r.success === true) cur.passed++
-    counts.set(k, cur)
+    counts.set(r.fingerprint, cur)
   }
 
-  // Only configs that actually produced a run get a column, in preset order.
-  const used = new Set<string>()
-  for (const r of runs) used.add(r.presetId ?? 'custom')
-  const cols: string[] = presets.map((p) => p.id).filter((id) => used.has(id))
-  if (used.has('custom')) cols.push('custom')
+  // Only configs that actually produced a run get a column, in preset order;
+  // anything else (an evolved configuration) follows, ordered by its name.
+  const colMap = new Map<string, { key: string; label: string; title: string | null }>()
+  for (const r of runs) {
+    if (!colMap.has(r.fingerprint)) {
+      colMap.set(r.fingerprint, { key: r.fingerprint, label: r.configLabel, title: r.configTitle })
+    }
+  }
+  const presetRank = new Map(presets.map((p, i) => [fingerprint(p.config), i]))
+  const cols = [...colMap.values()].sort((a, b) => {
+    const ra = presetRank.get(a.key) ?? 99
+    const rb = presetRank.get(b.key) ?? 99
+    return ra !== rb ? ra - rb : a.label.localeCompare(b.label)
+  })
   const tmpl = `minmax(190px, 1fr) repeat(${Math.max(cols.length, 1)}, 96px)`
 
   return (
     <div className="panel" style={{ display: 'grid', gap: 8 }}>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
         <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.runList')}</span>
-        <button className={`chip ${filterPreset === '' ? 'on' : ''}`} onClick={() => onFilter('')}>
+        <button className={`chip ${filterFingerprint === '' ? 'on' : ''}`} onClick={() => onFilter('')}>
           {t('playground.live.filterAll')} ({runs.length})
         </button>
         {presets.map((pr) => {
-          const c = counts.get(pr.id)
+          const fp = presetFp.get(pr.id) ?? ''
+          const c = counts.get(fp)
           return (
             <button
               key={pr.id}
-              className={`chip ${filterPreset === pr.id ? 'on' : ''}`}
-              onClick={() => onFilter(filterPreset === pr.id ? '' : pr.id)}
+              className={`chip ${filterFingerprint === fp ? 'on' : ''}`}
+              onClick={() => onFilter(filterFingerprint === fp ? '' : fp)}
               title={pr.summary}
             >
               {pr.id}
@@ -564,8 +684,13 @@ function ResultMatrix({
           <div style={{ display: 'grid', gridTemplateColumns: tmpl, gap: 6, alignItems: 'stretch' }}>
             <span className="faint" style={{ fontSize: 11 }}>{t('playground.live.pickTasks')}</span>
             {cols.map((c) => (
-              <span key={c} className="faint" style={{ fontSize: 11, textAlign: 'center' }}>
-                {c}
+              <span
+                key={c.key}
+                className="faint"
+                style={{ fontSize: 11, textAlign: 'center' }}
+                title={c.title ?? undefined}
+              >
+                {c.label}
               </span>
             ))}
 
@@ -627,13 +752,15 @@ function ResultMatrix({
                     </span>
                   </div>,
                   ...cols.map((c) => {
-                    const cell = row.cells.get(c) ?? null
+                    const cell = row.cells.get(c.key) ?? null
                     return (
                       <ResultCell
-                        key={`${row.taskId}-${c}`}
+                        key={`${row.taskId}-${c.key}`}
                         cell={cell}
                         active={cell?.run.runId === activeId}
                         onPick={onPick}
+                        selected={cell ? selected.has(cell.run.runId) : false}
+                        onToggle={onToggle}
                       />
                     )
                   }),
@@ -651,10 +778,14 @@ function ResultCell({
   cell,
   active,
   onPick,
+  selected,
+  onToggle,
 }: {
   cell: { run: RunSummary; count: number } | null
   active: boolean
   onPick: (id: string) => void
+  selected: boolean
+  onToggle: (id: string) => void
 }) {
   const t = useT()
   if (!cell) {
@@ -687,11 +818,13 @@ function ResultCell({
   const fg = errored || failed ? 'var(--red)' : passed ? 'var(--green)' : 'var(--text-dim)'
   const mark = errored ? '!' : run.success == null ? '·' : passed ? '✓' : '✗'
   const title = [
-    run.presetId ?? 'custom',
+    run.configLabel,
     t(`playground.live.status.${run.status}`),
     runTime(run.createdAt),
     run.score != null ? `score ${run.score.toFixed(2)}` : null,
     run.tokens != null ? t('playground.live.tokenCost', { tokens: run.tokens, ms: run.latencyMs ?? 0 }) : null,
+    // L3 USD cost from the provider×model price table; omitted when unpriced.
+    run.costUsd != null ? `$${run.costUsd < 0.01 ? run.costUsd.toFixed(4) : run.costUsd.toFixed(2)}` : null,
     run.hasTrajectory ? t('playground.live.withTrajectory') : t('playground.live.metricsOnly'),
     count > 1 ? t('playground.live.latestOf', { count }) : null,
     run.source === 'imported' ? t('playground.live.imported') : null,
@@ -704,6 +837,7 @@ function ResultCell({
       onClick={() => onPick(run.runId)}
       title={title}
       style={{
+        position: 'relative',
         minHeight: 34,
         display: 'flex',
         flexDirection: 'column',
@@ -716,7 +850,7 @@ function ResultCell({
         textAlign: 'center',
         background: bg,
         color: fg,
-        border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+        border: active ? '1px solid var(--accent)' : selected ? '1px solid var(--violet)' : '1px solid var(--border)',
         // 出错的格子左侧压一道红条，别和正常结果混在一起看不出来
         borderLeft: errored ? '3px solid var(--red)' : undefined,
         opacity: pending ? 0.7 : 1,
@@ -724,6 +858,14 @@ function ResultCell({
         fontWeight: 600,
       }}
     >
+      <input
+        type="checkbox"
+        checked={selected}
+        onClick={(e) => e.stopPropagation()}
+        onChange={() => onToggle(run.runId)}
+        title="Add to the bulk export selection"
+        style={{ position: 'absolute', top: 2, right: 2, width: 11, height: 11, flex: 'none' }}
+      />
       <span>{mark}</span>
       {run.score != null && (
         <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.85 }}>{run.score.toFixed(2)}</span>
@@ -741,10 +883,12 @@ function RunDetailView({
   runId,
   tasks,
   onDeleted,
+  onChanged,
 }: {
   runId: string
   tasks: EvalTask[]
   onDeleted: () => void
+  onChanged: () => void
 }) {
   const t = useT()
   const [detail, setDetail] = useState<RunDetail | null>(null)
@@ -752,6 +896,8 @@ function RunDetailView({
   const [tab, setTab] = useState<'trajectory' | 'answer' | 'security'>('trajectory')
   const [deleting, setDeleting] = useState(false)
   const [delErr, setDelErr] = useState<string | null>(null)
+  /** Bump to re-fetch the detail after a rescore / mutation. */
+  const [nonce, setNonce] = useState(0)
 
   /**
    * Delete this run. Confirmation names the task and config so the dialog says
@@ -764,7 +910,7 @@ function RunDetailView({
     if (!detail || deleting) return
     if (!window.confirm(t('playground.live.deleteConfirm', {
       task: detail.taskId,
-      preset: detail.presetId ?? 'custom',
+      preset: detail.configLabel,
       n: detail.events.length,
     }))) return
     setDeleting(true)
@@ -802,7 +948,7 @@ function RunDetailView({
       live = false
       if (timer) clearTimeout(timer)
     }
-  }, [runId])
+  }, [runId, nonce])
 
   if (trajErr) {
     return (
@@ -819,7 +965,7 @@ function RunDetailView({
         <code>{detail.taskId}</code>
         <b style={{ color: 'var(--text)', fontSize: 13 }}>{detail.taskTitle}</b>
         <span className="faint" style={{ fontSize: 11 }}>
-          {detail.presetId ?? 'custom'} · {detail.fingerprint.slice(0, 10)} · ladder {detail.configVersion.ladderRung}
+          {detail.configLabel} · {detail.fingerprint.slice(0, 10)} · ladder {detail.configVersion.ladderRung}
         </span>
         {/* When this run happened. Without it there is no way to tell a result from
             ten minutes ago from one from last week. */}
@@ -866,7 +1012,12 @@ function RunDetailView({
         ))}
 
       {tab === 'answer' && (
-        <AnswerView detail={detail} query={tasks.find((x) => x.id === detail.taskId)?.query ?? null} />
+        <AnswerView
+          detail={detail}
+          tasks={tasks}
+          query={tasks.find((x) => x.id === detail.taskId)?.query ?? null}
+          onRescored={() => { setNonce((n) => n + 1); onChanged() }}
+        />
       )}
 
       {tab === 'security' && <SecurityView detail={detail} />}
@@ -1058,11 +1209,23 @@ function summarizeEvent(e: HarnessEvent): string {
  * used to appear nowhere in the run detail at all — the trajectory only records
  * the task id — so there was no way to read what was asked next to what came back.
  */
-function AnswerView({ detail, query }: { detail: RunDetail; query: string | null }) {
+function AnswerView({
+  detail,
+  tasks,
+  query,
+  onRescored,
+}: {
+  detail: RunDetail
+  tasks: EvalTask[]
+  query: string | null
+  onRescored: () => void
+}) {
   const t = useT()
   const v = detail.verdict
+  const unlinked = detail.source === 'imported' && detail.taskId === 'IMPORTED'
   return (
     <div style={{ display: 'grid', gap: 8 }}>
+      {unlinked && <RescoreImport runId={detail.runId} tasks={tasks} onRescored={onRescored} />}
       <div style={{ display: 'grid', gap: 4 }}>
         <b style={{ color: 'var(--text)', fontSize: 12 }}>{t('playground.live.question')}</b>
         <div
@@ -1201,16 +1364,16 @@ function JevReading({ detail }: { detail: RunDetail }) {
                   >
                     <span style={bad ? { color: 'var(--red)' } : undefined}>
                       {bad ? '✗ ' : ''}
-                      {i + 1}. 「{pt.label}」→{' '}
+                      {i + 1}. "{pt.label}" →{' '}
                       <b>{JEV_POINT_STATE_LABEL[pt.state ?? ''] ?? pt.state ?? '—'}</b>
                       {pt.stateConfidence != null && (
-                        <span className={bad ? undefined : 'faint'}>（{Math.round(pt.stateConfidence * 100)}%）</span>
+                        <span className={bad ? undefined : 'faint'}>({Math.round(pt.stateConfidence * 100)}%)</span>
                       )}
-                      {pt.paragraph != null ? ` · 答复第 ${pt.paragraph} 段` : ' · 答复里没有对应段落'}
+                      {pt.paragraph != null ? ` · answer paragraph ${pt.paragraph}` : ' · no matching paragraph in the answer'}
                     </span>
                     {pt.paragraphText && (
                       <span className="faint" style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>
-                        「{pt.paragraphText}」
+                        "{pt.paragraphText}"
                       </span>
                     )}
                   </div>

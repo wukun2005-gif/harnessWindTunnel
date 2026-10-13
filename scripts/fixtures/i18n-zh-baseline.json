@@ -1,7 +1,7 @@
 // Frozen snapshot of the Chinese dictionaries (zh + fixtureZh).
 // Used by scripts/i18n.test.ts: any intentional Chinese copy change must
 // regenerate this file; unintentional drift fails the test.
-// zh: 766 keys, sha256 53ccf75e1bd9690b6fdd07bbf837aca65b29b69005c7e8f52b5f59e22de74e9c
+// zh: 767 keys, sha256 46aad9519fb02772f2e7da02f9ef348ad1ee48624fdddb59675ca9dd5361b325
 // fixtureZh: 200 keys, sha256 1e991d8e98dbb072302e0cf0611f658b2de8d518b56c79b93f3680e30d6ad69e
 {
   "zh": {
@@ -291,6 +291,7 @@
     "playground.tab.batch": "一键实测",
     "playground.batch.title": "一键全测",
     "playground.tab.analysis": "分析",
+    "playground.tab.evolve": "自演化（PRISM）",
     "playground.analysis.title": "复核分析",
     "playground.analysis.desc": "只回答一个问题：这个 harness 里该不该启用 Jev。指标映射判定线。",
     "playground.analysis.batch": "批次：",

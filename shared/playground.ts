@@ -282,9 +282,31 @@ export type RunStatus = 'queued' | 'running' | 'scored' | 'error'
 export type RunSource = 'live' | 'imported'
 export type LadderRung = 'bare' | 'soft-cn' | 'soft-us' | 'hard'
 
+/** Search / review query for the live run list (M3). All fields optional. */
+export interface RunsQuery {
+  taskId?: string
+  domain?: PgDomain
+  fingerprint?: string
+  presetId?: PgPresetId
+  model?: string
+  tag?: MastTag
+  source?: RunSource
+  status?: RunStatus
+  /** ISO timestamps. */
+  from?: string
+  to?: string
+  limit?: number
+}
+
 /** Playground-only capability switches that have no 20-field DSL slot. */
 export interface PgMounts {
   patentLawMcp?: boolean
+  /**
+   * M4 prompt-surface evolution: a custom guidance / checklist paragraph
+   * proposed by the LLM, appended to the system prompt without touching the
+   * 20-field DSL (design §7.4 prompt-only edit). Null on every preset.
+   */
+  customGuideText?: string
 }
 
 export interface PgPreset {
@@ -329,6 +351,15 @@ export interface RunSummary {
   split: PgSplit
   presetId: PgPresetId | null
   fingerprint: string
+  /**
+   * Display name of this run's harness configuration, resolved from the
+   * configuration itself (preset id, or a stable name for an evolved
+   * generation) rather than read off a run. Every view must use this so one
+   * configuration never appears under two different names.
+   */
+  configLabel: string
+  /** Hover text for `configLabel`; null when the short label says enough. */
+  configTitle: string | null
   status: RunStatus
   source: RunSource
   /** L2 scorer success (NOT run.finished.success — design §15.3 rule 1). */
@@ -336,6 +367,11 @@ export interface RunSummary {
   score: number | null
   tokens: number | null
   latencyMs: number | null
+  /**
+   * L3 estimated USD cost (token × provider×model rate). Null when the price
+   * table has no entry — never fabricated (design §11.2 / §14).
+   */
+  costUsd: number | null
   failureTags: MastTag[]
   model: string
   temperature: number | null
@@ -424,12 +460,35 @@ export interface RunTargets {
 export interface LiveMetricGroup {
   presetId: PgPresetId | null
   fingerprint: string
+  /** Same display name the run list uses for this configuration. */
+  label: string
+  /** Hover text for `label`; null when the short label says enough. */
+  title: string | null
   runs: number
+  /**
+   * Distinct eval tasks this group actually ran. `runs` counts repeats, and
+   * configs here are not run on the same task set — so this is the real sample
+   * size, and the UI must show it next to `runs`.
+   */
+  distinctTasks: number
   successRate: number | null
   avgTokens: number | null
   avgLatencyMs: number | null
-  /** Paired success-rate lift in percentage points vs C0 on shared tasks. */
+  /** L3 mean USD cost; null when no priced runs in the group. */
+  avgCostUsd: number | null
+  /**
+   * Task-paired success-rate lift in percentage points vs C0: the mean of
+   * (this group's per-task rate − C0's per-task rate) over the tasks both
+   * groups ran, each task counted once regardless of how often it was repeated.
+   *
+   * This is NOT `successRate − C0 successRate`. The two columns answer
+   * different questions — a config can post a high success rate purely by
+   * having been run on easier tasks. Always render `liftPairedTasks`
+   * alongside it so the reader can see how narrow the comparison is.
+   */
   liftVsC0Pp: number | null
+  /** Distinct tasks the lift was computed over; null when there was no lift. */
+  liftPairedTasks: number | null
   byDomain: Partial<Record<PgDomain, { runs: number; successRate: number | null }>>
   tags: Partial<Record<MastTag, number>>
 }
@@ -447,4 +506,248 @@ export interface PlaygroundRunFile {
   exportedAt: string
   run: Omit<RunDetail, 'events'>
   events: HarnessEvent[]
+}
+
+// ── M4 evolution (PRISM, §7) ───────────────────────────────────────────────
+
+export type EvoSurface = 'prompt' | 'middleware' | 'joint'
+export type CardStatus = 'proposed' | 'screening' | 'applied' | 'falsified' | 'rejected'
+export type CardVerdict = 'pending' | 'accepted' | 'falsified' | 'needs-human'
+
+/** A deterministic failure cluster (design §7.2①). */
+export interface EvoCluster {
+  clusterId: string
+  createdAt: string
+  tag: MastTag
+  /** The actionable harness gap the tag maps to (a closed seam key). */
+  seam: string
+  /** Primary failure tag × critical step × missing capability grouping key. */
+  key: string
+  count: number
+  domain: PgDomain | 'mixed'
+  criticalSteps: number[]
+  summary: string
+  runIds: string[]
+  taskIds: string[]
+  /** Edit-surface routing history (dynamic upgrade trail), newest last. */
+  routeHistory: Array<{ surface: EvoSurface; reason: string; at: string }>
+  status: 'open' | 'resolved' | 'archived'
+}
+
+/** A candidate config change produced by the LLM inside one routed surface. */
+export interface ChangeCard {
+  cardId: string
+  clusterId: string
+  createdAt: string
+  surface: EvoSurface
+  seam: string
+  title: string
+  nl: string
+  /** prompt-surface content: guides text / checklist wording. */
+  promptDiff: { guides?: string; guideStyle?: string } | null
+  /** middleware-surface content: validated DSL field → value. */
+  middlewareDiff: Partial<HarnessConfig> | null
+  /** Playground-mount content (authority-mcp lives in PgMounts, not the DSL). */
+  mountDiff: Partial<PgMounts> | null
+  surfaceReason: string
+  /** Inside the closed seam→surface set (true) or a new combination (false). */
+  inTable: boolean
+  /** Deterministic pre-apply estimate, before re-runs. */
+  predictedGainPp: number | null
+  /** Whether the seam is a security/legal hard gate (never auto-apply). */
+  hardGate: boolean
+  status: CardStatus
+  verdict: CardVerdict
+  /** LLM traceability: the exact proposal prompt and raw model output. */
+  llmPrompt: string | null
+  llmOutput: string | null
+  proposalSource: 'llm' | 'template'
+}
+
+/** Paired falsification result from real re-runs (design §7.2④). */
+export interface FalsificationResult {
+  /** Tasks the baseline failed but the candidate rescued. */
+  rescued: string[]
+  /** Tasks that passed before and regressed after (must be zero to accept). */
+  regressed: string[]
+  /** Tasks that failed both. */
+  stillFailed: string[]
+  screened: number
+  netLiftPp: number | null
+  /** Bootstrap lower-bound paired relative lift (null when n too small). */
+  relLift95: number | null
+  /** Re-run costs. */
+  avgTokens: number | null
+  avgLatencyMs: number | null
+  /** L3 mean USD cost over candidate re-runs; null when unpriced. */
+  avgCostUsd: number | null
+  /** Any security/legal hard gate that regressed (immediate falsification). */
+  hardGateRegressed: boolean
+  /** New run ids produced by the screening. */
+  newRunIds: string[]
+}
+
+/**
+ * §7.2④ gate full verification: the held-out 15-task gate set re-run under
+ * both the parent and the candidate generation (paired). Never seen by
+ * clustering or by the card proposal (kept scorecard-clean).
+ */
+export interface GateResult {
+  gateTaskIds: string[]
+  baselinePass: number
+  candidatePass: number
+  baselinePassPp: number
+  candidatePassPp: number
+  gateLiftPp: number
+  /** Baseline pass → candidate fail (unique task ids that regressed at least once). */
+  regressed: string[]
+  /** Baseline fail → candidate pass (unique task ids). */
+  fixed: string[]
+  avgTokens: number | null
+  avgLatencyMs: number | null
+  /** L3 mean USD cost over candidate gate runs; null when unpriced. */
+  avgCostUsd: number | null
+  /**
+   * Per (task × config) repeat count (design §3.2). Sample size = gate tasks × repeats.
+   * temperature>0 defaults to 3; temperature=0 defaults to 1.
+   */
+  repeats: number
+  baselineRunIds: string[]
+  newRunIds: string[]
+  ranAt: string
+}
+
+export type GateStatus = 'idle' | 'running' | 'passed' | 'failed'
+
+/** An immutable config generation created by applying a card. */
+export interface EvoGeneration {
+  generationId: string
+  parentId: string | null
+  label: string
+  fingerprint: string
+  config: HarnessConfig
+  mounts: PgMounts
+  createdAt: string
+  source: 'base' | 'evolve'
+  cardId: string | null
+}
+
+/** A committed change (applied card → new generation) plus its falsification. */
+export interface EvoMutation {
+  commitId: string
+  cardId: string
+  clusterId: string
+  parentGenerationId: string
+  generationId: string
+  createdAt: string
+  configDiff: Partial<HarnessConfig>
+  approvedBy: 'gate' | 'human'
+  autonomyLevel: number
+  falsification: FalsificationResult
+  /** §7.2④ held-out gate full verification (filled lazily on demand). */
+  gate?: GateResult | null
+  gateStatus?: GateStatus
+}
+
+export interface EvoAnalysis {
+  clusters: EvoCluster[]
+  cards: ChangeCard[]
+  note: string | null
+}
+
+export interface AutoJob {
+  running: boolean
+  phase: string
+  generationsApplied: number
+  stopReason: string | null
+  lastError: string | null
+  updatedAt: string
+  /**
+   * Process epoch these detached jobs belong to. A background job lives inside
+   * the server process, so a restart leaves a stale `running: true` row that
+   * would make the UI poll forever; comparing epoch exposes that as "interrupted".
+   */
+  bootId?: string
+}
+
+/**
+ * §7.2④ side-by-side race: one candidate's row in the top-N comparison. The
+ * race is what "Pareto 跨多候选择优" actually means — several cards are run
+ * through the same held-out gate pass and compared on (success ↑, cost ↓).
+ * Losers are recorded, not silently dropped, so the pick is auditable.
+ */
+export interface EvoRaceEntry {
+  cardId: string
+  title: string
+  surface: EvoSurface
+  seam: string
+  /** Why this card left the race; null when it reached the Pareto pick. */
+  dropped: string | null
+  baselinePassPp: number
+  candidatePassPp: number
+  gateLiftPp: number
+  regressed: number
+  fixed: number
+  avgTokens: number | null
+  /** L3 mean USD cost over its gate runs; null when the model is unpriced. */
+  avgCostUsd: number | null
+  /** Which axis the Pareto comparison used: real USD, token proxy, or none. */
+  costAxis: 'usd' | 'token' | 'none'
+  /** Resolved cost on `costAxis` (0 when there is no cost signal at all). */
+  cost: number
+  /** Sits on the (success ↑, cost ↓) frontier. */
+  onFrontier: boolean
+}
+
+export interface EvoRace {
+  raceId: string
+  at: string
+  /** How many cards were allowed into the race. */
+  topN: number
+  /** §3.2 repeats per (task × config) in the gate pass. */
+  repeats: number
+  /** Cards that survived the repair screen. */
+  screened: number
+  /** Cards that actually reached the gate pass. */
+  gated: number
+  entries: EvoRaceEntry[]
+  winnerCardId: string | null
+  /**
+   * The winner was picked but cannot be applied without a human: slider 0, or
+   * the winning card is out-of-table / a security-legal hard gate (§7.5).
+   */
+  awaitingHuman: boolean
+  applied: boolean
+  note: string | null
+}
+
+export interface EvoRaceJob {
+  running: boolean
+  phase: string
+  race: EvoRace | null
+  lastError: string | null
+  updatedAt: string
+  /** See AutoJob.bootId — a stale `running` row means the process restarted. */
+  bootId?: string
+}
+
+export interface EvoState {
+  clusters: EvoCluster[]
+  cards: ChangeCard[]
+  generations: EvoGeneration[]
+  mutations: EvoMutation[]
+  currentGenerationId: string | null
+  autoJob?: AutoJob | null
+  raceJob?: EvoRaceJob | null
+}
+
+export interface ApplyResult {
+  ok: boolean
+  card?: ChangeCard
+  falsification?: FalsificationResult | null
+  generation?: EvoGeneration | null
+  mutation?: EvoMutation | null
+  approvedBy?: 'gate' | 'human' | null
+  started?: boolean
+  error?: string
 }

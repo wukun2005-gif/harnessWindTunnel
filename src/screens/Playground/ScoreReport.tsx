@@ -58,7 +58,7 @@ export function ScoreReport({ result }: { result: ScoreResult }) {
       )}
 
       {result.securityChecks.map((c, i) => (
-        <Check key={i} title={t('playground.report.securityGate', { kind: c.kind })} ok={c.passed} detail={`${c.detail}${c.hits.length ? `（${c.hits.join('、')}）` : ''}`} />
+        <Check key={i} title={t('playground.report.securityGate', { kind: c.kind })} ok={c.passed} detail={`${c.detail}${c.hits.length ? ` (${c.hits.join(', ')})` : ''}`} />
       ))}
 
       {result.factChecks.length > 0 && (

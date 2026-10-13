@@ -7,18 +7,25 @@ import { allSettled, buildRows, pickActiveRun, questionNumber } from '../src/scr
 import type { RunSummary } from '../shared/playground'
 
 function run(over: Partial<RunSummary> & Pick<RunSummary, 'taskId' | 'domain'>): RunSummary {
+  // One distinct configuration identity per preset; an evolved configuration
+  // (no preset) gets its own. Cells are keyed by this, never by a display label.
+  const presetId = 'presetId' in over ? (over.presetId ?? null) : 'C0'
+  const fingerprint = over.fingerprint ?? (presetId ? `fp-${presetId}` : 'fp-evolved')
   return {
-    runId: `${over.taskId}-${over.presetId ?? 'custom'}-${over.createdAt ?? ''}`,
+    runId: `${over.taskId}-${presetId ?? 'evolved'}-${over.createdAt ?? ''}`,
     taskTitle: `title of ${over.taskId}`,
     split: 'repair',
-    presetId: 'C0',
-    fingerprint: '',
+    presetId,
+    fingerprint,
+    configLabel: presetId ?? 'Evolved #1',
+    configTitle: null,
     status: 'scored',
     source: 'live',
     success: null,
     score: null,
     tokens: null,
     latencyMs: null,
+    costUsd: null,
     failureTags: [],
     model: 'm',
     temperature: null,
@@ -64,8 +71,8 @@ test('one row per question, with each harness config as its own cell', () => {
     run({ taskId: 'G2', domain: 'general', presetId: 'C0' }),
   ])
   assert.equal(rows.length, 2)
-  assert.deepEqual([...rows[0].cells.keys()], ['C0', 'C1'])
-  assert.deepEqual([...rows[1].cells.keys()], ['C0'])
+  assert.deepEqual([...rows[0].cells.keys()], ['fp-C0', 'fp-C1'])
+  assert.deepEqual([...rows[1].cells.keys()], ['fp-C0'])
 })
 
 test('re-running the same config keeps the newest run and still counts the old one', () => {
@@ -73,14 +80,27 @@ test('re-running the same config keeps the newest run and still counts the old o
     run({ taskId: 'G1', domain: 'general', presetId: 'C0', createdAt: '2026-01-01T00:00:00.000Z', success: false }),
     run({ taskId: 'G1', domain: 'general', presetId: 'C0', createdAt: '2026-02-01T00:00:00.000Z', success: true }),
   ])
-  const cell = rows[0].cells.get('C0')!
+  const cell = rows[0].cells.get('fp-C0')!
   assert.equal(cell.count, 2)
   assert.equal(cell.run.success, true, 'the newer run is the one shown')
 })
 
-test('a run with no preset is filed under custom rather than dropped', () => {
+test('a configuration with no preset name still gets its own column', () => {
   const rows = buildRows([run({ taskId: 'L3', domain: 'legal', presetId: null })])
-  assert.deepEqual([...rows[0].cells.keys()], ['custom'])
+  assert.deepEqual([...rows[0].cells.keys()], ['fp-evolved'])
+})
+
+test('one configuration is ONE column even when one of its runs carries no preset name', () => {
+  // The reported bug: the re-run/verification runs of the C0 configuration are
+  // created without a preset name, so the list showed "C0" and a separate
+  // "custom" column for what is a single configuration. Identity is the
+  // configuration itself, not the label a particular run happens to carry.
+  const rows = buildRows([
+    run({ taskId: 'G1', domain: 'general', presetId: 'C0', fingerprint: 'fp-c0', configLabel: 'C0' }),
+    run({ taskId: 'G1', domain: 'general', presetId: null, fingerprint: 'fp-c0', configLabel: 'C0' }),
+  ])
+  assert.deepEqual([...rows[0].cells.keys()], ['fp-c0'])
+  assert.equal(rows[0].cells.get('fp-c0')!.count, 2)
 })
 
 // ── pickActiveRun: which run the detail panel shows ───────────────────────────

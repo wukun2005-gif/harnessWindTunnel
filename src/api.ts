@@ -19,6 +19,9 @@ import type {
   LiveMetrics,
   CreateRunsRequest,
   PlaygroundRunFile,
+  EvoAnalysis,
+  EvoState,
+  ApplyResult,
 } from '../shared/playground'
 
 async function jget<T>(url: string): Promise<T> {
@@ -273,6 +276,11 @@ export const api = {
     return r.json() as Promise<{ ok: boolean; events: number; verdicts: number; assertions: number; killChain: number; blastRadius: number }>
   },
   pgMetrics: () => jget<LiveMetrics>('/api/playground/metrics'),
+  pgRescore: (id: string, taskId: string) =>
+    jpost<{ ok: boolean; run: RunDetail }>(
+      `/api/playground/runs/${encodeURIComponent(id)}/rescore`,
+      { taskId },
+    ),
   pgImport: async (rawText: string) => {
     const r = await fetch('/api/playground/import', {
       method: 'POST',
@@ -288,11 +296,43 @@ export const api = {
       }
       throw new Error(detail)
     }
-    return (await r.json()) as { ok: boolean; imported: string[]; error?: string }
+    return (await r.json()) as { ok: boolean; imported: string[]; formats?: string[]; skipped?: number; error?: string }
   },
-  pgExportUrl: (id: string, format: 'json' | 'txt' = 'json') =>
+  pgExportUrl: (id: string, format: 'json' | 'jsonl' | 'txt' = 'json') =>
     `/api/playground/runs/${encodeURIComponent(id)}/export?format=${format}`,
   pgBulkExportUrl: (ids: string[], format: 'json' | 'jsonl' | 'txt') =>
     `/api/playground/export?ids=${ids.map(encodeURIComponent).join(',')}&format=${format}`,
   pgParseExport: (text: string) => JSON.parse(text) as PlaygroundRunFile | PlaygroundRunFile[],
+
+  // ── M4 evolution (PRISM) ──
+  pgEvoState: () => jget<{ ok: boolean } & EvoState>('/api/playground/evolve'),
+  pgEvolve: (runIds?: string[]) =>
+    jpost<{ ok: boolean } & EvoAnalysis & { state: EvoState; note?: string }>('/api/playground/evolve', { runIds }),
+  pgApplyCard: async (cardId: string, body: { mode: 'manual' | 'auto'; autonomyLevel?: number }) => {
+    // 422 carries the falsification result (falsified), so return the body
+    // instead of throwing; the UI shows rescued/regressed either way.
+    const r = await fetch(`/api/playground/cards/${encodeURIComponent(cardId)}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return (await r.json()) as ApplyResult & { ok: boolean; state: EvoState; error?: string }
+  },
+  pgRollback: (generationId: string) =>
+    jpost<{ ok: boolean; state: EvoState; error?: string }>(
+      `/api/playground/generations/${encodeURIComponent(generationId)}/rollback`,
+      {},
+    ),
+  pgGateVerify: (commitId: string, opts?: { repeats?: number }) =>
+    jpost<{ ok: boolean; state: EvoState; error?: string }>(
+      `/api/playground/mutations/${encodeURIComponent(commitId)}/gate`,
+      opts ?? {},
+    ),
+  pgRace: (body: { autonomyLevel: number; topN?: number; repeats?: number }) =>
+    jpost<{ ok: boolean; state: EvoState; error?: string }>('/api/playground/evolve/race', body),
+  pgAutoEvolve: (autonomyLevel: number) =>
+    jpost<{ ok: boolean; state: EvoState; error?: string }>(
+      '/api/playground/evolve/auto',
+      { autonomyLevel },
+    ),
 }

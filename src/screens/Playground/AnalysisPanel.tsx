@@ -210,7 +210,7 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
       )}
 
       <div style={{ padding: 10, borderRadius: 6, marginBottom: 12, background: verdictBg }}>
-        <b style={{ fontSize: 13 }}>{t('playground.analysis.verdict')}：{t(`playground.analysis.verdict.${verdict.state}`)}</b>
+        <b style={{ fontSize: 13 }}>{t('playground.analysis.verdict')}: {t(`playground.analysis.verdict.${verdict.state}`)}</b>
         {verdict.reasons.length > 0 && (
           <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12 }}>
             {verdict.reasons.map((r, i) => (
@@ -222,7 +222,7 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
 
       <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>
         <div style={{ padding: 8, borderRadius: 6, background: stateColor(agree.rate == null ? null : agree.rate >= GATES.agreementMin) }}>
-          <b>{t(vsGold ? 'playground.analysis.m.agreementGold' : 'playground.analysis.m.agreement')}：{agree.rate == null ? t('playground.analysis.state.unknown') : pct(agree.rate)}</b>
+          <b>{t(vsGold ? 'playground.analysis.m.agreementGold' : 'playground.analysis.m.agreement')}: {agree.rate == null ? t('playground.analysis.state.unknown') : pct(agree.rate)}</b>
           <span className="faint">
             {' '}
             {Object.entries(agree.byDomain)
@@ -237,7 +237,7 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
                   // 点回单条复核（§17.9）：按记录 id 联查本批记录，原位展开复核卡。
                   const rec = scoped.find((r) => r.id === d.id)
                   const jev = d.jev == null ? t('playground.jev.noReading') : jevLabel(d.jev)
-                  const gold = Array.isArray(d.gold) ? d.gold.join('、') : d.gold
+                  const gold = Array.isArray(d.gold) ? d.gold.join(', ') : d.gold
                   // 比对基准随实：有确定性判分写「官方=」；比金标的写「金标=」，不再显示「官方=无」。
                   const line =
                     d.det != null
@@ -256,7 +256,7 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
                             {t('playground.analysis.reviewAnswer')}{' '}
                             <span style={{ whiteSpace: 'pre-wrap' }}>{rec.answer}</span>
                           </div>
-                          <div>{t('playground.analysis.reviewGold', { gold: rec.gold ? jevLabel(Array.isArray(rec.gold) ? rec.gold.join('、') : rec.gold) : t('playground.analysis.none') })}</div>
+                          <div>{t('playground.analysis.reviewGold', { gold: rec.gold ? jevLabel(Array.isArray(rec.gold) ? rec.gold.join(', ') : rec.gold) : t('playground.analysis.none') })}</div>
                           <div>
                             {t('playground.analysis.reviewReadings', {
                               choice: rec.result.choice ? jevLabel(rec.result.choice.choice) : t('playground.jev.noReading'),
@@ -284,7 +284,7 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
         </div>
 
         <div style={{ padding: 8, borderRadius: 6, background: stateColor(drift.rate == null ? null : drift.rate <= GATES.driftMax) }}>
-          <b>{t('playground.analysis.m.drift')}：{drift.rate == null ? t('playground.analysis.state.unknown') : pct(drift.rate)}</b>
+          <b>{t('playground.analysis.m.drift')}: {drift.rate == null ? t('playground.analysis.state.unknown') : pct(drift.rate)}</b>
           {drift.driftedKeys.length > 0 && (
             <details style={{ marginTop: 4 }}>
               <summary style={{ cursor: 'pointer' }}>{t('playground.analysis.drifted', { n: drift.driftedKeys.length })}</summary>
@@ -296,14 +296,14 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
                     const kindLabel = kind === 'good' || kind === 'bad' ? t(`playground.batch.kind.${kind}`) : kind
                     return variant ? `${task}:${kindLabel}:${variant}` : `${task}:${kindLabel}`
                   })
-                  .join('、')}
+                  .join(', ')}
               </div>
             </details>
           )}
         </div>
 
         <div style={{ padding: 8, borderRadius: 6, background: stateColor(calib === 'unknown' ? null : calib === 'pass') }}>
-          <b>{t('playground.analysis.m.calibration')}：{t(`playground.analysis.state.${calib}`)}</b>
+          <b>{t('playground.analysis.m.calibration')}: {t(`playground.analysis.state.${calib}`)}</b>
           {calibNote && <span className="faint"> · {t('playground.analysis.calibConservative')}</span>}
           <div className="faint" style={{ marginTop: 2, fontSize: 11 }}>{t('playground.analysis.calibGateLines')}</div>
           <div style={{ marginTop: 4 }}>
@@ -322,7 +322,7 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
         </div>
 
         <div style={{ padding: 8, borderRadius: 6, background: injectionNa ? 'var(--dim)' : inj.status === 'fail' ? 'rgba(200,90,90,0.12)' : stateColor(inj.status === 'unknown' ? null : inj.status === 'pass') }}>
-          <b>{t('playground.analysis.m.injection')}：{injectionNa ? t('playground.analysis.na') : t(`playground.analysis.state.${inj.status === 'unknown' ? 'unknown' : inj.status}`)}</b>
+          <b>{t('playground.analysis.m.injection')}: {injectionNa ? t('playground.analysis.na') : t(`playground.analysis.state.${inj.status === 'unknown' ? 'unknown' : inj.status}`)}</b>
           {injectionNa ? (
             <div className="faint" style={{ marginTop: 4 }}>
               {t('playground.analysis.injectionNa')}

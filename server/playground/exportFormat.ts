@@ -37,7 +37,7 @@ function eventLine(ev: HarnessEvent): string {
     case 'verifier.verdict':
       return `${head} ${ev.verdict}${ev.failureTag ? ` tag=${ev.failureTag}` : ''} ${ev.reason}`
     case 'legal.assertion':
-      return `${head} ${ev.label} 《${ev.citedAuthority || '（无引用）'}》 claim=${ev.claimText.replace(/\s+/g, ' ').slice(0, 100)}`
+      return `${head} ${ev.label} <${ev.citedAuthority || '(no citation)'}> claim=${ev.claimText.replace(/\s+/g, ' ').slice(0, 100)}`
     case 'failure.tag':
       return `${head} tag=${ev.mast} conf=${ev.confidence} ${ev.note}`
     case 'run.finished':
@@ -50,14 +50,14 @@ function eventLine(ev: HarnessEvent): string {
 export function renderRunTxt(detail: Omit<RunDetail, 'events'>, events: HarnessEvent[]): string {
   const lines: string[] = []
   lines.push('═══════════════════════════════════════════════════════════════')
-  lines.push('HWT Playground Live Run（TXT 导出）')
+  lines.push('HWT Playground Live Run (TXT export)')
   lines.push('═══════════════════════════════════════════════════════════════')
   lines.push(`runId        : ${detail.runId}`)
-  lines.push(`source       : ${detail.source}${detail.source === 'imported' ? '（外部导入，非本 harness 运行）' : ''}`)
+  lines.push(`source       : ${detail.source}${detail.source === 'imported' ? ' (external import, not a run of this harness)' : ''}`)
   lines.push(`status       : ${detail.status}`)
   lines.push(`task         : [${detail.taskId}] ${detail.taskTitle}`)
   lines.push(`domain/split : ${detail.domain} / ${detail.split}`)
-  lines.push(`preset       : ${detail.presetId ?? '（自定义配置）'}  fingerprint=${detail.fingerprint.slice(0, 16)}…`)
+  lines.push(`preset       : ${detail.presetId ?? '(custom config)'}  fingerprint=${detail.fingerprint.slice(0, 16)}…`)
   lines.push(`ladder rung  : ${detail.configVersion.ladderRung} (mapping ${detail.configVersion.mappingVersion})`)
   lines.push(`model        : ${detail.model}${detail.provider ? ` @ ${detail.provider.baseUrl}` : ''}`)
   lines.push(`temperature  : ${detail.temperature ?? '—'}  seed=${detail.seed ?? '—'}`)
@@ -68,29 +68,29 @@ export function renderRunTxt(detail: Omit<RunDetail, 'events'>, events: HarnessE
   lines.push('─────────────────────────────────────────────────────────────── dossier')
   const dossierWithText = (detail.materials?.dossier ?? []).filter((d) => d.text)
   if (dossierWithText.length === 0) {
-    lines.push('（本导出件不含卷宗正文——旧版导出或该题无卷宗）')
+    lines.push('(this export carries no dossier body — either an older export or this question has no dossier)')
   } else {
     for (const d of dossierWithText) {
-      lines.push(`【卷宗文件】${d.file}（${d.chars} 字符）`)
+      lines.push(`[dossier file] ${d.file} (${d.chars} chars)`)
       lines.push(d.text ?? '')
       lines.push('')
     }
   }
   lines.push('─────────────────────────────────────────────────────────────── metrics')
   lines.push(`L2 success   : ${detail.success === null ? '—' : detail.success ? 'PASS' : 'FAIL'}  score=${detail.score ?? '—'}  tokens=${detail.tokens ?? '—'}  latencyMs=${detail.latencyMs ?? '—'}`)
-  lines.push(`failure tags : ${detail.failureTags.length ? detail.failureTags.join(', ') : '（无）'}`)
+  lines.push(`failure tags : ${detail.failureTags.length ? detail.failureTags.join(', ') : '(none)'}`)
   if (detail.error) lines.push(`error        : ${detail.error}`)
   if (detail.verdict) {
     lines.push(`verdict      : ${detail.verdict.summary}`)
     for (const c of detail.verdict.articleChecks) {
-      lines.push(`  - ${c.label} → ${c.assertion}${c.articleSnippet ? `｜原文：${c.articleSnippet.slice(0, 80)}…` : ''}`)
+      lines.push(`  - ${c.label} → ${c.assertion}${c.articleSnippet ? ` | text: ${c.articleSnippet.slice(0, 80)}…` : ''}`)
     }
     for (const s of detail.verdict.securityChecks) {
-      lines.push(`  - 安全门 ${s.kind}: ${s.passed ? 'PASS' : 'FAIL'}｜${s.detail}`)
+      lines.push(`  - security gate ${s.kind}: ${s.passed ? 'PASS' : 'FAIL'} | ${s.detail}`)
     }
   }
   lines.push('─────────────────────────────────────────────────────────────── answer')
-  lines.push(detail.answer ?? '（无）')
+  lines.push(detail.answer ?? '(none)')
   lines.push('──────────────────────────────────────────────────────────── trajectory')
   for (const ev of events) lines.push(eventLine(ev))
   lines.push('═══════════════════════════════════════════════════════════════')

@@ -14,6 +14,8 @@ import type { HarnessEvent } from '../../shared/events'
 import type { LegalAssertion } from '../../shared/legal'
 import type { JevJudgeResult } from '../../shared/jev'
 import type { MastTag } from '../../shared/mast'
+import { estimateCostUsd } from './costTable'
+import { makeConfigNamer, type ConfigNamer } from './configNames'
 import type {
   BlastRadiusEntry,
   ControlsSnapshot,
@@ -198,6 +200,11 @@ export function useLiveDbPath(p: string): void {
 
 export function liveDbFile(): string {
   return dbFile()
+}
+
+/** Shared sqlite handle for sibling playground modules (M4 evolution tables). */
+export function getPlaygroundDb(): DatabaseSync {
+  return getDb()
 }
 
 function safeParse<T>(raw: string | null | undefined, fallback: T): T {
@@ -592,7 +599,15 @@ const SELECT_COLUMNS = `
   r.failure_tags_json, r.success, r.score, r.created_at, r.started_at, r.finished_at,
   (SELECT COUNT(*) FROM pg_events e WHERE e.run_id = r.run_id) AS event_count`
 
-function hydrateSummary(row: RawRunRow): RunSummary {
+function hydrateSummary(row: RawRunRow, nameConfig: ConfigNamer): RunSummary {
+  const provider = safeParse<ProviderSnapshot | null>(row.provider_json, null)
+  const config = nameConfig(row.fingerprint)
+  // L3 cost: computed at read time from token × price table; never stored.
+  const costUsd = estimateCostUsd({
+    providerId: provider?.providerId,
+    model: provider?.model,
+    tokens: row.tokens,
+  })
   return {
     runId: row.run_id,
     taskId: row.task_id,
@@ -601,14 +616,17 @@ function hydrateSummary(row: RawRunRow): RunSummary {
     split: row.split,
     presetId: row.preset_id,
     fingerprint: row.fingerprint,
+    configLabel: config.label,
+    configTitle: config.title,
     status: row.status,
     source: row.source,
     success: row.success === null ? null : row.success === 1,
     score: row.score,
     tokens: row.tokens,
     latencyMs: row.latency_ms,
+    costUsd,
     failureTags: safeParse<MastTag[]>(row.failure_tags_json, []),
-    model: safeParse<ProviderSnapshot | null>(row.provider_json, null)?.model ?? '—',
+    model: provider?.model ?? '—',
     temperature: row.temperature,
     seed: row.seed,
     eventCount: row.event_count,
@@ -652,7 +670,8 @@ export function listRuns(filter: RunFilter = {}): RunSummary[] {
   const rows = getDb()
     .prepare(`SELECT ${SELECT_COLUMNS} FROM pg_runs r ${clause} ORDER BY r.created_at DESC, r.run_id DESC LIMIT ${limit}`)
     .all(...vals) as unknown as RawRunRow[]
-  const summaries = rows.map(hydrateSummary)
+  const nameConfig = makeConfigNamer(getDb())
+  const summaries = rows.map((row) => hydrateSummary(row, nameConfig))
   if (filter.tag) return summaries.filter((s) => s.failureTags.includes(filter.tag as MastTag))
   return summaries
 }
@@ -663,7 +682,7 @@ export function getRunDetail(runId: string) {
     .prepare(`SELECT ${SELECT_COLUMNS} FROM pg_runs r WHERE r.run_id = ?`)
     .get(runId) as RawRunRow | undefined
   if (!row) return null
-  const summary = hydrateSummary(row)
+  const summary = hydrateSummary(row, makeConfigNamer(database))
   const cvRow = database
     .prepare('SELECT controls_json, mapping_version, ladder_rung, ladder_version FROM pg_config_versions WHERE fingerprint = ?')
     .get(row.fingerprint) as { controls_json: string; mapping_version: string; ladder_rung: LadderRung; ladder_version: string } | undefined
@@ -712,6 +731,7 @@ export interface ScoredRunRow {
   success: boolean
   tokens: number | null
   latencyMs: number | null
+  costUsd: number | null
   tags: MastTag[]
   createdAt: string
 }
@@ -789,12 +809,50 @@ export function importRun(payload: ImportableRun): string {
   return newId
 }
 
+/**
+ * Link an imported run to a real eval task and persist the locally computed
+ * score (design §10 M3 / §14.1). This is the only place a run's identity
+ * (taskId/taskTitle/domain/split) changes after creation, and it is
+ * user-initiated: an imported trajectory carries no trusted verdict, so it
+ * stays unlinked (success=null) until the user points it at a task and it is
+ * scored by our own scorer. The verdict is revisioned like any other.
+ */
+export function relinkRun(runId: string, task: { id: string; title: string; domain: PgDomain; split: PgSplit }, verdict: ScoreResult): void {
+  const database = getDb()
+  database.exec('BEGIN')
+  try {
+    database
+      .prepare(
+        `UPDATE pg_runs
+           SET task_id = ?, task_title = ?, domain = ?, split = ?,
+               verdict_json = ?, success = ?, score = ?, failure_tags_json = ?
+         WHERE run_id = ?`,
+      )
+      .run(
+        task.id,
+        task.title,
+        task.domain,
+        task.split,
+        JSON.stringify(verdict),
+        verdict.success ? 1 : 0,
+        verdict.score,
+        JSON.stringify(verdict.failureTags),
+        runId,
+      )
+    insertVerdict(runId, verdict, 1)
+    database.exec('COMMIT')
+  } catch (err) {
+    database.exec('ROLLBACK')
+    throw err
+  }
+}
+
 /** L3 aggregation input: scored live runs only (imported excluded by default, design §11.1#4). */
 export function listScoredLiveRuns(): ScoredRunRow[] {
   const rows = getDb()
     .prepare(
       `SELECT run_id, task_id, domain, preset_id, fingerprint, success, tokens, latency_ms,
-              failure_tags_json, created_at
+              provider_json, failure_tags_json, created_at
        FROM pg_runs
        WHERE status = 'scored' AND source = 'live' AND success IS NOT NULL
        ORDER BY created_at ASC`,
@@ -808,19 +866,28 @@ export function listScoredLiveRuns(): ScoredRunRow[] {
     success: number
     tokens: number | null
     latency_ms: number | null
+    provider_json: string | null
     failure_tags_json: string
     created_at: string
   }>
-  return rows.map((r) => ({
-    runId: r.run_id,
-    taskId: r.task_id,
-    domain: r.domain,
-    presetId: r.preset_id,
-    fingerprint: r.fingerprint,
-    success: r.success === 1,
-    tokens: r.tokens,
-    latencyMs: r.latency_ms,
-    tags: safeParse<MastTag[]>(r.failure_tags_json, []),
-    createdAt: r.created_at,
-  }))
+  return rows.map((r) => {
+    const provider = safeParse<ProviderSnapshot | null>(r.provider_json, null)
+    return {
+      runId: r.run_id,
+      taskId: r.task_id,
+      domain: r.domain,
+      presetId: r.preset_id,
+      fingerprint: r.fingerprint,
+      success: r.success === 1,
+      tokens: r.tokens,
+      latencyMs: r.latency_ms,
+      costUsd: estimateCostUsd({
+        providerId: provider?.providerId,
+        model: provider?.model,
+        tokens: r.tokens,
+      }),
+      tags: safeParse<MastTag[]>(r.failure_tags_json, []),
+      createdAt: r.created_at,
+    }
+  })
 }

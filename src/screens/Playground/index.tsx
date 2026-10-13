@@ -13,12 +13,13 @@ import { ScoreReport } from './ScoreReport'
 import { JevJudgeBlock } from './JevPanel'
 import AnalysisPanel from './AnalysisPanel'
 import LivePanel from './LivePanel'
+import EvolutionPanel from './EvolutionPanel'
 import { ackBatchComplete, assertionScenario, cancelBatch, getBatchSnapshot, playgroundScenario, ragScenario, resetBatch, setBatchSelection, startBatch, subscribeBatch, tagScenario, type BatchScenario } from './batchRunner'
 import type { JevJudgeResult, JevSettingsView } from '../../../shared/jev'
 
 export default function Playground() {
   const t = useT()
-  const [tab, setTab] = useState<'evalset' | 'sandbox' | 'live' | 'batch' | 'analysis'>('evalset')
+  const [tab, setTab] = useState<'evalset' | 'sandbox' | 'live' | 'batch' | 'analysis' | 'evolve'>('evalset')
   const [sandboxTaskId, setSandboxTaskId] = useState<string | undefined>(undefined)
   const [data, setData] = useState<PlaygroundTaskList | null>(null)
   const [failed, setFailed] = useState(false)
@@ -108,6 +109,13 @@ export default function Playground() {
         >
           <span className="screen-nav-num">E</span>{t('playground.tab.analysis')}
         </button>
+        <button
+          className={`screen-nav-item ${tab === 'evolve' ? 'active' : ''}`}
+          onClick={() => setTab('evolve')}
+          style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
+        >
+          <span className="screen-nav-num">F</span>{t('playground.tab.evolve')}
+        </button>
       </div>
 
       {!data ? (
@@ -123,6 +131,8 @@ export default function Playground() {
         <LivePanel tasks={data.tasks} />
       ) : tab === 'batch' ? (
         <BatchPanel data={data} jevEnabled={!!jev?.enabled} />
+      ) : tab === 'evolve' ? (
+        <EvolutionPanel />
       ) : (
         <AnalysisPanel tasks={data.tasks} />
       )}
@@ -221,7 +231,7 @@ function TaskRow({ task, open, onToggle, onTry }: { task: EvalTask; open: boolea
           </p>
           {task.dossierFiles && task.dossierFiles.length > 0 && (
             <p className="faint" style={{ fontSize: 12, margin: '4px 0' }}>
-              {t('playground.task.dossier')}{task.dossierFiles.join('、')}
+              {t('playground.task.dossier')}{task.dossierFiles.join(', ')}
             </p>
           )}
           {task.facts && task.facts.length > 0 && (
@@ -247,7 +257,7 @@ function TaskRow({ task, open, onToggle, onTry }: { task: EvalTask; open: boolea
           {task.sensitiveFields && task.sensitiveFields.length > 0 && (
             <GoldList
               title={t('playground.task.sensitive')}
-              items={task.sensitiveFields.map((s) => `${s.label}：${s.sample}`)}
+              items={task.sensitiveFields.map((s) => `${s.label}: ${s.sample}`)}
               bad
             />
           )}
@@ -408,7 +418,7 @@ function Sandbox({
 
           <div style={{ fontSize: 12, marginBottom: 8 }}>
             <span className="faint">{t('playground.sandbox.type')}</span>
-            {t(`playground.scorer.${task.scorerType as ScorerType}`)}　<span className="faint">{t('playground.sandbox.split')}</span>
+            {t(`playground.scorer.${task.scorerType as ScorerType}`)} <span className="faint">{t('playground.sandbox.split')}</span>
             {t(`playground.split.${task.split}`)}
           </div>
           <p style={{ fontSize: 13, background: 'var(--dim)', padding: 8, borderRadius: 6, margin: '0 0 10px' }}>
@@ -731,7 +741,7 @@ function BatchPanel({ data, jevEnabled }: { data: PlaygroundTaskList; jevEnabled
         <div style={{ marginTop: 10, fontSize: 12 }}>
           <p>{t('playground.batch.summary', { ok: okUnits.length, err: errCount })}</p>
           <p>{t('playground.batch.agreement', { pct: judgedCount ? `${Math.round((agreeCount / judgedCount) * 100)}%` : '—' })}</p>
-          <p>{t('playground.batch.drift', { n: drifted.length })}{drifted.length > 0 && `：${drifted.slice(0, 12).join('、')}${drifted.length > 12 ? '…' : ''}`}</p>
+          <p>{t('playground.batch.drift', { n: drifted.length })}{drifted.length > 0 && `: ${drifted.slice(0, 12).join(', ')}${drifted.length > 12 ? '…' : ''}`}</p>
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => void clearBatch()} disabled={clearing || !batchId}>
               {clearing ? t('playground.batch.clearing') : t('playground.batch.clearBatch')}

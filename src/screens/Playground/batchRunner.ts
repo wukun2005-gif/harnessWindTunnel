@@ -103,7 +103,7 @@ async function withJudgeRetry<T>(call: () => Promise<T>): Promise<T> {
 
 /** 判定记录带 error 徽标 = 这条判定失败：抛出来让本条记失败并进入退避重试。 */
 function throwIfJudgeFailed(result: { source: string; error?: string | null }): void {
-  if (result.source === 'error') throw new Error(result.error || 'Jev 判定失败')
+  if (result.source === 'error') throw new Error(result.error || 'judge call failed')
 }
 
 /** 选中题目的调用总数：每题两档答案各 3 遍，trap 题追加去注入对照轮。 */
