@@ -8,3 +8,16 @@ coverage/
 docs/
 dev-plan-v0.2.md
 TODO.local.md
+
+# 密钥：.env 里放的是真实 API key（OpenRouter / dots 等），绝不能进仓库
+.env
+.env.*
+!.env.example
+
+# 本地工作数据（跑批状态、评测中间产物）与智能体记忆
+.workbuddy/
+.workbuddy-ai/
+
+# Python 缓存
+__pycache__/
+*.pyc
