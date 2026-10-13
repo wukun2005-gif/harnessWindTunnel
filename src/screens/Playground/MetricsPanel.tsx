@@ -128,7 +128,10 @@ export function MetricsPanel({ runs, metrics }: Props) {
               <th>Avg tokens</th>
               <th>Avg latency</th>
               <th>Avg cost</th>
-              <th title="Success rate measured on the same tasks as C0, one count per task. The /Nt suffix is how many tasks that comparison covers.">lift vs C0 (paired)</th>
+              <th title="Success rate measured on the same tasks as C0, one count per task. The /Nt suffix is how many tasks that comparison covers. This is also the MeanLift of the three lower-tail columns to its right.">lift vs C0 (paired)</th>
+              <th title="Worst paired-task lift — the single task where this config fell furthest behind C0. Negative means at least one task got worse.">WorstLift</th>
+              <th title="Share of paired tasks where this config beat C0. Low values mean the average lift is carried by a few lucky tasks.">RR₀</th>
+              <th title="5th percentile of the bootstrapped mean-lift distribution — what the lift still guarantees on a bad draw. Same math as the WindTunnel lower-tail panel.">RelLift₉₅</th>
             </tr>
           </thead>
           <tbody>
@@ -163,6 +166,31 @@ export function MetricsPanel({ runs, metrics }: Props) {
                   {g.liftPairedTasks != null && (
                     <span className="faint" style={{ fontSize: 10 }}> /{g.liftPairedTasks}t</span>
                   )}
+                  {/* Same fragile rule as the WindTunnel lower-tail panel: a
+                      positive mean hiding a negative worst task or a low win
+                      rate. Shown next to the mean so the warning cannot be
+                      read past. */}
+                  {g.liftVsC0Pp != null &&
+                    g.worstLiftPp != null &&
+                    g.rr0 != null &&
+                    g.liftVsC0Pp > 0 &&
+                    (g.worstLiftPp < 0 || g.rr0 < 0.75) && (
+                      <span
+                        style={{ color: 'var(--red)', marginLeft: 4 }}
+                        title={`Mean lift is positive but the worst paired task is ${Math.round(g.worstLiftPp)} pp and only ${Math.round(g.rr0 * 100)}% of paired tasks improved — the average hides a tail risk`}
+                      >
+                        ⚠ fragile
+                      </span>
+                    )}
+                </td>
+                <td title={g.worstLiftPp == null ? 'Not enough tasks in common with C0 to compare' : 'The single paired task where this config did worst vs C0; negative = at least one task got worse'}>
+                  {g.worstLiftPp != null ? `${g.worstLiftPp >= 0 ? '+' : ''}${Math.round(g.worstLiftPp)} pp` : '—'}
+                </td>
+                <td title={g.rr0 == null ? 'Not enough tasks in common with C0 to compare' : 'Share of paired tasks where this config beat C0'}>
+                  {g.rr0 != null ? `${Math.round(g.rr0 * 100)}%` : '—'}
+                </td>
+                <td title={g.relLift95Pp == null ? 'Not enough tasks in common with C0 to compare' : '5th percentile of the bootstrapped mean-lift distribution — the lift that survives a bad draw'}>
+                  {g.relLift95Pp != null ? `${g.relLift95Pp >= 0 ? '+' : ''}${Math.round(g.relLift95Pp)} pp` : '—'}
                 </td>
               </tr>
             ))}

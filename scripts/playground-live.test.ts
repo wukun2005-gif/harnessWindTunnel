@@ -711,6 +711,35 @@ test('lift stays empty when a config shares too few tasks with C0', () => {
   assert.equal(cand.liftPairedTasks, null)
 })
 
+test('lower-tail stats expose a positive mean that hides a negative worst task', () => {
+  useLiveDbPath(':memory:')
+  const c1 = PG_PRESETS.find((p) => p.id === 'C1')!.config
+
+  // C0 wins t1/t2, loses t3/t4; C1 wins t1/t3/t4, loses t2.
+  scoredRun('b1', 't1', 'general', 'C0', cfg(), true, 1)
+  scoredRun('b2', 't2', 'general', 'C0', cfg(), true, 2)
+  scoredRun('b3', 't3', 'general', 'C0', cfg(), false, 3)
+  scoredRun('b4', 't4', 'general', 'C0', cfg(), false, 4)
+  scoredRun('a1', 't1', 'general', 'C1', c1, true, 5)
+  scoredRun('a2', 't2', 'general', 'C1', c1, false, 6)
+  scoredRun('a3', 't3', 'general', 'C1', c1, true, 7)
+  scoredRun('a4', 't4', 'general', 'C1', c1, true, 8)
+
+  const m = computeLiveMetrics()
+  const cand = m.groups.find((g) => g.fingerprint === fingerprint(c1))!
+  const c0 = m.groups.find((g) => g.fingerprint === fingerprint(cfg()))!
+
+  // Per-task deltas: t1 0, t2 −100, t3 +100, t4 +100 → mean +25 pp.
+  assert.equal(cand.liftVsC0Pp, 25)
+  assert.equal(cand.worstLiftPp, -100, 'the mean of +25 hides the task C1 made worse')
+  assert.equal(cand.rr0, 0.5, 'only t3/t4 improved; t1 tied and t2 regressed')
+  assert.ok(cand.relLift95Pp != null && cand.relLift95Pp <= cand.liftVsC0Pp!)
+  assert.ok(cand.relLift95Pp! >= cand.worstLiftPp!, 'the bootstrapped lower bound cannot beat the worst task')
+  assert.equal(c0.worstLiftPp, null, 'the baseline has no lower-tail of its own')
+  assert.equal(c0.rr0, null)
+  assert.equal(c0.relLift95Pp, null)
+})
+
 // ── 注入陷阱运行时拼入 ─────────────────────────────────────────────────────
 // 陷阱归属题目、不写死进 txt：同一份卷宗被多道题挂载（《修改后权利要求书》
 // 也是 G1 的材料），写死会把没有安全考点的题一并污染。这里钉死「S1 看得到

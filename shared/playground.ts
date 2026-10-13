@@ -489,6 +489,18 @@ export interface LiveMetricGroup {
   liftVsC0Pp: number | null
   /** Distinct tasks the lift was computed over; null when there was no lift. */
   liftPairedTasks: number | null
+  /**
+   * Reliability lower-tail of the per-task lift distribution (Airbnb PRISM
+   * family, PRD §5.3) — all three read the same paired-task lifts behind
+   * `liftVsC0Pp` (which is their mean). Computed from data already on disk:
+   * bootstrap resampling is local math, never a model call.
+   */
+  /** Worst paired-task lift in pp; can be negative. Null when no lift. */
+  worstLiftPp: number | null
+  /** Share of paired tasks where this config beat C0 (0–1). Null when no lift. */
+  rr0: number | null
+  /** 5th percentile of the bootstrapped mean-lift distribution, pp. Null when no lift. */
+  relLift95Pp: number | null
   byDomain: Partial<Record<PgDomain, { runs: number; successRate: number | null }>>
   tags: Partial<Record<MastTag, number>>
 }

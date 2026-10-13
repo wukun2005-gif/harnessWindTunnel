@@ -7,6 +7,10 @@ import type { LiveMetricGroup, LiveMetrics, PgDomain, PgPresetId } from '../../s
 import { getPlaygroundDb, listRuns, listScoredLiveRuns, type ScoredRunRow } from './liveDb'
 import { PG_PRESETS } from './presets'
 import { makeConfigNamer } from './configNames'
+// Lower-tail stats (WorstLift / RR₀ / RelLift₉₅) share the WindTunnel math so
+// both screens quote one definition. Bootstrap is seeded per fingerprint:
+// deterministic, local, never a model call.
+import { hashSeed, liftStats } from '../../shared/reliability'
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null
@@ -87,12 +91,25 @@ export function computeLiveMetrics(): LiveMetrics {
     // re-run of C0 carries no tag and must not be treated as a candidate.
     let lift: number | null = null
     let pairedTasks = 0
+    let lowerTail: Pick<LiveMetricGroup, 'worstLiftPp' | 'rr0' | 'relLift95Pp'> | null = null
     if (c0Fingerprint !== null && fingerprint !== c0Fingerprint) {
       const shared = [...taskRates.keys()].filter((t) => c0TaskRates.has(t))
       pairedTasks = shared.length
       if (pairedTasks >= MIN_PAIRED_TASKS) {
-        const delta = shared.reduce((sum, t) => sum + (taskRates.get(t)! - c0TaskRates.get(t)!), 0)
+        const deltas = shared.map((t) => taskRates.get(t)! - c0TaskRates.get(t)!)
+        const delta = deltas.reduce((sum, d) => sum + d, 0)
         lift = Math.round((delta / pairedTasks) * 1000) / 10
+        // Lower-tail over the same per-task deltas, in pp. MeanLift is the
+        // lift column itself; these three expose whether that mean is stable
+        // or an average of wins and one bad loss.
+        const stats = liftStats(deltas.map((d) => d * 100), hashSeed(fingerprint))
+        if (stats) {
+          lowerTail = {
+            worstLiftPp: Math.round(stats.worstLift * 10) / 10,
+            rr0: Math.round(stats.rr0 * 1000) / 1000,
+            relLift95Pp: Math.round(stats.relLift95 * 10) / 10,
+          }
+        }
       }
     }
 
@@ -109,6 +126,9 @@ export function computeLiveMetrics(): LiveMetrics {
       avgCostUsd: avg(grp.map((r) => r.costUsd).filter((x): x is number => x != null)),
       liftVsC0Pp: lift,
       liftPairedTasks: lift === null ? null : pairedTasks,
+      worstLiftPp: lowerTail?.worstLiftPp ?? null,
+      rr0: lowerTail?.rr0 ?? null,
+      relLift95Pp: lowerTail?.relLift95Pp ?? null,
       byDomain,
       tags,
     })
