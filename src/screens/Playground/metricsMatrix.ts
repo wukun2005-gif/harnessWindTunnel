@@ -158,6 +158,14 @@ export interface CrossCell {
   rate: number | null
 }
 
+/**
+ * 一个模型在表里只占一行：`:free` 是同一底座模型的免费通道，和收费条目归成一行，
+ * 否则换了个付费标识就被拆成两行，读数还会被误读成"两个模型谁更强"。
+ */
+export function canonicalModel(modelId: string): string {
+  return modelId.replace(/:free$/, '')
+}
+
 /** Model × harness cross matrix: rows = models, cols = configs, cell = success rate. */
 export function modelByHarness(runs: RunSummary[]): {
   models: string[]
@@ -165,12 +173,14 @@ export function modelByHarness(runs: RunSummary[]): {
   cells: Record<string, Record<string, CrossCell>>
 } {
   const cols = configCols(runs)
-  const models = [...new Set(runs.map((r) => r.model))].sort()
+  const models = [...new Set(runs.map((r) => canonicalModel(r.model)))].sort()
   const cells: Record<string, Record<string, CrossCell>> = {}
   for (const m of models) {
     cells[m] = {}
     for (const c of cols) {
-      const set = runs.filter((r) => r.model === m && r.fingerprint === c.key)
+      const set = runs.filter(
+        (r) => canonicalModel(r.model) === m && r.fingerprint === c.key,
+      )
       const scored = set.filter((r) => r.success !== null)
       cells[m]![c.key] = {
         n: scored.length,
