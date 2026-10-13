@@ -419,13 +419,16 @@ input[type='range'] { accent-color: var(--accent); width: 130px; }
 .pg-axis { stroke: var(--border-hi); stroke-width: 1; }
 .pg-axis-txt { font-size: 9px; fill: var(--text-faint); }
 .pg-axis-title { font-size: 10px; fill: var(--text-faint); }
-.pg-pareto-dot { fill: rgba(2,132,199,.18); stroke: var(--accent); stroke-width: 1.5; }
-.pg-pareto-dot.front { fill: rgba(5,150,105,.25); stroke: var(--green); }
+/* Frontier = solid green disc, dominated = hollow dashed grey ring. The two
+   read apart by shape (filled vs outline) and by weight, not by hue alone —
+   two 12px swatches differing only in border colour are indistinguishable. */
+.pg-pareto-dot { fill: none; stroke: var(--text-faint); stroke-width: 1.2; stroke-dasharray: 3 2.5; opacity: .8; }
+.pg-pareto-dot.front { fill: var(--green); stroke: var(--green); stroke-width: 1.5; stroke-dasharray: none; opacity: 1; }
 .pg-dot-label { font-size: 9px; fill: var(--text-dim); font-family: var(--mono); }
 .pg-legend { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--text-dim); flex-wrap: wrap; }
-.pg-legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--accent);
-  background: rgba(2,132,199,.18); margin-left: 6px; }
-.pg-legend-dot.front { border-color: var(--green); background: rgba(5,150,105,.25); }
+.pg-legend-dot { width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box;
+  border: 1.2px dashed var(--text-faint); background: transparent; margin-left: 6px; }
+.pg-legend-dot.front { border: 1.5px solid var(--green); background: var(--green); }
 .pg-legend-note { color: var(--text-faint); }
 
 /* 对比 */
