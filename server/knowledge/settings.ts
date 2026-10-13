@@ -229,6 +229,24 @@ export function activeSearchProvider(): { providerId: SearchProviderId; apiKey: 
   }
 }
 
+/**
+ * A SPECIFIC search provider, by id — for callers that must pin one provider
+ * rather than take "whichever is first enabled". Returns null when that provider
+ * is missing or has no key; callers must NOT fall back to another provider,
+ * because switching providers mid-experiment would change the harness.
+ */
+export function searchProviderById(providerId: SearchProviderId): { providerId: SearchProviderId; apiKey: string; baseUrl?: string } | null {
+  const provider = getRetrievalSettings().searchProviders.find(
+    (p) => p.providerId === providerId && p.enabled && p.apiKeyRef.length > 0,
+  )
+  if (!provider) return null
+  return {
+    providerId: provider.providerId,
+    apiKey: provider.apiKeyRef,
+    ...(provider.baseUrl ? { baseUrl: provider.baseUrl } : {}),
+  }
+}
+
 /** Search provider row including its stored key (server-internal use). */
 export function searchProviderRow(providerId: SearchProviderId): SearchProviderConnection | undefined {
   return getRetrievalSettings().searchProviders.find((p) => p.providerId === providerId)

@@ -10,7 +10,7 @@ import { api } from '../../api'
 import { useT } from '../../i18n'
 import type { PgPreset, RunDetail, RunSummary } from '../../../shared/playground'
 import { allSettled, buildRows } from './resultOrder'
-import { agreementKey, jevReadingLine, llmReadingLine } from './channelText'
+import { jevReadingLine } from './channelText'
 
 /** Same cadence as the run list, so the two never disagree about what is in flight. */
 const POLL_MS = 1500
@@ -93,7 +93,7 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
 
   const lines: Array<{ label: string; of: (key: string) => string }> = [
     {
-      label: t('playground.live.cmpDeterministic'),
+      label: t('playground.live.judgeVerdict'),
       of: (k) => {
         const s = summaryOf(k)
         if (!s || s.score == null) return t('playground.live.notScoredShort')
@@ -101,37 +101,11 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
       },
     },
     {
-      label: t('playground.live.rougeRow'),
-      of: (k) => {
-        const r = detailOf(k)?.verdict?.rouge
-        return r ? `${r.rouge1.toFixed(3)} / ${r.rougeL.toFixed(3)}` : DASH
-      },
-    },
-    {
       label: t('playground.live.cmpJev'),
       of: (k) => {
+        // 与详情页同一口径：读这条 run 判分方的主槽读数。
         const j = detailOf(k)?.jevResult
-        if (!j) return DASH
-        // A failed call is not "no reading": say so, or the row looks like lost data.
-        if (j.error) return `${t('playground.live.jevFailed')} — ${j.error.slice(0, 70)}`
-        return jevReadingLine(j)
-      },
-    },
-    {
-      label: `${t('playground.live.cmpJev')} · ${t('playground.live.cmpAgreement')}`,
-      of: (k) => {
-        const d = detailOf(k)
-        // Without a Choice reading there is nothing to compare — "n/a" would imply a
-        // comparison was attempted and came out inconclusive.
-        if (!d?.jevResult?.choice) return DASH
-        return t(agreementKey(d.jevResult.choice.choice, d.verdict?.success ?? null)) || DASH
-      },
-    },
-    {
-      label: t('playground.live.cmpLlm'),
-      of: (k) => {
-        const c = detailOf(k)?.jevResult?.chatJudge
-        return c ? llmReadingLine(c) : DASH
+        return j ? jevReadingLine(j) : DASH
       },
     },
     {
@@ -159,17 +133,6 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
         return a == null ? DASH : String(a.length)
       },
     },
-  ]
-
-  // Distinct reasons the Jev column can be empty — collapsed into one footnote so the
-  // three dashes above have an explanation instead of looking like missing data.
-  const jevErrors = [
-    ...new Set(
-      order
-        .map((k) => detailOf(k)?.jevResult?.error)
-        .filter((e): e is string => typeof e === 'string' && e.length > 0)
-        .map((e) => e.slice(0, 70)),
-    ),
   ]
 
   return (
@@ -223,11 +186,7 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
 
             {lines.map((ln) => (
               <Fragment key={ln.label}>
-                <span
-                  className="faint"
-                  style={{ fontSize: 11, whiteSpace: 'nowrap' }}
-                  title={ln.label === t('playground.live.cmpLlm') ? t('playground.live.llmOnlyOnCascade') : undefined}
-                >
+                <span className="faint" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
                   {ln.label}
                 </span>
                 {order.map((k) => (
@@ -238,12 +197,6 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
               </Fragment>
             ))}
           </div>
-
-          {jevErrors.length > 0 && (
-            <div className="faint" style={{ fontSize: 11 }}>
-              {t('playground.live.jevErrorNote', { errors: jevErrors.join('；') })}
-            </div>
-          )}
         </>
       )}
     </div>

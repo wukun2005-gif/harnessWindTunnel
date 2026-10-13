@@ -49,6 +49,14 @@ export interface ChatRequest {
    * output — an unregistered model would 400 on the field.
    */
   responseFormat?: ChatResponseFormat
+  /**
+   * Provider-specific passthrough fields merged into the request body last.
+   * Exists for knobs the OpenAI schema does not cover but a provider honours —
+   * e.g. Bailian/DashScope's `enable_thinking: false`, which cuts a
+   * reasoning-heavy judge from ~10.6s to ~3.1s for a ~30-token JSON verdict.
+   * Only use it for fields verified against the real endpoint.
+   */
+  extraBody?: Record<string, unknown>
   temperature?: number
   seed?: number
   maxTokens?: number
@@ -286,6 +294,8 @@ export async function chatCompletion(target: ResolvedTarget, req: ChatRequest): 
       llmWarn(`response_format skipped ← ${target.providerId}/${target.model}: not registered as supporting structured output`)
     }
   }
+
+  if (req.extraBody) Object.assign(body, req.extraBody)
 
   const started = Date.now()
   const where = `${target.providerId}/${target.model}@${hostOf(target.baseUrl)}`

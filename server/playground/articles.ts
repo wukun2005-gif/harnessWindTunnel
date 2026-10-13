@@ -323,7 +323,19 @@ export interface RawCitation {
 /** Extract every 专利法/细则/司法解释 第X条 citation appearing in an answer. */
 export function extractCitations(answerNorm: string): RawCitation[] {
   const out: RawCitation[] = []
-  const re = /(专利法实施细则|专利法|侵犯专利权纠纷案件应用法律若干问题的解释（[一二]）|侵犯专利权纠纷案件应用法律若干问题的解释|专利授权确权[^第]{0,30}?司法解释（[一二]）?|审理专利纠纷案件适用法律问题的若干规定)[^第。；]{0,8}?第([一二三四五六七八九十百零〇两0-9]+)条/g
+  // 名字与「第X条」之间允许的间隔，原为 `[^第。；]{0,8}?`。
+  // 8 太窄：答案里很常见的带文号写法是
+  //   「…若干问题的解释》（法释〔2009〕21号）第七条」
+  // 中间隔着 14 个字符，于是这条引用被整个漏掉 → answerCitesArticle 返回 false
+  // → assertion 落成 no_citation → 整条 run 被误判（实测 L17 C2 rep1，
+  // 答复明明引了司法解释一第七条，却被判"该引未引"）。
+  //
+  // 放宽到 24 是安全的：间隔里不允许出现「第」，所以懒匹配**永远配到最近的那个
+  // 「第…条」**，不可能跨过另一条去张冠李戴；不允许「。」「；」也就不跨句。
+  //
+  // 同一处还补了法条名的**常用简写**：实测 L19 C2 的答复写的是「根据侵权解释一第六条」，
+  // 全称分支匹配不到，同样落成 no_citation。
+  const re = /(专利法实施细则|侵犯专利权纠纷案件应用法律若干问题的解释（[一二]）|侵犯专利权纠纷案件应用法律若干问题的解释|侵权解释[（(]?[一二][）)]?|专利法|专利授权确权[^第]{0,30}?司法解释（[一二]）?|审理专利纠纷案件适用法律问题的若干规定)[^第。；]{0,24}?第([一二三四五六七八九十百零〇两0-9]+)条/g
   let m: RegExpExecArray | null
   while ((m = re.exec(answerNorm)) !== null) {
     const name = m[1] ?? ''
@@ -333,7 +345,7 @@ export function extractCitations(answerNorm: string): RawCitation[] {
     if (/实施细则/.test(name)) lawKey = 'implementing-regulations'
     else if (/若干规定/.test(name)) lawKey = 'patent-disputes-rules'
     else if (/授权确权/.test(name)) lawKey = 'grant-validation-interp-1'
-    else if (/解释（二）/.test(name)) lawKey = 'infringement-interp-2'
+    else if (/解释[（(]?二[）)]?/.test(name)) lawKey = 'infringement-interp-2'
     else if (/解释/.test(name)) lawKey = 'infringement-interp-1'
     out.push({ lawKey, article: n, raw: m[0] })
   }

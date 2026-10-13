@@ -6,10 +6,7 @@ import {
 } from '../../../shared/jev'
 
 const SOURCE_CLASS: Record<JevSource, string> = {
-  'jev-live': 'src-badge src-live',
-  'llm-judge': 'src-badge src-paper',
-  'needs-human': 'src-badge src-fixture',
-  bypass: 'src-badge src-fixture',
+  decided: 'src-badge src-live',
   off: 'src-badge src-fixture',
   error: 'src-badge src-fixture',
 }
@@ -112,11 +109,11 @@ export function JevJudgeBlock({
             </div>
             <div>
               <b>{t('playground.jev.score')}</b>
-              {result.score ? (
+              {result.agreement ? (
                 <>
-                  {result.score.score.toFixed(1)}
-                  {t('playground.jev.confidence', { pct: pct(result.score.confidence) })}
-                  <span className="faint">{t('playground.jev.probs', { list: scoreProbList(result.score) })}</span>
+                  {result.agreement.score.toFixed(1)}
+                  {t('playground.jev.confidence', { pct: pct(result.agreement.confidence) })}
+                  <span className="faint">{t('playground.jev.probs', { list: scoreProbList(result.agreement) })}</span>
                 </>
               ) : (
                 <span className="faint">{t('playground.jev.noReading')}</span>
@@ -131,33 +128,18 @@ export function JevJudgeBlock({
               )}
             </div>
             <div>
-              <b>{t('playground.jev.vsDeterministic')}</b>
-              {result.consistency === 'consistent'
-                ? t('playground.jev.consistent')
-                : result.consistency === 'divergent'
-                  ? t('playground.jev.divergent')
-                  : t('playground.jev.incomparable')}
-              <span className="faint"> · {result.consistencyDetail}</span>
+              <b>{t('playground.jev.verdict')}</b>
+              {result.success == null ? (
+                <span className="faint">{t('playground.jev.noReading')}</span>
+              ) : (
+                <>
+                  {result.success ? t('playground.jev.verdictPass') : t('playground.jev.verdictFail')}
+                  <span className="faint"> · score {result.score?.toFixed(2) ?? '—'}</span>
+                </>
+              )}
             </div>
-            {result.chatJudge && (
-              <div>
-                <b>{t('playground.jev.fallback', { model: result.chatJudge.model })}</b>
-                {t(`playground.jev.choice.${result.chatJudge.choice}`)}
-                <span className="faint">
-                  {t('playground.jev.confidence', { pct: pct(result.chatJudge.confidence) })}·{' '}
-                  {result.chatJudge.reason || t('playground.jev.noReason')} ·{' '}
-                  {result.chatJudge.promptTokens}+{result.chatJudge.completionTokens} tok
-                </span>
-              </div>
-            )}
           </div>
 
-          {result.securityBypass && (
-            <div className="faint" style={{ marginTop: 8, color: 'var(--amber, #b7791f)' }}>
-              {t('playground.jev.securityBypass')}
-              {result.stateSharesInjectedPayload && t('playground.jev.injectedPayload')}
-            </div>
-          )}
           {result.stateTruncated && (
             <div className="faint" style={{ marginTop: 6, color: 'var(--amber, #b7791f)' }}>
               {t('playground.jev.truncated')}

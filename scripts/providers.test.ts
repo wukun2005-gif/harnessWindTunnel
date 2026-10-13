@@ -9,16 +9,17 @@ import {
   isDecisionProvider,
   trimBaseUrl,
 } from '../shared/provider'
-import { JEV_DEFAULT_BASE_URL, JEV_MODEL_IDS, JEV_OPENCODE_DEFAULT_BASE_URL, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID, JEV_PROVIDER_ID_OPENCODE } from '../shared/jev'
+import { JEV_DEFAULT_BASE_URL, JEV_MODEL_IDS, JEV_OPENCODE_DEFAULT_BASE_URL, JEV_OPENCODE_MODEL_IDS, JEV_OPENROUTER_DEFAULT_BASE_URL, JEV_PROVIDER_ID, JEV_PROVIDER_ID_OPENCODE, JEV_PROVIDER_ID_OPENROUTER } from '../shared/jev'
+import { DECISION_MODEL_IDS } from '../shared/modelFilter'
 import { getModelCapabilities, getModelCatalog } from '../server/providers/model-capabilities-registry'
 
 process.env['HWT_SETTINGS_FILE'] = join(mkdtempSync(join(tmpdir(), 'hwt-settings-')), 'settings.json')
 const { deleteSetting, getSetting, getSettings, putProviderBundle, putSetting } = await import('../server/settingsStore')
 
-test('fifteen preset cards (12 vendors + custom + 2 Jev decision models), all well-formed', () => {
-  assert.equal(PRESET_PROVIDERS.length, 15)
+test('sixteen preset cards (12 vendors + custom + 3 decision models), all well-formed', () => {
+  assert.equal(PRESET_PROVIDERS.length, 16)
   const ids = PRESET_PROVIDERS.map((v) => v.id)
-  assert.equal(new Set(ids).size, 15)
+  assert.equal(new Set(ids).size, 16)
   assert.equal(CUSTOM_PRESET_ID, 'custom')
   for (const v of PRESET_PROVIDERS) {
     assert.ok(v.name && v.desc && v.keyPlaceholder, v.id)
@@ -26,32 +27,35 @@ test('fifteen preset cards (12 vendors + custom + 2 Jev decision models), all we
   }
 })
 
-test('both Jev cards are decision providers, sit last, and carry the System One endpoint', () => {
-  const jev = PRESET_PROVIDERS.find((p) => p.id === JEV_PROVIDER_ID)
-  assert.ok(jev, 'missing TypeSafe Jev card')
-  assert.equal(jev!.kind, 'decision')
-  assert.equal(jev!.defaultBaseUrl, JEV_DEFAULT_BASE_URL)
-  const oc = PRESET_PROVIDERS.find((p) => p.id === JEV_PROVIDER_ID_OPENCODE)
-  assert.ok(oc, 'missing OpenCode Jev card')
-  assert.equal(oc!.kind, 'decision')
-  assert.equal(oc!.defaultBaseUrl, JEV_OPENCODE_DEFAULT_BASE_URL)
-  // 判定模型必须排在最后两张：按数组顺序取「第一个启用的可用 provider」时不会被误当主 chat 目标。
-  assert.equal(PRESET_PROVIDERS[PRESET_PROVIDERS.length - 2]!.id, JEV_PROVIDER_ID)
-  assert.equal(PRESET_PROVIDERS[PRESET_PROVIDERS.length - 1]!.id, JEV_PROVIDER_ID_OPENCODE)
-  // 其余 13 张卡都是 chat（或未标 kind = chat）。
-  for (const p of PRESET_PROVIDERS) {
-    if (p.id === JEV_PROVIDER_ID || p.id === JEV_PROVIDER_ID_OPENCODE) continue
-    assert.notEqual(p.kind, 'decision', p.id)
+test('all three decision cards sit last and carry the System One endpoint', () => {
+  const cases: [string, string][] = [
+    [JEV_PROVIDER_ID, JEV_DEFAULT_BASE_URL],
+    [JEV_PROVIDER_ID_OPENCODE, JEV_OPENCODE_DEFAULT_BASE_URL],
+    [JEV_PROVIDER_ID_OPENROUTER, JEV_OPENROUTER_DEFAULT_BASE_URL],
+  ]
+  for (const [id, baseUrl] of cases) {
+    const card = PRESET_PROVIDERS.find((p) => p.id === id)
+    assert.ok(card, `missing decision card ${id}`)
+    assert.equal(card!.kind, 'decision')
+    assert.equal(card!.defaultBaseUrl, baseUrl)
   }
-  assert.equal(isDecisionProvider(JEV_PROVIDER_ID), true)
-  assert.equal(isDecisionProvider(JEV_PROVIDER_ID_OPENCODE), true)
-  for (const id of ['deepseek', 'gemini', 'custom', 'opencode']) assert.equal(isDecisionProvider(id), false, id)
+  // 判定模型必须排在最后三张：按数组顺序取「第一个启用的可用 provider」时不会被误当主 chat 目标。
+  assert.deepEqual(
+    PRESET_PROVIDERS.slice(-3).map((p) => p.id),
+    [JEV_PROVIDER_ID, JEV_PROVIDER_ID_OPENCODE, JEV_PROVIDER_ID_OPENROUTER],
+  )
+  for (const p of PRESET_PROVIDERS.slice(0, -3)) assert.notEqual(p.kind, 'decision', p.id)
+  for (const id of ['deepseek', 'gemini', 'custom', 'opencode', 'openrouter']) {
+    assert.equal(isDecisionProvider(id), false, id)
+  }
+  for (const [id] of cases) assert.equal(isDecisionProvider(id), true, id)
 })
 
-test('the model catalog lists both cards’ hosted Jev model ids', () => {
+test('the model catalog lists the hosted Jev ids and the OpenRouter decision whitelist', () => {
   const catalog = getModelCatalog() as Record<string, { id: string }[]>
   assert.deepEqual((catalog[JEV_PROVIDER_ID] ?? []).map((m) => m.id), [...JEV_MODEL_IDS])
   assert.deepEqual((catalog[JEV_PROVIDER_ID_OPENCODE] ?? []).map((m) => m.id), [...JEV_OPENCODE_MODEL_IDS])
+  assert.deepEqual((catalog[JEV_PROVIDER_ID_OPENROUTER] ?? []).map((m) => m.id), [...DECISION_MODEL_IDS])
 })
 
 test('baseUrl trimming strips whitespace and trailing slashes', () => {

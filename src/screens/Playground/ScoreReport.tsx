@@ -79,20 +79,6 @@ export function ScoreReport({ result }: { result: ScoreResult }) {
         </Section>
       )}
 
-      {result.rouge && (
-        <Section title={t('playground.report.rouge')}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'max-content minmax(0,1fr)', columnGap: 10, rowGap: 3, fontSize: 12 }}>
-            <span className="faint">{t('playground.report.rougeRecall')}</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
-              ROUGE-1 {result.rouge.rouge1.toFixed(3)} · ROUGE-L {result.rouge.rougeL.toFixed(3)}
-            </span>
-            <span className="faint">{t('playground.report.rougeRef')}</span>
-            <span className="faint" style={{ fontSize: 11 }}>{result.rouge.referenceTokens}</span>
-          </div>
-          <div className="faint" style={{ fontSize: 11, marginTop: 4 }}>{t('playground.report.rougeNote')}</div>
-        </Section>
-      )}
-
       {result.articleChecks.length > 0 && (
         <Section title={t('playground.report.articles')}>
           {result.articleChecks.map((c) => (

@@ -20,7 +20,7 @@ import type {
 import { buildRows, pickActiveRun, type ResultRow } from './resultOrder'
 import { ScoreReport } from './ScoreReport'
 import { Scorecard } from './Scorecard'
-import { agreementKey, jevReadingLine, llmReadingLine } from './channelText'
+import { jevReadingLine } from './channelText'
 import { moduleActivity, eventAttributions, type ModuleActivity } from './harnessModules'
 import type { ControlsSnapshot } from '../../../shared/playground'
 
@@ -175,7 +175,11 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
 
   const refresh = useCallback(() => {
     api
-      .pgRuns({ limit: '200', presetId: filterPreset || undefined })
+      // 200 was a silent ceiling: past it the list froze at the newest 200 runs
+      // and the per-config counts were computed over that slice only, so a run
+      // full-test looked like it had stopped. 1000 covers the 45-question matrix
+      // with re-runs and the audit-kept rejected runs on top.
+      .pgRuns({ limit: '1000', presetId: filterPreset || undefined })
       .then((r) => {
         setRuns(r)
         setActiveId((cur) => pickActiveRun(r, cur))
@@ -1093,84 +1097,63 @@ function AnswerView({ detail, query }: { detail: RunDetail; query: string | null
 }
 
 /**
- * The Jev side review for this run. Present only when the Jev switch was on.
- * Deliberately rendered apart from the verdict: the reading never changes
- * success or score, so it must not sit next to them looking like a score.
+ * 详情页的判定读数区：显示这条 run 的判分方（主槽）读数。
+ * `jevResult` 为 null 才表示"没有判分结论"（开关关闭或这条 run 没判过）；
+ * 调用失败（source='error'）要显示报错，不能也归到"开关是关的"里去。
  */
 function JevReading({ detail }: { detail: RunDetail }) {
   const t = useT()
-  const r = detail.jevResult
-  const det = detail.verdict
-  /** How one channel's reading lines up with the deterministic verdict. */
-  const agreeLabel = (choice: string | null): string => t(agreementKey(choice, det?.success ?? null))
+  const jv = detail.jevResult
   return (
     <div style={{ display: 'grid', gap: 6 }}>
       <b style={{ color: 'var(--text)', fontSize: 12 }}>{t('playground.live.jevTitle')}</b>
-      {!r ? (
+      {!jv ? (
         <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.jevOff')}</span>
       ) : (
         <>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="badge">{t(`playground.live.jevSource.${r.source}`)}</span>
-            {r.latencyMs != null && <span className="faint" style={{ fontSize: 11 }}>{r.latencyMs}ms</span>}
-            {r.model && <span className="faint" style={{ fontSize: 11 }}>{r.model}</span>}
-            <span className="faint" style={{ fontSize: 11 }}>{r.consistency}</span>
+            <span className="badge">{t(`playground.live.jevSource.${jv.source}`)}</span>
+            {jv.model && <span className="faint" style={{ fontSize: 11 }}>{jv.model}</span>}
+            {jv.latencyMs != null && <span className="faint" style={{ fontSize: 11 }}>{jv.latencyMs}ms</span>}
+            {jv.success != null && (
+              <span className="faint" style={{ fontSize: 11 }}>
+                {jv.success ? `✓ ${t('playground.live.judgePass')}` : `✗ ${t('playground.live.judgeFail')}`}
+              </span>
+            )}
           </div>
-          {r.reason && <span className="faint" style={{ fontSize: 12 }}>{r.reason}</span>}
-          {r.error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{r.error}</span>}
+          {jv.reason && <span className="faint" style={{ fontSize: 12 }}>{jv.reason}</span>}
+          {jv.error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{jv.error}</span>}
 
-          {/* The three channels side by side, each labelled with how it lines up with
-              the deterministic verdict. Without that last column a bare `divergent`
-              reads as "the judges disagree" — when in fact it describes Jev's own
-              reading, which was discarded for low confidence and may well be the one
-              that was wrong. */}
+          {/* 判定模型的原始读数：它给出结论的依据，逐项原样回显。 */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'max-content minmax(0,1fr) max-content',
+              gridTemplateColumns: 'max-content minmax(0,1fr)',
               columnGap: 10,
               rowGap: 4,
               fontSize: 12,
               alignItems: 'baseline',
             }}
           >
-            <span className="faint">{t('playground.live.cmpChannel')}</span>
-            <span className="faint">{t('playground.live.cmpReading')}</span>
-            <span className="faint">{t('playground.live.cmpAgreement')}</span>
-
-            <span className="faint">{t('playground.live.cmpDeterministic')}</span>
-            <span>
-              {det
-                ? `${det.success ? '✓' : '✗'} · score ${det.score.toFixed(2)} · ${det.summary}`
-                : t('playground.live.notScored')}
-            </span>
-            <span className="faint">—</span>
-
             <span className="faint">{t('playground.live.cmpJev')}</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{jevReadingLine(r)}</span>
-            <span className="faint" style={{ fontSize: 11 }}>
-              {agreeLabel(r.choice?.choice ?? null)}
-              {/* A reading the pipeline itself threw away must not be presented as
-                  if it decided anything. */}
-              {r.source === 'llm-judge' && ` ${t('playground.live.discarded')}`}
-            </span>
-
-            {r.chatJudge && (
-              <>
-                <span className="faint">{t('playground.live.cmpLlm')}</span>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{llmReadingLine(r.chatJudge)}</span>
-                <span className="faint" style={{ fontSize: 11 }}>
-                  {agreeLabel(r.chatJudge.choice)}
-                  {` ${t('playground.live.operative')}`}
-                </span>
-              </>
-            )}
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{jevReadingLine(jv)}</span>
           </div>
 
-          {/* The server's "please re-check" advice only applies to a reading that
-              stood on its own; when the cascade ran, this reading was discarded. */}
-          {r.consistencyDetail && r.source !== 'llm-judge' && (
-            <span className="faint" style={{ fontSize: 11 }}>{r.consistencyDetail}</span>
+          {/* 判分依据：模型不写自由文本，这段是代码按我们写的准绳把上面读数翻出来的。 */}
+          {jv.basis && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'max-content minmax(0,1fr)',
+                columnGap: 10,
+                rowGap: 4,
+                fontSize: 12,
+                alignItems: 'baseline',
+              }}
+            >
+              <span className="faint">{t('playground.live.judgeBasis')}</span>
+              <span style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{jv.basis}</span>
+            </div>
           )}
         </>
       )}

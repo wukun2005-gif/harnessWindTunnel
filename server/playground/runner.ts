@@ -29,6 +29,7 @@ import type {
   MaterialsInfo,
   PgMounts,
   ProviderSnapshot,
+  ScoreResult,
 } from '../../shared/playground'
 import type { LegalAssertion } from '../../shared/legal'
 import type { MastTag } from '../../shared/mast'
@@ -52,14 +53,15 @@ import { getJevSettings } from './jevSettings'
 import { runJevJudge } from './jevJudge'
 import { saveReview } from './jevReviews'
 import { jevLog } from './jevLog'
-import { liveRunJevScenario, thresholdForScenario } from '../../shared/jev'
 import { supportOf, UNREACHABLE } from './assertionSupport'
 import { configVersionInfo, snapshotFingerprint as fingerprint, POLICY_VERSION } from './presets'
 import { scoreAnswer, detectSensitiveLeaks } from './scorer'
 import {
   PATENT_LAW_TOOLS,
   callPatentLawTool,
+  createRagJudgeLlm,
   type McpCallResult,
+  type McpLlm,
 } from './patentLawMcp'
 import {
   FS_READ_MAX_CHARS,
@@ -100,6 +102,50 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 8192
 const DOSSIER_HARD_CAP_CHARS = 120_000
 const DOSSIER_BUDGET_CHARS = 14_000
 const TOOL_RESULT_CAP_CHARS = 8_000
+
+/**
+ * 工具结果进模型上下文的唯一通道。两条硬要求：
+ *
+ *  1) **永远是合法 JSON**。旧实现是 `JSON.stringify(data).slice(0, 8000)` —— 在字符串
+ *     中间一刀切，模型收到的是半截对象，字段名和引号都可能是断的。
+ *  2) **联网补回来的内容不能被本地噪声挤掉**。RAG MCP 的 `data` 里 `webResults` 恰好是
+ *     最后一个键，而 `results[].text`（本地片段）没有长度限制 —— 于是超预算时第一个
+ *     被砍的就是联网结果。实测 L17 C2 rep2 的检索返回就是这个形状：本地 5 条片段只
+ *     有 top 0.351 的相似度，真正该用的是联网补的，却排在末尾。
+ *
+ * 做法：先原样序列化；超预算就把所有字符串按比例缩短（保结构，不切 JSON），
+ * 逐步减半直到装得下。这样既保合法，也不会只牺牲排在最后的那个字段。
+ */
+function serializeToolData(data: unknown, budget = TOOL_RESULT_CAP_CHARS): string {
+  const raw = JSON.stringify(data ?? null)
+  if (raw.length <= budget) return raw
+
+  const shrink = (node: unknown, factor: number): unknown => {
+    if (typeof node === 'string') {
+      return node.length > 600 ? node.slice(0, Math.max(300, Math.floor(node.length * factor))) + '…' : node
+    }
+    if (Array.isArray(node)) return node.map((x) => shrink(x, factor))
+    if (node && typeof node === 'object') {
+      const out: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(node as Record<string, unknown>)) out[k] = shrink(v, factor)
+      return out
+    }
+    return node
+  }
+
+  let factor = 0.5
+  for (let i = 0; i < 8; i++) {
+    const text = JSON.stringify(shrink(data, factor))
+    if (text.length <= budget) return text
+    factor *= 0.5
+  }
+  // 兜底：仍然装不下就显式声明截断，但**保持合法 JSON** —— 绝不把半截对象塞给模型。
+  return JSON.stringify({
+    truncated: true,
+    note: `工具结果超过 ${budget} 字符上限，长字段已收缩后仍超限`,
+    preview: raw.slice(0, Math.floor(budget * 0.8)),
+  })
+}
 const ANSWER_THOUGHT_CAP = 600
 
 // ── materials ────────────────────────────────────────────────────────────────
@@ -482,7 +528,7 @@ export function createRun(input: RunRequestInput): CreatedRun | { error: string 
 
 export interface RunnerDeps {
   chat?: (target: ResolvedTarget, req: ChatRequest) => Promise<ChatResponse>
-  callTool?: (name: string, args: Record<string, unknown>) => Promise<McpCallResult>
+  callTool?: (name: string, args: Record<string, unknown>, llm?: McpLlm) => Promise<McpCallResult>
 }
 
 export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<void> {
@@ -505,7 +551,7 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
     }
     return res
   })
-  const callTool = deps.callTool ?? ((name, args) => callPatentLawTool(name, args))
+  const callTool = deps.callTool ?? ((name, args, llm) => callPatentLawTool(name, args, llm))
 
   // Late imports from the DB layer to keep the run row the single read point.
   const { getRunDetail } = await import('./liveDb')
@@ -688,7 +734,13 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
         workspace.write(p, content)
         return { ok: true, tool: name, summary: `写入 ${p}（${content.length} 字）`, data: { path: p, chars: content.length } }
       }
-      return callTool(name, args)
+      // The MCP's sufficiency judge runs on its own fixed chain (RAG_JUDGE_CHAIN),
+      // NOT on this run's model: "is retrieval good enough" is a property of the
+      // retrieval pipeline, and it must not drift when the answer model changes.
+      // It also lives on a different provider pool, so it does not compete with
+      // the answer model for quota.
+      const mcpLlm: McpLlm = createRagJudgeLlm()
+      return callTool(name, args, mcpLlm)
     }
 
     // ── tool loop ──
@@ -817,7 +869,7 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
           } catch (err) {
             result = { ok: false, tool: tc.name, summary: `工具异常：${(err as Error).message}`, data: { error: (err as Error).message } }
           }
-          const resultText = JSON.stringify(result.data).slice(0, TOOL_RESULT_CAP_CHARS)
+          const resultText = serializeToolData(result.data)
           if (resp.usage) tokensTotal += estTokens(resultText)
           emit(ctx, {
             type: 'tool.result',
@@ -827,6 +879,53 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
             tokens: estTokens(resultText),
             summary: result.summary,
           })
+          // Inner steps of the RAG MCP: the sufficiency verdict and the web call
+          // it triggered. Without these the trajectory would show a local-only
+          // search while the answer cites the web — the record would be lying by
+          // omission (design §10 记录契约).
+          const inner = (result.data ?? {}) as {
+            query?: string
+            sufficiency?: { sufficient?: boolean; reason?: string } | null
+            judgeTokens?: number
+            webAugmented?: boolean
+            webResults?: unknown[]
+          }
+          // The judge's tokens were spent by the MCP, not by `chat`, so fold them
+          // back into the run's total here — otherwise the cost line under-reports.
+          if (inner.judgeTokens) tokensTotal += inner.judgeTokens
+          if (inner.sufficiency) {
+            emit(ctx, {
+              type: 'hook.decision',
+              author: 'harness',
+              step,
+              hook: 'rag-sufficiency',
+              verdict: inner.sufficiency.sufficient ? 'allow' : 'deny',
+              reason: inner.sufficiency.sufficient
+                ? '本地法库片段已足以回答问题，未触发联网检索'
+                : `本地法库片段不足：${inner.sufficiency.reason || '未说明'} → 触发联网检索`,
+            })
+          }
+          if (inner.webAugmented) {
+            emit(ctx, {
+              type: 'tool.call',
+              author: 'harness',
+              step,
+              tool: 'web_search',
+              argsSummary: JSON.stringify({ query: inner.query ?? '' }).slice(0, 200),
+            })
+            emit(ctx, {
+              type: 'tool.result',
+              author: 'harness',
+              step,
+              tool: 'web_search',
+              // tokens 记 0 是对的：这一步没有独立开销，内容随父结果一起进上下文
+              // （见上方 resultText），token 数已计在父 tool.result 上。
+              // summary 里必须写清这一点，否则读轨迹的人会以为联网结果没送进模型。
+              tokens: 0,
+              summary: `联网补充 ${(inner.webResults ?? []).length} 条外部结果（本地法库不足时由 RAG MCP 自动触发；`
+                + `内容已并入本次检索结果一并送模型，token 计入父检索调用）`,
+            })
+          }
           messages.push({ role: 'tool', content: resultText, toolCallId: tc.id })
         }
         lastStopReason = resp.stopReason
@@ -935,6 +1034,9 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
     }
 
     // ── citation verifier (L-MARS assertions) ──
+    // 修复轮之后仍然硬失败的断言。修复轮只是一次机会：改不动的话必须留下痕迹，
+    // 否则 run 会以 scored 正常计入（实测 L17 C2 rep2 就是这样）。
+    let citationStillBad: Array<{ citedAuthority: string; label: string }> = []
     if (ctx.config.sensors === 'verifier' || ctx.config.sensors === 'verifier+critic') {
       let assertions = runtimeVerifyCitations(task, answer)
       for (const a of assertions) {
@@ -977,6 +1079,7 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
         const stillBad = assertions.filter(
           (a) => a.label === 'unsupported' || a.label === 'citation_unreachable' || a.label === 'no_citation',
         )
+        citationStillBad = stillBad.map((b) => ({ citedAuthority: b.citedAuthority || '(无引用)', label: b.label }))
         const softLeft = assertions.filter((a) => a.label === 'partially_supported')
         emit(ctx, {
           type: 'verifier.verdict',
@@ -1012,10 +1115,6 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
       }
     }
 
-    // ── L2 scoring (deterministic, independent of harness config) ──
-    const verdict = scoreAnswer(task, answer)
-    insertVerdict(runId, verdict, 1)
-
     // Runtime legal.assertion events → fact table (origin=runtime).
     const runtimeAssertionEvents = getRunDetail(runId)?.events.filter((e) => e.type === 'legal.assertion') ?? []
     insertLegalAssertions(
@@ -1024,10 +1123,19 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
         return { runId, origin: 'runtime' as const, claimText: a.claimText, citedAuthority: a.citedAuthority, label: a.label, evidenceEventId: a.id }
       }),
     )
+
+    // ── 确定性检查：降级为「证据来源」，不再定分 ──
+    // 2026-10-12 重构：四个判分器（deterministic / rouge-1 / 旁路 Jev 读数 /
+    // 回落 chat LLM）不再决定通过与分数。但要点命中、法条断言核验、安全门这些
+    // **精确比对**恰恰是确定性检查擅长、判定模型不擅长的（官方 jaggedness 第 2、3 条：
+    // 金额 / 编号 / 期间的精确比对不要交给语义模型），所以它们继续产出，
+    // 只作为判分的证据与失败归因，success / score 一律交给判定模型。
+    const det = scoreAnswer(task, answer)
+
     // Scorer-side assertions → fact table (origin=scorer), linking a runtime
     // event when the same law+article was verified live.
     insertLegalAssertions(
-      verdict.articleChecks
+      det.articleChecks
         .filter((c) => c.article)
         .map((c) => {
           const rt = runtimeAssertionEvents.find((e) => {
@@ -1053,56 +1161,67 @@ export async function executeRun(runId: string, deps: RunnerDeps = {}): Promise<
       const events = getRunDetail(runId)?.events ?? []
       const blast = observeBlastRadius(events)
       // Extract security check results for the kill chain judges
-      const leakCheck = verdict.securityChecks?.find((c) => c.kind === 'leak')
-      const injectionCheck = verdict.securityChecks?.find((c) => c.kind === 'injection')
+      const leakCheck = det.securityChecks?.find((c) => c.kind === 'leak')
+      const injectionCheck = det.securityChecks?.find((c) => c.kind === 'injection')
       const leakCheckPassed = leakCheck?.passed ?? undefined
       const injectionRefused = injectionCheck?.passed ?? undefined
       const obs = observeKillChain(runId, task, events, ctx.config, leakCheckPassed, injectionRefused)
       insertKillChainObservation({ ...obs, observedBlastRadius: blast.filter((b) => b.reached).map((b) => b.target) }, blast)
     }
 
+    // ── 判分：判定模型是唯一定分方 ──
+    const runSideAssertions = runtimeAssertionEvents
+      .filter((e) => e.type === 'legal.assertion')
+      .map((e) => {
+        const a = e as Extract<HarnessEvent, { type: 'legal.assertion' }>
+        return { citedAuthority: a.citedAuthority, label: a.label }
+      })
+    const judge = await runJevJudge(task, answer, { batchId: runId, assertions: runSideAssertions })
+    patchRun(runId, { jevResult: judge })
+    saveReview({
+      id: randomUUID(),
+      time: new Date().toISOString(),
+      batchId: runId,
+      kind: null,
+      variant: null,
+      taskId: task.id,
+      domain: task.domain,
+      split: task.split,
+      scorerType: task.scorerType,
+      answer,
+      result: judge,
+    })
+    jevLog(`live judge task=${task.id} run=${runId} source=${judge.source} success=${judge.success} latencyMs=${judge.latencyMs ?? '-'}`)
+    // 调用失败 / 未启用 → **不算通过也不算不通过**：这是网络或限流问题，不是模型判错，
+    // 混进分母会把「判定模型准不准」和「网络通不通」两件事搅在一起。
+    // 答案先落库再抛错，run 以 status=error 收尾，自动从通过率的分母里剔除。
+    if (judge.source !== 'decided' || judge.success == null) {
+      patchRun(runId, { answer, tokens: tokensTotal })
+      throw new Error(`判定模型未给出结论（source=${judge.source}）：${judge.error ?? judge.reason}`)
+    }
+
+    // 引用硬失败仍然落到 run 级失败标签（harness 的 citation verifier 结论，
+    // 与判定模型无关，不因换判分器而丢失）。
+    const failureTags = [...det.failureTags]
+    if (citationStillBad.length > 0) {
+      const fabricated = citationStillBad.some(
+        (b) => b.label === 'unsupported' || b.label === 'citation_unreachable',
+      )
+      const tag: MastTag = fabricated ? 'fabricated-citation' : 'weak-grounding'
+      if (!failureTags.includes(tag)) failureTags.push(tag)
+    }
+    const verdict: ScoreResult = {
+      ...det,
+      success: judge.success,
+      score: judge.score ?? (judge.success ? 1 : 0),
+      failureTags,
+      summary: judge.reason,
+    }
+    insertVerdict(runId, verdict, 1)
+
     // Posthoc failure tags (author=narrator, distinct from runtime harness tags).
     for (const tag of verdict.failureTags) {
       emit(ctx, { type: 'failure.tag', author: 'narrator', step, mast: tag, confidence: 0.95, note: `scorer posthoc：${tag}` })
-    }
-
-    // ── Jev side review (bypass only) ──
-    // The live run needs BOTH models: the chat LLM produces the answer, Jev
-    // reviews it. They are complementary, not alternatives, and each has its
-    // own fallback chain (Jev→Jev across the decision cards, LLM→LLM across
-    // the chat cards, and low-confidence Jev→chat-LLM cascade).
-    //
-    // Contract (§17.3/§17.4):
-    //   switch off  → zero calls, nothing below runs;
-    //   reading is bypass-only → never written into the verdict or success;
-    //   any failure → surfaced as an error badge, never breaks the run.
-    if (getJevSettings().enabled) {
-      try {
-        const result = await runJevJudge(task, answer, { batchId: runId })
-        saveReview({
-          id: randomUUID(),
-          time: new Date().toISOString(),
-          batchId: runId,
-          kind: null,
-          variant: null,
-          taskId: task.id,
-          domain: task.domain,
-          split: task.split,
-          scorerType: task.scorerType,
-          answer,
-          detSuccess: verdict.success,
-          detScore: verdict.score,
-          // 与 runJevJudge 内部同源：法律域任务用法律断言阈值，其余用通用实况风洞。
-          threshold: thresholdForScenario(getJevSettings(), liveRunJevScenario(task.domain)),
-          cascadeEnabled: getJevSettings().cascadeToChatJudge,
-          result,
-        })
-        patchRun(runId, { jevResult: result })
-        jevLog(`live review task=${task.id} run=${runId} source=${result.source} latencyMs=${result.latencyMs ?? '-'}`)
-      } catch (err) {
-        // A failed side review must not change how the run is scored or displayed.
-        jevLog(`live review failed task=${task.id} run=${runId}: ${String((err as Error).message ?? err)}`)
-      }
     }
 
     const latencyMs = Date.now() - t0

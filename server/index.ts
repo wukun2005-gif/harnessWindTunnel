@@ -16,7 +16,7 @@ import { handlePlaygroundRoute } from './playground/routes'
 import { verifyJevTarget } from './playground/jevClient'
 import { recoverQueuedRuns } from './playground/runner'
 import { isDecisionProvider } from '../shared/provider'
-import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID_OPENCODE } from '../shared/jev'
+import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID_OPENCODE, JEV_PROVIDER_ID_OPENROUTER } from '../shared/jev'
 
 const PORT = Number(process.env['PORT'] ?? 4000)
 
@@ -246,10 +246,14 @@ const server = createServer((req, res) => {
             if (!apiKey) return json(res, 400, { ok: false, error: 'apiKey is required' })
             const base = (baseUrl || '').trim().replace(/\/+$/, '')
             if (!base) return json(res, 400, { ok: false, error: 'baseUrl is required' })
-            // 判定模型（TypeSafe Jev / OpenCode Jev）：没有 OpenAI 兼容的 /models 与 /chat/completions，
-            // 「查询模型」返回对应卡的静态托管型号清单，「验证」走一次最小 /systemone 探针。
+            // 判定模型卡（TypeSafe Jev / OpenCode Jev / OpenRouter 判定）：没有 OpenAI 兼容的
+            // /chat/completions，主调用与「验证」都走 System One 探针（POST {base}/systemone）。
+            // 「查询模型」分两种：
+            //   · TypeSafe / OpenCode 两张托管卡没有 /models 端点 → 回静态托管型号清单；
+            //   · OpenRouter 判定卡是普通 OpenAI 兼容端点 → 落到下面的通用 /models 实时查询，
+            //     再由 filterModelsForProvider 按判定型号白名单过滤（shared/modelFilter.ts）。
             if (isDecisionProvider(providerId)) {
-              if (action === 'models') {
+              if (action === 'models' && providerId !== JEV_PROVIDER_ID_OPENROUTER) {
                 const staticModels = providerId === JEV_PROVIDER_ID_OPENCODE ? JEV_OPENCODE_MODEL_IDS : JEV_MODEL_IDS
                 return json(res, 200, {
                   ok: true,
@@ -259,22 +263,27 @@ const server = createServer((req, res) => {
                   note: '判定模型没有 /models 端点，返回托管型号清单',
                 })
               }
-              if (!modelId) return json(res, 400, { ok: false, error: 'apiKey and modelId are required' })
-              const probe = await verifyJevTarget({ providerId, baseUrl: base, apiKey, model: modelId })
-              return json(res, 200, probe.ok ? { ok: true, modelId, latencyMs: probe.latencyMs } : { ok: false, modelId, error: probe.error })
+              if (action === 'verify-model') {
+                if (!modelId) return json(res, 400, { ok: false, error: 'apiKey and modelId are required' })
+                const probe = await verifyJevTarget({ providerId, baseUrl: base, apiKey, model: modelId })
+                return json(res, 200, probe.ok ? { ok: true, modelId, latencyMs: probe.latencyMs } : { ok: false, modelId, error: probe.error })
+              }
             }
             try {
               if (action === 'models') {
+                // 判定卡要打带 output_modalities=decisions 的那个清单：OpenRouter 的普通 /models
+                // **不返回**判定型号（2026-10-12 实测 458 条里一个都没有），过滤普通清单只会得到空列表。
+                const query = providerId === JEV_PROVIDER_ID_OPENROUTER ? '?output_modalities=decisions' : ''
                 // Generic OpenAI-compatible model listing (docStudio uses per-provider adapters).
-                const r = await fetch(`${base}/models`, {
+                const r = await fetch(`${base}/models${query}`, {
                   headers: { Authorization: `Bearer ${apiKey}` },
                   signal: AbortSignal.timeout(15_000),
                 })
                 if (!r.ok) return json(res, 502, { ok: false, error: `HTTP ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}` })
                 const data = await r.json() as { data?: { id?: string }[] }
                 const all = Array.isArray(data.data) ? data.data.map((m) => m.id).filter((x): x is string => typeof x === 'string') : []
-                // 只回可选模型：先过品类（厂商会把 embedding / rerank / 语音 / 图像一并
-                // 返回，百炼一次 262 条），有免费档的厂商再只留免费档。
+                // 只回可选模型：判定卡走判定型号白名单；其余卡先过品类（厂商会把 embedding / rerank /
+                // 语音 / 图像一并返回，百炼一次 262 条），有免费档的厂商再只留免费档。
                 const models = filterModelsForProvider(providerId, all)
                 return json(res, 200, { ok: true, providerId, models, filteredOut: all.length - models.length })
               }

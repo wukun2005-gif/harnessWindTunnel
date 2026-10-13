@@ -56,7 +56,7 @@ writeFileSync(
         { providerId: JEV_B, baseUrl: 'https://jev-b.test/v1', apiKeyRef: 'j-b', defaultModelId: 'jev-b-1', enabled: true },
       ],
     },
-    playground_jev: { enabled: true, confidenceThreshold: 0.9, scenarioThresholds: { playground: 0.7, 'p0a-assertions': 0.5, 'p1c-tags': 0.5, 'p1e-rag': 0.7 }, cascadeToChatJudge: true },
+    playground_jev: { enabled: true },
   }),
 )
 
@@ -208,38 +208,36 @@ test('targets distinguishes chat models from Jev decision cards', async () => {
   assert.equal(usable.length, 2, '两张对话卡都应可用，判定卡不算')
 })
 
-// ── ② Jev 按场景阈值往返 ──────────────────────────────────────────────────
-
-test('per-scenario Jev thresholds round-trip and persist', async () => {
-  const before = (await json(await get('/api/playground/jev'))) as { settings: { scenarioThresholds: Record<string, number> } }
-  assert.equal(before.settings.scenarioThresholds['p0a-assertions'], 0.5)
-  assert.equal(before.settings.scenarioThresholds['playground'], 0.7)
-
-  const put = await send('/api/playground/jev', 'PUT', { scenarioThresholds: { 'p1e-rag': 0.6 } })
-  const afterPut = (await json(put)) as { settings: { scenarioThresholds: Record<string, number> } }
-  assert.equal(afterPut.settings.scenarioThresholds['p1e-rag'], 0.6, '改一个场景不影响其他场景')
-  assert.equal(afterPut.settings.scenarioThresholds['p0a-assertions'], 0.5, '未传的场景保持原值')
-
-  // 越界值必须被夹住
-  const clamped = (await json(await send('/api/playground/jev', 'PUT', { scenarioThresholds: { playground: 9 } }))) as { settings: { scenarioThresholds: Record<string, number> } }
-  assert.equal(clamped.settings.scenarioThresholds['playground'], 0.99)
-
-  // 未知场景键必须被丢弃，而不是存进去
-  const bogus = (await json(await send('/api/playground/jev', 'PUT', { scenarioThresholds: { evil: 0.5 } as never }))) as { settings: { scenarioThresholds: Record<string, number> } }
-  assert.equal(bogus.settings.scenarioThresholds['evil'], undefined)
-})
+// ── ② 判定开关往返：只剩 enabled 一个旋钮 ──────────────────────────────────
 
 // 曾经的真实 bug：PUT 路由白名单漏了新开关，勾选框点了存不进去（GET 回来还是旧值）。
-test('the chatJudgeAlways switch round-trips through PUT', async () => {
-  const put = await send('/api/playground/jev', 'PUT', { chatJudgeAlways: true })
-  const afterPut = (await json(put)) as { settings: { chatJudgeAlways: boolean } }
-  assert.equal(afterPut.settings.chatJudgeAlways, true, 'PUT 后应立刻勾上')
-  const reread = (await json(await get('/api/playground/jev'))) as { settings: { chatJudgeAlways: boolean } }
-  assert.equal(reread.settings.chatJudgeAlways, true, '重读应保持')
+test('the decision switch round-trips through PUT, and the removed knobs are gone', async () => {
+  const put = await send('/api/playground/jev', 'PUT', { enabled: false })
+  const afterPut = (await json(put)) as { settings: { enabled: boolean } }
+  assert.equal(afterPut.settings.enabled, false, 'PUT 后应立刻取消勾选')
+  const reread = (await json(await get('/api/playground/jev'))) as { settings: { enabled: boolean } }
+  assert.equal(reread.settings.enabled, false, '重读应保持')
 
-  const off = await send('/api/playground/jev', 'PUT', { chatJudgeAlways: false })
-  const afterOff = (await json(off)) as { settings: { chatJudgeAlways: boolean } }
-  assert.equal(afterOff.settings.chatJudgeAlways, false)
+  const on = await send('/api/playground/jev', 'PUT', { enabled: true })
+  const afterOn = (await json(on)) as { settings: { enabled: boolean } }
+  assert.equal(afterOn.settings.enabled, true)
+
+  // 阈值 / 回落 / 第二意见已全部取消：PUT 带上这些旧键既不能存进去，也不能让路由报错。
+  const stale = (await json(
+    await send('/api/playground/jev', 'PUT', {
+      confidenceThreshold: 0.9,
+      scenarioThresholds: { playground: 0.7 },
+      cascadeToChatJudge: true,
+      chatJudgeAlways: true,
+    } as never),
+  )) as { settings: Record<string, unknown> }
+  assert.equal(stale.settings['confidenceThreshold'], undefined)
+  assert.equal(stale.settings['scenarioThresholds'], undefined)
+  assert.equal(stale.settings['cascadeToChatJudge'], undefined)
+  assert.equal(stale.settings['chatJudgeAlways'], undefined)
+  // 视图里除开关本身外只多一个 provider 摘要（配置是否就绪），不含任何被取消的旋钮。
+  assert.deepEqual(Object.keys(stale.settings).sort(), ['enabled', 'provider', 'updatedAt'])
+  assert.equal(stale.settings['enabled'], true, '旧键被丢弃的同时，开关本身不受影响')
 })
 
 // ── ③④ 实跑：LLM + Jev 同时发生 + Jev→Jev 回退 ───────────────────────────
@@ -263,14 +261,16 @@ test('a live run calls the chat model and Jev, and Jev falls back across cards',
   assert.ok(jevCalls.some((u) => u.includes('jev-b.test')), 'Jev 回退到第二张判定卡')
 
   // 读数落库并回传
-  assert.ok(detail.jevResult, 'run 详情必须带回 Jev 读数')
+  assert.ok(detail.jevResult, 'run 详情必须带回判定读数')
   assert.equal(detail.jevResult!.enabled, true)
-  assert.equal(detail.jevResult!.bypassOnly, true, '读数只能是旁路')
   assert.equal(detail.jevResult!.model, 'jev-b-1', '记录真实应答方，不是主卡')
+  assert.equal(detail.jevResult!.source, 'decided')
+  assert.equal(typeof detail.jevResult!.success, 'boolean', '判定模型给出结论')
 
-  // 铁律：读数不参与定分
+  // 2026-10-12 重构：判定模型是唯一判分器，success 直接来自它的读数。
   assert.equal(typeof detail.success, 'boolean')
-  assert.equal(detail.verdict?.taskId, 'L2', 'success 来自确定性判分器，不是 Jev')
+  assert.equal(detail.verdict?.taskId, 'L2')
+  assert.equal(detail.success, detail.jevResult!.success, 'success 必须与判定读数一致')
 
   // 法源工具确实被调了（C2 挂载 patent-law-mcp）
   const toolCalls = detail.events.filter((e) => e.type === 'tool.call')

@@ -16,11 +16,8 @@ import {
   confidenceStats,
   costStats,
   driftStats,
-  fallbackAgreement,
-  fallbackEvents,
   injectionStats,
   overallVerdict,
-  thresholdStats,
   trapStats,
   type VerdictReason,
 } from './analysis'
@@ -107,19 +104,14 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
   const calib = useMemo(() => calibrationStatus(buckets), [buckets])
   const calibNote = useMemo(() => calibrationConservative(buckets), [buckets])
   const bySource = useMemo(() => agreementBySource(scoped), [scoped])
-  const fb = useMemo(() => fallbackAgreement(scoped), [scoped])
-  const fbEvents = useMemo(() => fallbackEvents(scoped), [scoped])
-  const th = useMemo(() => thresholdStats(scoped), [scoped])
   const conf = useMemo(() => confidenceStats(scoped), [scoped])
   const cost = useMemo(() => costStats(scoped), [scoped])
   const trap = useMemo(() => trapStats(scoped, trapIds), [scoped, trapIds])
   const inj = useMemo(() => injectionStats(scoped, recallIds), [scoped, recallIds])
-  // 场景适用性：本批没有 trap 题 → 注入鲁棒性不适用（写「不适用」，不是「待测」）；
-  // 本批全程没开低置信回落 → 回落一致不适用。适用但还没数据的仍写「待测」。
+  // 场景适用性：本批没有 trap 题 → 注入鲁棒性不适用（写「不适用」，不是「待测」）。
   const injectionNa = trap.total === 0
-  const fallbackNa = scoped.length > 0 && scoped.every((r) => !r.cascadeEnabled)
   // 一致率的比对基准按批内实况定：全是「无确定性判分」的记录（RAG/标签/断言）比的是金标，指标名随实改名。
-  const vsGold = scoped.length > 0 && scoped.every((r) => r.detSuccess == null)
+  const vsGold = scoped.length > 0 && scoped.every((r) => r.result.success == null)
   const verdict = useMemo(
     () => overallVerdict({ total: scoped.length, drift, agreement: agree, calib, trapTotal: trap.total, injection: inj.status }),
     [scoped.length, drift, agree, calib, trap.total, inj.status],
@@ -269,8 +261,8 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
                             {t('playground.analysis.reviewReadings', {
                               choice: rec.result.choice ? jevLabel(rec.result.choice.choice) : t('playground.jev.noReading'),
                               choiceConf: confPct(rec.result.choice?.confidence ?? null),
-                              score: rec.result.score ? String(rec.result.score.score) : t('playground.jev.noReading'),
-                              scoreConf: confPct(rec.result.score?.confidence ?? null),
+                              score: rec.result.agreement ? String(rec.result.agreement.score) : t('playground.jev.noReading'),
+                              scoreConf: confPct(rec.result.agreement?.confidence ?? null),
                             })}
                           </div>
                           <div>
@@ -280,11 +272,6 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
                           <div>
                             {t('playground.analysis.reviewReason')} {rec.result.consistencyDetail || t('playground.analysis.none')}
                           </div>
-                          {rec.result.chatJudge && (
-                            <div>
-                              {t('playground.jev.fallback', { model: rec.result.chatJudge.model })} {jevLabel(rec.result.chatJudge.choice)} ({confPct(rec.result.chatJudge.confidence)})
-                            </div>
-                          )}
                         </div>
                       )}
                     </details>
@@ -369,7 +356,6 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
                 {t('playground.analysis.sourceLine', { source: s.source, agree: s.agree, judged: s.judged, total: s.total })}
               </div>
             )) : t('playground.analysis.none')}
-            <div>{th.avg == null ? t('playground.analysis.none') : t('playground.analysis.thresholdLine', { avg: th.avg.toFixed(2), list: th.values.map((v) => v.toFixed(2)).join('、') })}</div>
             <div>
               {conf.avg == null
                 ? t('playground.analysis.none')
@@ -381,24 +367,6 @@ export default function AnalysisPanel({ tasks }: { tasks: EvalTask[] }) {
                   })}
             </div>
           </div>
-        </div>
-
-        <div style={{ padding: 8, borderRadius: 6, background: 'var(--dim)' }}>
-          <b>{t('playground.analysis.m.fallback')}</b>
-          <div className="faint" style={{ marginTop: 4 }}>
-            {t('playground.analysis.fallbackEventsLine', { total: fbEvents.total, inBypass: fbEvents.inBypass })}
-          </div>
-          <span className="faint">
-            {' '}
-            {fb.total > 0
-              ? t('playground.analysis.fallbackLine', { agree: fb.agree, total: fb.total, pct: pct(fb.rate) })
-              : fallbackNa
-                ? t('playground.analysis.na')
-                : t('playground.analysis.state.unknown')}
-          </span>
-          {fallbackNa && (
-            <div className="faint" style={{ marginTop: 4 }}>{t('playground.analysis.fallbackNa')}</div>
-          )}
         </div>
 
         <div style={{ padding: 8, borderRadius: 6, background: 'var(--dim)' }}>

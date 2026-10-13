@@ -1,25 +1,22 @@
-// Jev 判定器（M1 旁路复核）离线单测：不打任何真实网络。
+// 判定模型判分离线单测：不打任何真实网络。
 // 覆盖：三种原语的问答构造、响应解析容错、state 组装与预算、开关关闭时「零调用」的硬约束、
-// 置信度级联（jev-live / llm-judge / needs-human / bypass / error）、设置存储（可与 chat
-// provider 同时启用、密钥不回显、判定模型不会被当成主 chat 目标）。
+// 通过/不通过只由判定模型读数决定（exact 通过，partial/none/unclear 不通过，调用失败标 error）、
+// 设置存储（可与 chat provider 同时启用、密钥不回显、判定模型不会被当成主 chat 目标）。
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  DEFAULT_JEV_SETTINGS,
   JEV_QUESTION_IDS,
   JEV_PROVIDER_ID,
   JEV_PROVIDER_ID_OPENCODE,
-  readingAgreesWithVerdict,
-  type JevChoiceReading,
-  type JevScoreReading,
 } from '../shared/jev'
 import { loadEvalSet } from '../server/playground/evalset'
-import { scoreAnswer } from '../server/playground/scorer'
 import { buildJudgeQuestions, parseJudgeAnswers, normalizeChoiceKey, type JevQuestionSpec } from '../server/playground/jevClient'
-import { buildJudgeState, combinedConfidence, judgeConsistency, runJevJudge } from '../server/playground/jevJudge'
-import { getJevSettings, jevSettingsView, putJevSettings, resolveChatJudgeTarget, resolveJevTarget, resolveJevTargets } from '../server/playground/jevSettings'
+import { buildJudgeState, runJevJudge } from '../server/playground/jevJudge'
+import { getJevSettings, jevSettingsView, putJevSettings, resolveJevTarget, resolveJevTargets } from '../server/playground/jevSettings'
 
 process.env['HWT_SETTINGS_FILE'] = join(mkdtempSync(join(tmpdir(), 'hwt-jev-')), 'settings.json')
 // 429 退避：不空等（重试次数照旧）、不进退避窗口——单测之间不许互相跳卡。
@@ -151,7 +148,8 @@ test('answer parsing tolerates the documented variants and never guesses', () =>
     },
   })
   assert.equal(canonical.choice?.choice, 'exact')
-  assert.equal(canonical.score?.score, 4)
+  // 官方档位 0 起编号（'4' = 我们写的"5 分"），解析时 +1 归到 1–5 档。
+  assert.equal(canonical.score?.score, 5)
   assert.equal(canonical.grounded?.noul, 0.7)
 
   // 变体：results 数组 + question_id 键名 + distribution 命名。
@@ -163,7 +161,8 @@ test('answer parsing tolerates the documented variants and never guesses', () =>
     ],
   })
   assert.equal(variant.choice?.choice, 'partial')
-  assert.equal(variant.score?.score, 3.5)
+  // 同样 +1：接口的 3.5 → 我们发出去的 1–5 档里的 4.5。
+  assert.equal(variant.score?.score, 4.5)
   assert.equal(variant.grounded?.noul, 1)
 
   // 未知取值 → 归到 abstain 出口（unclear），绝不猜成 exact。
@@ -217,7 +216,8 @@ test('official score shape: legend maps 0-based levels, usage is metered', () =>
       },
     },
   })
-  assert.equal(parsed.score?.score, 1.05)
+  // 读数 +1 归到 1–5 档；legend 键保持官方的 0 起编号（差一位在展示时对齐）。
+  assert.equal(parsed.score?.score, 2.05)
   assert.deepEqual(parsed.score?.legend, { 0: 'Calm', 1: 'Frustrated', 2: 'Very angry' })
   // legend 缺失即 null，不拦解析。
   const noLegend = parseJudgeAnswers({ answers: { [JEV_QUESTION_IDS.agreement]: { score: 2 } } })
@@ -226,77 +226,68 @@ test('official score shape: legend maps 0-based levels, usage is metered', () =>
 
 test('result records the responding model, not the requested alias', async () => {
   putProviderBundle([{ providerId: JEV_PROVIDER_ID, apiKey: 'jev-key', baseUrl: 'https://api.typesafe.ai/v1', modelIds: ['jev-latest'], defaultModelId: 'jev-latest', enabled: true }])
-  putJevSettings({ enabled: true, confidenceThreshold: 0.9 })
+  putJevSettings({ enabled: true })
   calls = []
   respond = () => jevAnswers('exact', 0.95, 5, 0.93, 0.9, 'jev-1.13.0')
   const result = await runJevJudge(general, general.referenceAnswer)
-  assert.equal(result.source, 'jev-live')
+  assert.equal(result.source, 'decided')
   assert.equal(result.model, 'jev-1.13.0')
   configureProviders()
   putJevSettings({ enabled: false })
 })
 
-test('combined confidence takes the minimum of Choice and Score, and needs both', () => {
-  const choice: JevChoiceReading = { choice: 'exact', probabilities: null, confidence: 0.95 }
-  const score: JevScoreReading = { score: 4, probabilities: null, confidence: 0.72, legend: null }
-  assert.equal(combinedConfidence(choice, score), 0.72)
-  assert.equal(combinedConfidence(choice, null), null)
-  assert.equal(combinedConfidence({ ...choice, confidence: null }, score), null)
-})
+test('exact passes, partial/none/unclear all fail, with a single call', async () => {
+  putJevSettings({ enabled: true })
+  configureProviders()
+  calls = []
+  respond = () => jevAnswers('exact', 0.95, 5, 0.93, 0.9)
+  const pass = await runJevJudge(general, general.referenceAnswer)
+  assert.equal(pass.source, 'decided')
+  assert.equal(pass.success, true)
+  assert.equal(pass.score, 1)
 
-test('consistency compares the Jev reading against the deterministic verdict', () => {
-  const pass = scoreAnswer(general, general.referenceAnswer)
-  const fail = scoreAnswer(general, '完全无关的回答。')
-  assert.equal(judgeConsistency('exact', pass).kind, 'consistent')
-  assert.equal(judgeConsistency('none', fail).kind, 'consistent')
-  assert.equal(judgeConsistency('exact', fail).kind, 'divergent')
-  assert.equal(judgeConsistency('unclear', pass).kind, 'incomparable')
-  assert.equal(judgeConsistency(null, pass).kind, 'incomparable')
-})
-
-test('readingAgreesWithVerdict is the one agreement rule, and judgeConsistency follows it', () => {
-  // The run detail labels every channel with this rule. A second copy on the
-  // client would let the panel contradict the `consistency` field it explains.
-  assert.equal(readingAgreesWithVerdict('exact', true), true)
-  assert.equal(readingAgreesWithVerdict('exact', false), false)
-  assert.equal(readingAgreesWithVerdict('partial', false), true)
-  assert.equal(readingAgreesWithVerdict('partial', true), false)
-  assert.equal(readingAgreesWithVerdict('none', false), true)
-  assert.equal(readingAgreesWithVerdict(null, true), null)
-  assert.equal(readingAgreesWithVerdict('unclear', true), null)
-
-  const pass = scoreAnswer(general, general.referenceAnswer)
-  const fail = scoreAnswer(general, '完全无关的回答。')
-  for (const choice of ['exact', 'partial', 'none', 'unclear']) {
-    for (const det of [pass, fail]) {
-      const expected = readingAgreesWithVerdict(choice, det.success)
-      const kind = judgeConsistency(choice, det).kind
-      assert.equal(
-        kind,
-        expected == null ? 'incomparable' : expected ? 'consistent' : 'divergent',
-        `${choice} vs det.success=${det.success}`,
-      )
-    }
+  // partial / none / unclear 一律不通过 —— unclear 是题目里定义的「以上都不是」出口，
+  // 不是"转人工"信号；转人工通道已随 LLM 回落一起取消。
+  for (const c of ['partial', 'none', 'unclear']) {
+    respond = () => jevAnswers(c, 0.9, 3, 0.6, 0.5)
+    const fail = await runJevJudge(general, '只写了一半要点的回答。')
+    assert.equal(fail.source, 'decided', `${c}: ${fail.reason}`)
+    assert.equal(fail.success, false, `${c} 必须判不通过`)
   }
+  // 只有一次出网调用：没有回落、没有第二意见。
+  assert.equal(calls.length, 4)
+  assert.ok(calls.every((u) => u.endsWith('/systemone')), calls.join(', '))
+})
+
+test('a truncated state still scores, but says so', async () => {
+  putJevSettings({ enabled: true })
+  calls = []
+  respond = () => jevAnswers('exact', 0.95, 5, 0.93, 0.9)
+  const long = 'x'.repeat(200_000)
+  const r = await runJevJudge(general, long)
+  assert.equal(r.stateTruncated, true)
+  assert.equal(r.source, 'decided')
 })
 
 
-// ── 设置存储：默认关、阈值夹紧、密钥不回显、可与 chat 同时启用 ─────────────
+// ── 设置存储：默认关、只带 enabled/updatedAt、密钥不回显、可与 chat 同时启用 ──
 
-test('the switch defaults to off and clamps the confidence threshold', () => {
+test('the switch defaults to off and only carries enabled/updatedAt', () => {
+  assert.equal(DEFAULT_JEV_SETTINGS.enabled, false)
+  assert.deepEqual(Object.keys(DEFAULT_JEV_SETTINGS).sort(), ['enabled', 'updatedAt'])
+
+  putJevSettings({ enabled: false })
   const initial = getJevSettings()
   assert.equal(initial.enabled, false)
-  assert.equal(initial.confidenceThreshold, 0.9)
-  assert.equal(initial.cascadeToChatJudge, true)
+  // 阈值 / 回落 / 第二意见已全部取消：设置里只剩开关本身。
+  assert.equal('confidenceThreshold' in initial, false)
+  assert.equal('cascadeToChatJudge' in initial, false)
 
-  assert.equal(putJevSettings({ confidenceThreshold: 0.1 }).confidenceThreshold, 0.5)
-  assert.equal(putJevSettings({ confidenceThreshold: 5 }).confidenceThreshold, 0.99)
-  assert.equal(putJevSettings({ confidenceThreshold: 0.95 }).confidenceThreshold, 0.95)
   assert.equal(putJevSettings({ enabled: true }).enabled, true)
   assert.ok(putJevSettings({}).updatedAt)
 })
 
-test('Jev and a chat provider can be enabled at once, and the chat target is never the decision model', () => {
+test('the decision card is configurable and the view never echoes the key (B-041)', () => {
   configureProviders()
   const view = jevSettingsView()
   assert.equal(view.provider.configured, true)
@@ -305,14 +296,9 @@ test('Jev and a chat provider can be enabled at once, and the chat target is nev
   // B-041：视图里没有密钥字段。
   assert.equal('apiKey' in view.provider, false)
   assert.equal('apiKeyRef' in view.provider, false)
-  // 回落目标与判定卡同源，且回落型号不是判定型号（jev- 命名走 /systemone，没有 chat 端点）。
-  const chat = resolveChatJudgeTarget()
-  assert.equal(chat?.providerId, JEV_PROVIDER_ID_OPENCODE)
-  assert.equal(chat?.model, 'step-5-preview-free')
-  assert.equal(view.chatJudge.providerId, JEV_PROVIDER_ID_OPENCODE)
 })
 
-// ── 级联：关 / jev-live / llm-judge / needs-human / bypass / error ─────────
+// ── 判分：关 / decided / error（无阈值、无回落、无旁路）──────────────────
 
 test('switch off means zero calls — the judge never reaches the network', async () => {
   putJevSettings({ enabled: false })
@@ -321,104 +307,107 @@ test('switch off means zero calls — the judge never reaches the network', asyn
   assert.equal(result.source, 'off')
   assert.equal(result.enabled, false)
   assert.equal(result.choice, null)
+  assert.equal(result.success, null)
   assert.equal(calls.length, 0, `unexpected network calls: ${calls.join(', ')}`)
 })
 
-test('high confidence yields a jev-live reading that stays a bypass (no success/score)', async () => {
-  putJevSettings({ enabled: true, confidenceThreshold: 0.9 })
+test('a high-confidence reading is the verdict — it decides success and score', async () => {
+  putJevSettings({ enabled: true })
   configureProviders()
   calls = []
-  respond = () => jevAnswers('exact', 0.95, 5, 0.93, 0.9)
+  respond = () => jevAnswers('exact', 0.95, 4, 0.93, 0.9)
   const result = await runJevJudge(general, general.referenceAnswer)
-  assert.equal(result.source, 'jev-live')
+  assert.equal(result.source, 'decided')
   assert.equal(result.choice?.choice, 'exact')
-  assert.equal(result.score?.score, 5)
+  // 接口回 0 起编号（满分 '4'），解析时 +1 归到我们发的 1–5 档 → 5。
+  assert.equal(result.agreement?.score, 5)
   assert.equal(result.grounded?.noul, 0.9)
-  assert.equal(result.bypassOnly, true)
-  assert.equal(result.consistency, 'consistent')
-  // 读数是旁路记录：没有 success / score 这类判分字段，改不了确定性判分。
-  assert.equal('success' in result, false)
+  assert.equal(result.success, true)
+  assert.equal(result.score, 1)
+  // 没有回落、没有第二意见：一次出网。
   assert.equal(calls.length, 1)
   assert.ok(calls[0]!.endsWith('/systemone'), calls[0])
-  assert.equal(result.securityBypass, false)
   assert.ok(result.latencyMs! >= 0)
 })
 
-test('low confidence falls back to the chat LLM and is labelled llm-judge', async () => {
-  putJevSettings({ enabled: true, cascadeToChatJudge: true, confidenceThreshold: 0.9 })
+test('a partial reading scores as fail and converts the 1-5 fit into a 0-1 score', async () => {
+  putJevSettings({ enabled: true })
   configureProviders()
   calls = []
-  respond = (url) => (url.includes('/systemone') ? jevAnswers('partial', 0.62, 3, 0.58, 0.4) : chatAnswers('partial', 0.8))
+  respond = () => jevAnswers('partial', 0.62, 2, 0.58, 0.4)
   const result = await runJevJudge(general, '只写了一半要点的回答。')
-  assert.equal(result.source, 'llm-judge')
-  assert.equal(result.chatJudge?.choice, 'partial')
-  assert.equal(result.chatJudge?.model, 'step-5-preview-free')
-  assert.equal(calls.length, 2)
-  assert.ok(calls[0]!.endsWith('/systemone'))
-  assert.ok(calls[1]!.endsWith('/chat/completions'), calls[1])
+  assert.equal(result.source, 'decided')
+  assert.equal(result.success, false)
+  // 接口回 0 起编号（'2' = 我们写的"3 分"）→ 解析后读数 3 → (3-1)/4 = 0.5。
+  assert.equal(result.score, 0.5)
+  assert.equal(calls.length, 1, `不应有回落调用: ${calls.join(', ')}`)
 })
 
-test('legal-domain reviews use the assertion-pipeline threshold (0.5), not the general 0.7', async () => {
-  // 法律域（法条检索与反编造）与「法律断言」管线同一标定：Jev 自报置信系统性偏低。
-  // 此前实跑旁路复核一刀切通用场景的 0.7，法律域任务被误回落——回归钉死。
-  putJevSettings({ enabled: true, cascadeToChatJudge: true })
+test('no agreement reading falls back to a binary score', async () => {
+  putJevSettings({ enabled: true })
   configureProviders()
   calls = []
-  respond = (url) => (url.includes('/systemone') ? jevAnswers('partial', 0.62, 3, 0.58, 0.4) : chatAnswers('partial', 0.8))
-  const legalOut = await runJevJudge(legal, '只写了一半要点的回答。')
-  assert.equal(legalOut.source, 'jev-live', legalOut.reason)
-  assert.ok(legalOut.reason.includes('阈值 0.5'), legalOut.reason)
-  // 同一条读数落在通用域任务上仍按 0.7 判低置信、照常回落。
-  calls = []
-  const generalOut = await runJevJudge(general, '只写了一半要点的回答。')
-  assert.equal(generalOut.source, 'llm-judge', generalOut.reason)
-  assert.equal(calls.length, 2)
+  // 只回 Choice，不回 Score：缺读数时不能把分数抹成 0，按 success 取 1/0。
+  respond = () =>
+    new Response(
+      JSON.stringify({
+        answers: {
+          [JEV_QUESTION_IDS.match]: { choice: 'none', probabilities: { none: 0.9 }, confidence: 0.9 },
+          [JEV_QUESTION_IDS.grounded]: { noul: 0.1 },
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    )
+  const result = await runJevJudge(general, '完全无关的回答。')
+  assert.equal(result.source, 'decided')
+  assert.equal(result.agreement, null)
+  assert.equal(result.success, false)
+  assert.equal(result.score, 0)
 })
 
-test('low confidence with the cascade switched off goes to a human, not to the chat model', async () => {
-  putJevSettings({ enabled: true, cascadeToChatJudge: false })
-  calls = []
-  respond = () => jevAnswers('partial', 0.6, 3, 0.55, 0.3)
-  const result = await runJevJudge(general, '只写了一半要点的回答。')
-  assert.equal(result.source, 'needs-human')
-  assert.equal(result.chatJudge, null)
-  assert.equal(calls.length, 1)
-  putJevSettings({ cascadeToChatJudge: true })
-})
-
-test('security-domain tasks are bypass-only even at high confidence', async () => {
+test('security-domain tasks are scored like any other domain now', async () => {
   putJevSettings({ enabled: true })
   calls = []
   respond = () => jevAnswers('exact', 0.99, 5, 0.99, 1)
   const result = await runJevJudge(security, security.referenceAnswer)
-  assert.equal(result.source, 'bypass')
-  assert.equal(result.securityBypass, true)
-  assert.equal(result.choice?.choice, 'exact')
-  assert.ok(result.reason.includes('旁路'))
+  // 旁路已取消：安全域照常定分（实测这里正是替代模型增益最大的域）。
+  assert.equal(result.source, 'decided')
+  assert.equal(result.success, true)
+  assert.equal(calls.length, 1)
 })
 
-test('security-domain low confidence still falls back, but stays labelled bypass', async () => {
-  putJevSettings({ enabled: true, cascadeToChatJudge: true, confidenceThreshold: 0.9 })
+test('every domain is judged by the same rule — no per-scenario threshold', async () => {
+  putJevSettings({ enabled: true })
   configureProviders()
   calls = []
-  respond = (url) => (url.includes('/systemone') ? jevAnswers('partial', 0.62, 3, 0.58, 0.4) : chatAnswers('partial', 0.8))
-  const result = await runJevJudge(security, '只写了一半要点的回答。')
-  // 回落照跑（第二意见不断流），来源恒为旁路（只看不计分）。
+  respond = () => jevAnswers('partial', 0.62, 3, 0.58, 0.4)
+  const legalOut = await runJevJudge(legal, '只写了一半要点的回答。')
+  const generalOut = await runJevJudge(general, '只写了一半要点的回答。')
+  // 同一条读数，法律域和通用域结论必须一致：不存在按域分的阈值。
+  assert.equal(legalOut.source, 'decided')
+  assert.equal(generalOut.source, 'decided')
+  assert.equal(legalOut.success, generalOut.success)
   assert.equal(calls.length, 2)
-  assert.equal(result.source, 'bypass')
-  assert.equal(result.securityBypass, true)
-  assert.equal(result.chatJudge?.choice, 'partial')
-  assert.ok(result.reason.includes('回落'))
-  assert.ok(result.reason.includes('旁路'))
+})
+
+test('no Choice reading at all is an error, not a silent fail', async () => {
+  putJevSettings({ enabled: true })
+  configureProviders()
+  calls = []
+  respond = () => ({ answers: {} }) as unknown as Response
+  const result = await runJevJudge(general, general.referenceAnswer)
+  assert.equal(result.source, 'error')
+  assert.equal(result.success, null)
 })
 
 test('an abstain reading and a rate-limited call are surfaced, never silently scored', async () => {
   putJevSettings({ enabled: true })
   calls = []
+  // unclear 不是"转人工"：它是题目里定义的「以上都不是」出口，按不通过计。
   respond = () => jevAnswers('unclear', 0.4, 3, 0.4, 0.5)
   const abstain = await runJevJudge(legal, legal.referenceAnswer)
-  assert.equal(abstain.source, 'needs-human')
-  assert.equal(abstain.consistency, 'incomparable')
+  assert.equal(abstain.source, 'decided')
+  assert.equal(abstain.success, false)
 
   respond = () => new Response('rate limited', { status: 429 })
   const limited = await runJevJudge(legal, legal.referenceAnswer)
@@ -479,7 +468,7 @@ test('the OpenCode Jev card drives an end-to-end judge call to /zen/v1/systemone
   calls = []
   respond = () => jevAnswers('exact', 0.95, 5, 0.93, 0.9)
   const result = await runJevJudge(general, general.referenceAnswer)
-  assert.equal(result.source, 'jev-live')
+  assert.equal(result.source, 'decided')
   assert.equal(result.model, 'jev-1.13')
   assert.equal(calls.length, 1)
   assert.equal(calls[0], 'https://opencode.ai/zen/v1/systemone')
@@ -516,7 +505,7 @@ test('arrangement order decides the primary — OpenCode first becomes the head 
 })
 
 test('a failed primary decision card falls back to the next card in arrangement order', async () => {
-  putJevSettings({ enabled: true, confidenceThreshold: 0.9 })
+  putJevSettings({ enabled: true })
   configureBothDecisionCards()
   calls = []
   respond = (url) =>
@@ -524,7 +513,7 @@ test('a failed primary decision card falls back to the next card in arrangement 
       ? new Response('primary down', { status: 500 })
       : jevAnswers('exact', 0.95, 5, 0.93, 0.9, 'jev-1.13')
   const result = await runJevJudge(general, general.referenceAnswer)
-  assert.equal(result.source, 'jev-live')
+  assert.equal(result.source, 'decided')
   // 读数由第二张卡给出：应答模型与调用顺序都证明回退发生过。
   assert.equal(result.model, 'jev-1.13')
   assert.equal(calls.length, 2)

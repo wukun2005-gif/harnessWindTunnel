@@ -6,14 +6,14 @@ import { randomUUID } from 'node:crypto'
 import { loadEvalSet, getTask } from './evalset'
 import { scoreAnswer, makeBadAnswer } from './scorer'
 import { handleLiveRoute } from './liveRoutes'
-import { getJevSettings, jevSettingsView, putJevSettings } from './jevSettings'
+import { jevSettingsView, putJevSettings } from './jevSettings'
 import { clearReviews, listReviews, saveReview } from './jevReviews'
 import { jevLog } from './jevLog'
 import { getAssertionTask, loadAssertionSet, runAssertionJudge } from './assertionJudge'
 import { getTagTask, loadTagSet, runTagJudge } from './tagJudge'
 import { getRagTask, loadRagSet, runRagJudge } from './ragJudge'
 import { runJevJudge } from './jevJudge'
-import { isJevScenario, liveRunJevScenario, thresholdForScenario, type JevScenario, type JevSettingsPatch } from '../../shared/jev'
+import { type JevSettingsPatch } from '../../shared/jev'
 
 function send(res: ServerResponse, code: number, body: unknown): void {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
@@ -86,7 +86,7 @@ export async function handlePlaygroundRoute(
     return true
   }
 
-  // ── Jev 判定器开关 + 判分旁路复核（M1） ──
+  // ── 判定模型开关 + 判定复核 ──
   // 开关落 server-data/settings.json 的 playground_jev 行；关闭时下面这个 judge 路由
   // 一次都不出网（source='off'）。凭据/型号来自设置屏的 Jev 卡（provider_all）。
   if (p === '/api/playground/jev' && method === 'GET') {
@@ -95,19 +95,10 @@ export async function handlePlaygroundRoute(
   }
 
   if (p === '/api/playground/jev' && (method === 'PUT' || method === 'POST')) {
+    // 只剩「开 / 关」一个开关：阈值、按场景阈值、回落 LLM 三组参数已随判分口径一并删除
+    // （依据见 shared/jev.ts 顶部）。老客户端多传的键一律忽略。
     const body = JSON.parse(await readBody(req)) as JevSettingsPatch
-    // 场景阈值逐项白名单：只认四个已知场景的数值，其余键丢弃（normalize 还会再夹一次范围）。
-    const scenarioThresholds: Partial<Record<JevScenario, number>> = {}
-    for (const [k, v] of Object.entries(body.scenarioThresholds ?? {})) {
-      if (isJevScenario(k) && typeof v === 'number' && Number.isFinite(v)) scenarioThresholds[k] = v
-    }
-    putJevSettings({
-      ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}),
-      ...(typeof body.confidenceThreshold === 'number' ? { confidenceThreshold: body.confidenceThreshold } : {}),
-      ...(Object.keys(scenarioThresholds).length > 0 ? { scenarioThresholds } : {}),
-      ...(typeof body.cascadeToChatJudge === 'boolean' ? { cascadeToChatJudge: body.cascadeToChatJudge } : {}),
-      ...(typeof body.chatJudgeAlways === 'boolean' ? { chatJudgeAlways: body.chatJudgeAlways } : {}),
-    })
+    putJevSettings({ ...(typeof body.enabled === 'boolean' ? { enabled: body.enabled } : {}) })
     send(res, 200, { ok: true, settings: jevSettingsView() })
     return true
   }
@@ -128,9 +119,9 @@ export async function handlePlaygroundRoute(
       `done task=${task.id} batch=${batchId ?? '-'}${clean ? ' clean' : ''} source=${result.source} latencyMs=${result.latencyMs ?? '-'}${result.error ? ` error=${result.error}` : ''}`,
     )
     // A/B 记录（§17.9）：开关关闭（off）不算一次复核，其余全落盘；落盘失败不影响判分返回。
+    // 记录里不再存确定性判分器的判决：它已不再定分（依据见 shared/jev.ts 顶部），
+    // 留着会让人把「两个判分器的一致率」当成现在还成立的指标。
     if (result.source !== 'off') {
-      const det = scoreAnswer(task, answer)
-      const s = getJevSettings()
       const rec = {
         id: randomUUID(),
         time: new Date().toISOString(),
@@ -142,11 +133,6 @@ export async function handlePlaygroundRoute(
         split: task.split,
         scorerType: task.scorerType,
         answer,
-        detSuccess: det.success,
-        detScore: det.score,
-        // 与 runJevJudge 内部同源：法律域任务用法律断言阈值，其余用通用实况风洞。
-        threshold: thresholdForScenario(s, liveRunJevScenario(task.domain)),
-        cascadeEnabled: s.cascadeToChatJudge,
         result,
       }
       saveReview(rec)

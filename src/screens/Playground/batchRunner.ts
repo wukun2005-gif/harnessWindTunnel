@@ -12,7 +12,7 @@ export interface BatchUnitResult {
   ok: boolean
   choice?: string | null
   consistent?: string | null
-  detSuccess?: boolean | null
+  success?: boolean | null
   error?: string | null
 }
 
@@ -122,7 +122,7 @@ export interface BatchScenario {
     kind: 'good' | 'bad',
     batchId: string,
     clean: boolean,
-  ) => Promise<{ choice: string | null; consistency: string | null; detSuccess: boolean | null }>
+  ) => Promise<{ choice: string | null; consistency: string | null; success: boolean | null }>
   cleanRoundsFor: (taskId: string) => boolean
   countUnits: (ids: string[]) => number
 }
@@ -134,14 +134,14 @@ export function playgroundScenario(tasks: PlaygroundTaskList['tasks']): BatchSce
     tasks: tasks.map((t) => ({ id: t.id, title: t.title, domain: t.domain })),
     sample: async (taskId, kind) => (await api.pgSample(taskId, kind)).answer,
     judge: async (taskId, answer, kind, batchId, clean) => {
-      const det = await api.pgScore(taskId, answer)
       // 校验必须在重试壳里面：判定接口失败回的是 HTTP 200 + error 徽标，抛出来才进得去退避重试。
       const jr = await withJudgeRetry(async () => {
         const res = await api.pgJevJudge(taskId, answer, { batchId, kind, ...(clean ? { clean: true } : {}) })
         throwIfJudgeFailed(res)
         return res
       })
-      return { choice: jr.choice?.choice ?? null, consistency: jr.consistency, detSuccess: det.success }
+      // 确定性判分只作证据（failureTags / 检查明细），通过与分数一律取判定模型的读数。
+      return { choice: jr.choice?.choice ?? null, consistency: jr.consistency, success: jr.success ?? null }
     },
     cleanRoundsFor: (taskId) => !!byId.get(taskId)?.injectionTrap,
     countUnits: (ids) => countUnits(tasks.filter((t) => ids.includes(t.id))),
@@ -188,7 +188,7 @@ export function assertionScenario(entries: AssertionEntry[]): BatchScenario {
         return rec
       })
       void answer
-      return { choice: r.result.choice?.choice ?? null, consistency: r.result.consistency, detSuccess: r.detSuccess }
+      return { choice: r.result.choice?.choice ?? null, consistency: r.result.consistency, success: r.result.success ?? null }
     },
     cleanRoundsFor: () => false,
     countUnits: (ids) => ids.length * 2 * 3,
@@ -211,7 +211,7 @@ export function tagScenario(entries: TagEntry[]): BatchScenario {
         throwIfJudgeFailed(rec.result)
         return rec
       })
-      return { choice: r.result.choice?.choice ?? null, consistency: r.result.consistency, detSuccess: r.detSuccess }
+      return { choice: r.result.choice?.choice ?? null, consistency: r.result.consistency, success: r.result.success ?? null }
     },
     cleanRoundsFor: () => false,
     countUnits: (ids) => ids.length * 2 * 3,
@@ -234,7 +234,7 @@ export function ragScenario(entries: RagEntry[]): BatchScenario {
         throwIfJudgeFailed(rec.result)
         return rec
       })
-      return { choice: r.result.choice?.choice ?? null, consistency: r.result.consistency, detSuccess: r.detSuccess }
+      return { choice: r.result.choice?.choice ?? null, consistency: r.result.consistency, success: r.result.success ?? null }
     },
     cleanRoundsFor: () => false,
     countUnits: (ids) => ids.length * 2 * 3,
@@ -283,7 +283,7 @@ export async function startBatch(scenarios: BatchScenario[], jevEnabled: boolean
         ok: true,
         choice: jr.choice,
         consistent: jr.consistency,
-        detSuccess: jr.detSuccess,
+        success: jr.success,
       })
     } catch (e) {
       acc.push({ taskId, kind, round, variant, ok: false, error: e instanceof Error ? e.message : String(e) })

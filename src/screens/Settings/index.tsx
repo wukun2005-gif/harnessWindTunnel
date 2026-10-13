@@ -1,7 +1,7 @@
 // Provider settings — ported from docStudio client/src/components/Settings.tsx
-// (LLM Providers tab only). 15 preset cards are always rendered (no add flow): the
-// 大模型 Provider tab shows the 13 chat cards, the 判定模型 Provider tab shows the two
-// Jev decision cards (TypeSafe / OpenCode), which run alongside a chat model. Order +
+// (LLM Providers tab only). 16 preset cards are always rendered (no add flow): the
+// 大模型 Provider tab shows the 13 chat cards, the 判定模型 Provider tab shows the three
+// decision cards (TypeSafe / OpenCode / OpenRouter), which run alongside a chat model. Order +
 // expanded state persist in localStorage; provider configs persist via the server
 // settings store (GET /api/settings, POST /api/settings/providers).
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -17,7 +17,7 @@ import {
 } from '../../../shared/provider'
 import { PRESET_KNOWLEDGE_PROVIDERS, ACCEPTED_KNOWLEDGE_FORMATS } from '../../../shared/knowledge'
 import { PRESET_SEARCH_PROVIDERS, type RetrievalSettingsView, type SearchProviderId } from '../../../shared/search'
-import { JEV_SCENARIOS, JEV_PROVIDER_ID_OPENCODE, type JevScenario, type JevSettingsPatch, type JevSettingsView } from '../../../shared/jev'
+import { type JevSettingsPatch, type JevSettingsView } from '../../../shared/jev'
 
 interface FormProvider {
   providerId: string
@@ -186,44 +186,20 @@ export default function Settings() {
     setFormState((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
   }
 
-  // 「整卡复制」：把 OpenRouter 大模型卡的凭据 + 型号整份复制进 OpenCode Jev 判定卡。
-  // 为什么需要：回落通道只认判定卡（resolveChatJudgeTarget），判定卡上不带大模型
-  // 型号就没有回落目标；复制后回落模型在判定卡上定义，与大模型卡脱钩。
-  // 注意：整卡复制连 baseUrl 一起带过来——该判定卡端点随之变成 OpenRouter；
-  // 主 Jev 调用仍走排列更靠前的 typesafe 卡，不受影响。
-  const copyChatCardIntoDecisionCard = () => {
-    const src = formState['openrouter']
-    if (!src) return
-    setFormState((prev) => {
-      const dst = prev[JEV_PROVIDER_ID_OPENCODE]
-      if (!dst) return prev
-      return {
-        ...prev,
-        [JEV_PROVIDER_ID_OPENCODE]: {
-          ...dst,
-          apiKey: src.apiKey,
-          baseUrl: src.baseUrl,
-          defaultModelId: src.defaultModelId,
-          modelIds: [...src.modelIds],
-          modelFallbacks: [...src.modelFallbacks],
-          enableModelFallback: src.enableModelFallback,
-          enabled: src.enabled,
-        },
-      }
-    })
-    showToast('success', t('settings.decision.copiedFromOpenRouter'))
-  }
-
   const handleSelectDefault = (providerId: string, modelId: string) => {
-    setFormState((prev) => {
-      const current = prev[providerId]
-      if (!current) return prev
-      const fallbacks = (current.modelFallbacks ?? current.modelIds).filter((m) => m !== modelId)
-      return {
-        ...prev,
-        [providerId]: { ...current, defaultModelId: modelId, modelFallbacks: [modelId, ...fallbacks] },
-      }
-    })
+    const current = formState[providerId]
+    if (!current) return
+    const fallbacks = (current.modelFallbacks ?? current.modelIds).filter((m) => m !== modelId)
+    const next = {
+      ...formState,
+      [providerId]: { ...current, defaultModelId: modelId, modelFallbacks: [modelId, ...fallbacks] },
+    }
+    setFormState(next)
+    // Persist right away. "设为默认" used to only touch browser state, so the
+    // 「当前默认」badge claimed a default the server had never accepted — leaving
+    // the page without pressing 保存 silently reverted it, and runs kept using
+    // the previous model. Choosing a default IS the decision; make it stick.
+    void persistProviders(next)
   }
 
   const handleDragStart = (providerId: string, index: number) => {
@@ -289,9 +265,9 @@ export default function Settings() {
     dragProviderOver.current = null
   }
 
-  const buildSaveList = (): ProviderConfig[] =>
+  const buildSaveList = (state: Record<string, FormProvider> = formState): ProviderConfig[] =>
     sortedProviders.map((p) => {
-      const c = formState[p.id]
+      const c = state[p.id]
       if (!c) return null
       return {
         providerId: c.providerId, enabled: c.enabled,
@@ -302,9 +278,12 @@ export default function Settings() {
       }
     }).filter((p): p is NonNullable<typeof p> => p !== null)
 
-  const handleSave = async () => {
+  /** Write a given form state to the server. Takes the state explicitly so
+   *  callers can persist a state they just computed (React state updates are
+   *  async, so reading `formState` right after setFormState would be stale). */
+  const persistProviders = async (state: Record<string, FormProvider> = formState) => {
     try {
-      await api.settingsProviders(buildSaveList(), {
+      await api.settingsProviders(buildSaveList(state), {
         enableProviderFallback,
         enableDecisionProviderFallback: enableDecisionFallback,
       })
@@ -314,6 +293,8 @@ export default function Settings() {
       showToast('error', t('settings.llm.saveFailed', { error: e instanceof Error ? e.message : String(e) }))
     }
   }
+
+  const handleSave = () => void persistProviders()
 
   const handleQueryModels = useCallback(async (providerId: string) => {
     const provider = formState[providerId]
@@ -513,17 +494,6 @@ export default function Settings() {
                     ? <span className="src-badge src-live">{t('settings.llm.configured')}</span>
                     : <span className="src-badge src-fixture">{t('settings.llm.needKey')}</span>}
                   {c.modelIds.length > 0 && <span className="faint" style={{ fontSize: 12 }}>{t('settings.llm.models', { count: c.modelIds.length })}</span>}
-                  {preset.id === JEV_PROVIDER_ID_OPENCODE && tab === 'decision' && (
-                    <button
-                      type="button"
-                      className="primary"
-                      style={{ padding: '2px 10px', fontSize: 12 }}
-                      title={t('settings.decision.copyFromOpenRouterHint')}
-                      onClick={copyChatCardIntoDecisionCard}
-                    >
-                      {t('settings.decision.copyFromOpenRouter')}
-                    </button>
-                  )}
                 </div>
                 {isExpanded && (
                   <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
@@ -535,7 +505,6 @@ export default function Settings() {
                       <span className="faint">{t('settings.llm.baseUrl')}</span>
                       <input type="text" value={c.baseUrl} onChange={(e) => updateField(c.providerId, 'baseUrl', e.target.value)} placeholder={preset.defaultBaseUrl || 'https://api.example.com/v1'} />
                     </label>
-                    {preset.kind === 'decision' && <JevThresholdPointer />}
                     {c.apiKey && (
                       <div>
                         <button
@@ -548,7 +517,6 @@ export default function Settings() {
                     )}
                     {fallbackList.length > 0 && (
                       <div>
-                        <div className="faint" style={{ marginBottom: 6, fontSize: 12 }}>{t('settings.llm.defaultModel')}</div>
                         <table className="t" style={{ width: '100%' }}>
                           <thead><tr>
                             <th style={{ width: 32 }}>#</th>
@@ -624,11 +592,30 @@ export default function Settings() {
 // 判定模型 tab 全局 Jev 开关（与实况风洞屏读写同一份全局设置）：启用 + 低置信回落主模型。
 // 阈值按场景分行配（四条判分管线实测结论冲突，凑不出一个全局最优值）。
 // 判定卡行上的「启用」勾选只定判定目标主次，不拦 Jev。
+//
+// 默认折叠：这三行开关 + 四行阈值把上面的卡片列表压到屏外，折叠后一眼能看到开关状态，
+// 要改再展开。展开状态存本地（与卡片展开态同一套做法）。
+const JEV_GLOBAL_EXPANDED_KEY = 'hwt-jev-global-expanded'
+
+function loadJevGlobalExpanded(): boolean {
+  try {
+    return localStorage.getItem(JEV_GLOBAL_EXPANDED_KEY) === '1'
+  } catch { /* ignore */ }
+  return false
+}
+
 function JevGlobalSetting() {
   const t = useT()
   const [view, setView] = useState<JevSettingsView | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [draft, setDraft] = useState<Record<string, string>>({})
+  const [expanded, setExpanded] = useState(loadJevGlobalExpanded)
+
+  const toggleExpanded = () => setExpanded((prev) => {
+    const next = !prev
+    try { localStorage.setItem(JEV_GLOBAL_EXPANDED_KEY, next ? '1' : '0') } catch { /* ignore */ }
+    return next
+  })
 
   useEffect(() => {
     let live = true
@@ -654,94 +641,45 @@ function JevGlobalSetting() {
       .catch((e: unknown) => setErr(t('playground.jev.saveFail', { error: e instanceof Error ? e.message : String(e) })))
   }
 
-  // 单行输入：失焦或回车才提交，提交前夹到 0.5–0.99。
-  const commitScenario = (scenario: JevScenario, current: number | undefined) => {
-    setDraft((d) => {
-      const next = { ...d }
-      delete next[scenario]
-      return next
-    })
-    if (current == null) return
-    const raw = draft[scenario]
-    if (raw == null) return
-    const v = Number(raw)
-    if (!Number.isFinite(v)) return
-    const clamped = Math.min(0.99, Math.max(0.5, v))
-    if (clamped === current) return
-    patch({ scenarioThresholds: { [scenario]: clamped } })
-  }
-
   return (
-    <div className="panel" style={{ marginBottom: 12, display: 'grid', gap: 8 }}>
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={view?.enabled ?? false}
-          disabled={view == null}
-          onChange={(e) => patch({ enabled: e.target.checked })}
-        />
-        <b style={{ color: 'var(--text)' }}>{t('playground.jev.enable')}</b>
-        <span className="faint">{t('playground.jev.enableDesc')}</span>
-      </label>
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={view?.cascadeToChatJudge ?? false}
-          disabled={view == null}
-          onChange={(e) => patch({ cascadeToChatJudge: e.target.checked })}
-        />
-        <b style={{ color: 'var(--text)' }}>{t('playground.jev.cascade')}</b>
-        <span className="faint">{t('playground.jev.cascadeDesc')}</span>
-      </label>
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={view?.chatJudgeAlways ?? false}
-          disabled={view == null}
-          onChange={(e) => patch({ chatJudgeAlways: e.target.checked })}
-        />
-        <b style={{ color: 'var(--text)' }}>{t('playground.jev.alwaysChatJudge')}</b>
-        <span className="faint">{t('playground.jev.alwaysChatJudgeDesc')}</span>
-      </label>
-      <div style={{ display: 'grid', gap: 4 }}>
-        <b style={{ color: 'var(--text)', fontSize: 13 }}>{t('playground.jev.thresholdByScenario')}</b>
-        <span className="faint" style={{ fontSize: 12 }}>{t('playground.jev.thresholdByScenarioDesc')}</span>
-        {JEV_SCENARIOS.map((scenario) => {
-          const current = view?.scenarioThresholds?.[scenario]
-          return (
-            <label
-              key={scenario}
-              style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, marginTop: 2 }}
-            >
-              <span style={{ minWidth: 150, color: 'var(--text)' }}>{t(`playground.jev.scenario.${scenario}`)}</span>
-              <input
-                type="number"
-                min={0.5}
-                max={0.99}
-                step={0.05}
-                value={draft[scenario] ?? (current == null ? '' : String(current))}
-                disabled={view == null}
-                onChange={(e) => setDraft((d) => ({ ...d, [scenario]: e.target.value }))}
-                onBlur={() => commitScenario(scenario, current)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                }}
-                style={{ width: 100 }}
-              />
-            </label>
-          )
-        })}
-      </div>
-      {err && <span style={{ color: 'var(--red)', fontSize: 12 }}>{err}</span>}
+    <div className="panel" style={{ marginBottom: 12 }}>
+      {/* 折叠时仍要看得见开关状态和保存失败，否则折叠等于把开关藏起来。 */}
+      <button
+        type="button"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: 13 }}
+        onClick={toggleExpanded}
+      >
+        <span style={{ fontSize: 11 }}>{expanded ? '▼' : '▶'}</span>
+        <b style={{ color: 'var(--text)' }}>{t('settings.decision.jevGlobalTitle')}</b>
+        <span style={{ flex: 1 }} />
+        {err && <span style={{ color: 'var(--red)', fontSize: 12 }}>{err}</span>}
+        {view == null ? (
+          <span className="src-badge src-fixture">{t('settings.llm.needKey')}</span>
+        ) : view.enabled ? (
+          <span className="src-badge src-live">{t('settings.decision.jevGlobalOn')}</span>
+        ) : (
+          <span className="src-badge src-fixture">{t('settings.decision.jevGlobalOff')}</span>
+        )}
+      </button>
+      {expanded && (
+        <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={view?.enabled ?? false}
+              disabled={view == null}
+              onChange={(e) => patch({ enabled: e.target.checked })}
+            />
+            <b style={{ color: 'var(--text)' }}>{t('playground.jev.enable')}</b>
+            <span className="faint">{t('playground.jev.enableDesc')}</span>
+          </label>
+          <div style={{ display: 'grid', gap: 4 }}>
+            <span className="faint" style={{ fontSize: 12 }}>{t('playground.jev.noThresholdNote')}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
-
-// 判定卡展开处：阈值改到本页签顶部的「置信阈值（按场景分开）」配了，
-// 这里只留一行指引，避免同一件事出现两个互相打架的输入框。
-function JevThresholdPointer() {
-  const t = useT()
-  return <span className="faint" style={{ fontSize: 12 }}>{t('playground.jev.thresholdByScenario')}</span>
 }
 
 interface SourceInfo {

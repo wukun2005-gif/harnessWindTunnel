@@ -5,6 +5,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { isChatModel, filterChatModels, filterChatModelInfos } from '../shared/modelFilter'
+import {
+  DECISION_MODEL_IDS,
+  filterDecisionModels,
+  filterModelsForProvider,
+  isChatJudgeModel,
+  isDecisionModel,
+} from '../shared/modelFilter'
+import { JEV_PROVIDER_ID_OPENROUTER } from '../shared/jev'
 
 test('向量与排序模型不列', () => {
   for (const id of [
@@ -90,4 +98,51 @@ test('ModelInfo 列表按 id 过滤且不丢元数据', () => {
   const out = filterChatModelInfos(list)
   assert.deepEqual(out.map((m) => m.id), ['qwen3.8-max'])
   assert.equal(out[0]!.contextWindow, 131072, '能力元数据必须跟着一起保留')
+})
+
+// ── 判定型号白名单 ────────────────────────────────────────────────────────
+
+test('判定型号白名单认得 OpenRouter 在架的判定型号', () => {
+  for (const id of [
+    'typesafe/jev-1.13',
+    '~typesafe/jev-latest',
+    'cloudflare/clef',
+    'cloudflare/clef-flash',
+    'inception/mercury-decide:free',
+    'respan/span-01-lite',
+    'jaredpalmer/kev-4b',
+  ]) {
+    assert.equal(isDecisionModel(id), true, `${id} 是判定型号`)
+  }
+  assert.equal(isDecisionModel('openai/gpt-5.5'), false)
+  assert.equal(isDecisionModel(''), false)
+})
+
+test('判定卡只列判定型号，大模型型号一个都不列', () => {
+  // 2026-10-12 实测 OpenRouter /models 458 条里的代表样本
+  const live = [
+    'openai/gpt-5.5',
+    'anthropic/claude-opus-4-8',
+    'typesafe/jev-1.13',
+    'cloudflare/clef-omni',
+    'nvidia/nemotron-3.5-content-safety',
+    'upstage/solar-decide',
+    'openrouter/auto',
+  ]
+  assert.deepEqual(filterDecisionModels(live), ['typesafe/jev-1.13', 'cloudflare/clef-omni', 'upstage/solar-decide'])
+  assert.deepEqual(
+    filterModelsForProvider(JEV_PROVIDER_ID_OPENROUTER, live),
+    ['typesafe/jev-1.13', 'cloudflare/clef-omni', 'upstage/solar-decide'],
+    '判定卡走白名单，不能落回对话侧那套排除法',
+  )
+  // 对话卡不受影响
+  assert.ok(filterModelsForProvider('openrouter', live).includes('openai/gpt-5.5'))
+})
+
+test('判定型号不能当低置信回落的 chat 复核模型', () => {
+  for (const id of [...DECISION_MODEL_IDS, 'jev-1.13.0', 'jev-1.13-free', '']) {
+    assert.equal(isChatJudgeModel(id), false, `${id} 没有 /chat/completions`)
+  }
+  assert.equal(isChatJudgeModel('step-5-preview-free'), true)
+  assert.equal(isChatJudgeModel('dots3-note-prev'), true)
 })

@@ -41,8 +41,8 @@ export function agreementStats(records: JevReviewRecord[]): AgreementStats {
     incomparable: records.length - judged.length,
     byDomain,
     divergentIds: [...new Set(divergent.map((r) => r.taskId))],
-    // 无确定性判分的场景（RAG/标签/断言）一致率比的是金标：明细带上金标，面板才能显示「金标=」而不是「官方=无」。
-    divergent: divergent.map((r) => ({ id: r.id, taskId: r.taskId, jev: r.result.choice?.choice ?? null, det: r.detSuccess, gold: r.gold ?? null })),
+    // 一致率比的是各管线自带的金标：明细带上金标，面板才能显示「金标=」而不是「官方=无」。
+    divergent: divergent.map((r) => ({ id: r.id, taskId: r.taskId, jev: r.result.choice?.choice ?? null, det: null, gold: r.gold ?? null })),
   }
 }
 
@@ -79,10 +79,9 @@ export function driftStats(records: JevReviewRecord[]): DriftStats {
   }
 }
 
-/** Choice 与 Score 置信度取小（与服务端 combinedConfidence 同口径）。 */
 /** 分析口径置信度：有几个读数取几个的最小值（单问题场景取该问题的置信度）。 */
 export function bucketConfidenceOf(r: JevReviewRecord): number | null {
-  const vals = [r.result.choice?.confidence, r.result.score?.confidence].filter(
+  const vals = [r.result.choice?.confidence, r.result.agreement?.confidence].filter(
     (v): v is number => typeof v === 'number',
   )
   if (vals.length === 0) return null
@@ -172,32 +171,6 @@ export function agreementBySource(records: JevReviewRecord[]): SourceAgreement[]
   }))
 }
 
-export interface FallbackAgreement {
-  total: number
-  agree: number
-  rate: number | null
-}
-
-/** Jev 自判 vs 回落模型：都有结论时两者是否同向（按事件计，与徽标无关）。 */
-export function fallbackAgreement(records: JevReviewRecord[]): FallbackAgreement {
-  const both = records.filter((r) => r.result.chatJudge != null && r.result.choice != null)
-  const agree = both.filter((r) => r.result.chatJudge!.choice === r.result.choice!.choice).length
-  return { total: both.length, agree, rate: both.length > 0 ? agree / both.length : null }
-}
-
-export interface FallbackEvents {
-  /** 回落事件总数（按事件计：只要有回落读数就算，与来源徽标无关）。 */
-  total: number
-  /** 其中来源标旁路的条数（安全题恒旁路，但回落照跑）。 */
-  inBypass: number
-}
-
-/** 回落事件计数：有回落读数即计一次，不按徽标过滤。 */
-export function fallbackEvents(records: JevReviewRecord[]): FallbackEvents {
-  const withFb = records.filter((r) => r.result.chatJudge != null)
-  return { total: withFb.length, inBypass: withFb.filter((r) => r.result.source === 'bypass').length }
-}
-
 export interface CostStats {
   count: number
   avgTokens: number | null
@@ -212,12 +185,9 @@ function percentile(sorted: number[], p: number): number | null {
 
 export function costStats(records: JevReviewRecord[]): CostStats {
   const tokens = records.map(
-    (r) =>
-      (r.result.usage ? r.result.usage.inputTokens + r.result.usage.outputTokens : r.result.estimatedPromptTokens) +
-      (r.result.chatJudge ? r.result.chatJudge.promptTokens + r.result.chatJudge.completionTokens : 0),
+    (r) => (r.result.usage ? r.result.usage.inputTokens + r.result.usage.outputTokens : r.result.estimatedPromptTokens),
   )
-  // 端到端时延与 tokens 同口径：回落行把回落通道耗时加进来（老记录无回落耗时按 0 计）。
-  const lat = records.map((r) => (r.result.latencyMs ?? 0) + (r.result.chatJudge?.latencyMs ?? 0)).sort((a, b) => a - b)
+  const lat = records.map((r) => r.result.latencyMs ?? 0).sort((a, b) => a - b)
   return {
     count: records.length,
     avgTokens: tokens.length > 0 ? Math.round(tokens.reduce((a, b) => a + b, 0) / tokens.length) : null,
@@ -239,11 +209,6 @@ export interface TrapStats {
   agree: number
 }
 
-export interface ThresholdStats {
-  avg: number | null
-  values: number[]
-}
-
 export interface ConfidenceStats {
   avg: number | null
   min: number | null
@@ -253,29 +218,18 @@ export interface ConfidenceStats {
   total: number
 }
 
-/** Jev 实际打出的置信（Choice/Score 取小）分布 + 达门限数。 */
+/** 判定模型实际打出的置信（Choice/吻合度取小）分布。门限已取消，不再统计达限数。 */
 export function confidenceStats(records: JevReviewRecord[]): ConfidenceStats {
-  const cs = records
-    .map((r) => ({ c: bucketConfidenceOf(r), th: r.threshold }))
-    .filter((x): x is { c: number; th: number } => typeof x.c === 'number' && typeof x.th === 'number')
-  if (cs.length === 0) return { avg: null, min: null, max: null, hit: 0, total: 0 }
-  const vals = cs.map((x) => x.c)
+  const vals = records
+    .map((r) => bucketConfidenceOf(r))
+    .filter((v): v is number => typeof v === 'number')
+  if (vals.length === 0) return { avg: null, min: null, max: null, hit: 0, total: 0 }
   return {
     avg: vals.reduce((a, b) => a + b, 0) / vals.length,
     min: Math.min(...vals),
     max: Math.max(...vals),
-    hit: cs.filter((x) => x.c >= x.th).length,
-    total: cs.length,
-  }
-}
-
-/** 本批用过的阈值：均值 + 去重列表（换阈值重跑的数据可比性就看它）。 */
-export function thresholdStats(records: JevReviewRecord[]): ThresholdStats {
-  const all = records.map((r) => r.threshold).filter((v) => typeof v === 'number' && Number.isFinite(v))
-  if (all.length === 0) return { avg: null, values: [] }
-  return {
-    avg: all.reduce((a, b) => a + b, 0) / all.length,
-    values: [...new Set(all)].sort((a, b) => a - b),
+    hit: 0,
+    total: vals.length,
   }
 }
 
@@ -284,7 +238,7 @@ export function trapStats(records: JevReviewRecord[], trapTaskIds: Set<string>):
   const t = records.filter((r) => trapTaskIds.has(r.taskId))
   return {
     total: t.length,
-    bypass: t.filter((r) => r.result.source === 'bypass').length,
+    bypass: 0,
     agree: t.filter((r) => r.result.consistency === 'consistent').length,
   }
 }

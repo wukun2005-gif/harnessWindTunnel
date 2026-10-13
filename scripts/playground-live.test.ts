@@ -45,15 +45,7 @@ import {
   patchRun,
   useLiveDbPath,
 } from '../server/playground/liveDb'
-import {
-  DEFAULT_JEV_SCENARIO_THRESHOLDS,
-  JEV_SCENARIOS,
-  liveRunJevScenario,
-  thresholdForScenario,
-  clampJevThreshold,
-  isJevScenario,
-  DEFAULT_JEV_SETTINGS,
-} from '../shared/jev'
+import { DEFAULT_JEV_SETTINGS } from '../shared/jev'
 import { KILL_CHAIN } from '../shared/redteam'
 import { keyTerms, supportOf, UNREACHABLE } from '../server/playground/assertionSupport'
 import { runtimeVerifyCitations, dossierTexts } from '../server/playground/runner'
@@ -450,35 +442,15 @@ test('key-term extraction keeps longer terms and never double-counts one span', 
   assert.equal(v.label, 'supported', v.reason)
 })
 
-// ── per-scenario Jev thresholds (M2 decision) ───────────────────────────────
+// ── 判分口径：判定模型是唯一判分器（2026-10-12 重构） ────────────────────────
 
-test('each scoring pipeline keeps its own threshold and the old single value cannot win', () => {
-  // 法律断言 / 失败标签 measured 0.5, 通用 / RAG 0.7 — they cannot share one value.
-  assert.equal(DEFAULT_JEV_SCENARIO_THRESHOLDS['p0a-assertions'], 0.5)
-  assert.equal(DEFAULT_JEV_SCENARIO_THRESHOLDS['p1c-tags'], 0.5)
-  assert.equal(DEFAULT_JEV_SCENARIO_THRESHOLDS.playground, 0.7)
-  assert.equal(DEFAULT_JEV_SCENARIO_THRESHOLDS['p1e-rag'], 0.7)
-  assert.equal(new Set(Object.values(DEFAULT_JEV_SCENARIO_THRESHOLDS)).size, 2)
-
-  const s = { ...DEFAULT_JEV_SETTINGS, confidenceThreshold: 0.9, scenarioThresholds: { ...DEFAULT_JEV_SCENARIO_THRESHOLDS } }
-  assert.equal(thresholdForScenario(s, 'p0a-assertions'), 0.5, 'the scenario value wins over the global 0.9')
-  assert.equal(thresholdForScenario(s, 'playground'), 0.7)
-  // an unknown scenario falls back to the global value rather than crashing
-  assert.equal(thresholdForScenario(s, 'no-such-scenario'), 0.9)
-  // thresholds are clamped into the legal band
-  assert.equal(clampJevThreshold(0.1), 0.5)
-  assert.equal(clampJevThreshold(5), 0.99)
-  assert.equal(isJevScenario('p1e-rag'), true)
-  assert.equal(isJevScenario('evil'), false)
-  assert.equal(JEV_SCENARIOS.length, 4)
-
-  // 实跑旁路复核按任务域选场景：法律域（法条检索与反编造）与法律断言同标定（0.5），
-  // 其余域沿用通用实况风洞（0.7）。此前一刀切 0.7，法律域任务被误回落——回归钉死。
-  assert.equal(liveRunJevScenario('legal'), 'p0a-assertions')
-  assert.equal(liveRunJevScenario('general'), 'playground')
-  assert.equal(liveRunJevScenario('security'), 'playground')
-  assert.equal(thresholdForScenario(s, liveRunJevScenario('legal')), 0.5)
-  assert.equal(thresholdForScenario(s, liveRunJevScenario('general')), 0.7)
+test('no confidence threshold, no per-scenario routing — the settings carry only the switch', () => {
+  const s = DEFAULT_JEV_SETTINGS
+  assert.equal(s.enabled, false)
+  assert.equal('confidenceThreshold' in s, false)
+  assert.equal('scenarioThresholds' in s, false)
+  assert.equal('cascadeToChatJudge' in s, false)
+  assert.equal('chatJudgeAlways' in s, false)
 })
 
 // ── live DB: trajectory honesty + round-trip ────────────────────────────────

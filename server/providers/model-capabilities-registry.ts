@@ -11,6 +11,7 @@
 import type { ModelCapabilities } from "./ModelCapabilities";
 import type { ProviderId, ModelInfo } from "../../shared/provider";
 import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS } from "../../shared/jev";
+import { DECISION_MODEL_IDS } from "../../shared/modelFilter";
 
 // 按 modelId 前缀匹配的默认能力表
 // 精确匹配优先于前缀匹配
@@ -202,6 +203,16 @@ const CAPABILITY_PRESETS: Record<string, Partial<ModelCapabilities>> = {
   "qwen3.5-plus":   { isReasoning: true,  contextWindow: 131_072,  maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] },  supportsStructuredOutput: true,  supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false },
   "qwen3.5-flash":  { isReasoning: true,  contextWindow: 131_072,  maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] },  supportsStructuredOutput: true,  supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false },
   "qwen3-max":      { isReasoning: true,  contextWindow: 131_072,  maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] },  supportsStructuredOutput: true,  supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false },
+  // qwen3.8-max-0902（百炼）：实测（2026-10-12 直连探针）response_format 的
+  // json_object 与 json_schema 两种形态都返回 200 + 合法 JSON。此前注册表没有
+  // qwen3.8 前缀条目 → 落到保守默认 supportsStructuredOutput=false →
+  // llmClient 静默丢掉 response_format（日志 WARN "response_format skipped"），
+  // RAG 判定员的 JSON 就只剩 prompt 约定、没有结构保证。
+  "qwen3.8-max-0902": { isReasoning: true, contextWindow: 131_072, maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] }, supportsStructuredOutput: true, supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false, recommendation: "Qwen3.8 Max (百炼，RAG 充分性判定员)" },
+  // deepseek-v4.1-flash（百炼）：实测（2026-10-12 直连探针）response_format 只支持
+  // json_object；发 json_schema 会 400 "This response_format type is unavailable now"。
+  // 因此 supportsStructuredOutput=true 的前提是调用方发 json_object（RAG 判定员即如此）。
+  "deepseek-v4.1-flash": { isReasoning: true, contextWindow: 131_072, maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] }, supportsStructuredOutput: true, supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false, recommendation: "DeepSeek V4.1 Flash (百炼，RAG 判定员，支持 json_object)" },
   "qwen3-coder":    { isReasoning: true,  contextWindow: 131_072,  maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] },  supportsStructuredOutput: true,  supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false },
   "qwen3-235b-a22b-thinking": { isReasoning: true, contextWindow: 131_072, maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] }, supportsStructuredOutput: true, supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false },
   "qwen3-30b-a3b-thinking":   { isReasoning: true, contextWindow: 131_072, maxOutputTokens: 32_768, temperature: { supported: true, range: [0, 2] }, supportsStructuredOutput: true, supportsVision: false, systemPromptMode: "message", supportsToolChoiceRequired: false },
@@ -386,10 +397,13 @@ const PROVIDER_MODEL_IDS: Record<ProviderId, string[]> = {
     "MiniMax-M2.5",
   ],
   // 判定模型（System One 协议）：TypeSafe 型号清单取自官方托管分发；OpenCode Console 清单取自
-  // /zen/v1/models 在架 id。端点不是 OpenAI 兼容端点，设置屏的「查询模型」按静态清单返回，
-  // 「验证」走一次最小 /systemone 调用。
+  // /zen/v1/models 在架 id。这两张卡端点不是 OpenAI 兼容端点，设置屏的「查询模型」按静态
+  // 清单返回，「验证」走一次最小 /systemone 调用。
   typesafe: [...JEV_MODEL_IDS],
   "opencode-jev": [...JEV_OPENCODE_MODEL_IDS],
+  // OpenRouter 判定卡：静态目录里给判定型号白名单；设置屏「查询模型」走实时 /models，
+  // 过滤口径与这里一致（shared/modelFilter.ts 的 DECISION_MODEL_IDS）。
+  "openrouter-jev": [...DECISION_MODEL_IDS],
 };
 
 /** Gemini 模型推荐语推断（API 返回的模型可能不在目录中） */

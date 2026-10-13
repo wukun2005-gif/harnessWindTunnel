@@ -82,12 +82,12 @@ const assertionTask = getAssertionTask('A1')!
 const SECOND_CARD_OK = (): Response => assertionAnswers('supported', 0.95, 4, 0.93, 'jev-1.13')
 
 test('法律断言判定：首卡限流 429 → 退避重试后按排列顺序切到第二张判定卡', async () => {
-  putJevSettings({ enabled: true, confidenceThreshold: 0.9 })
+  putJevSettings({ enabled: true })
   configureBothCards()
   calls = []
   respond = (url) => (url.includes('api.typesafe.ai') ? new Response('rate limited', { status: 429 }) : SECOND_CARD_OK())
   const rec = await runAssertionJudge(assertionTask, 'good', assertionTask.goodAnswer)
-  assert.equal(rec.result.source, 'jev-live')
+  assert.equal(rec.result.source, 'decided')
   // 读数由第二张卡给出：应答模型与调用顺序都证明回退发生过。
   assert.equal(rec.result.model, 'jev-1.13')
   assert.equal(calls.length, 4, `unexpected calls: ${calls.join(', ')}`)
@@ -100,7 +100,7 @@ test('法律断言判定：首卡 500 不做退避重试，直接切下一张卡
   calls = []
   respond = (url) => (url.includes('api.typesafe.ai') ? json({ error: 'boom' }, 500) : SECOND_CARD_OK())
   const rec = await runAssertionJudge(assertionTask, 'good', assertionTask.goodAnswer)
-  assert.equal(rec.result.source, 'jev-live')
+  assert.equal(rec.result.source, 'decided')
   assert.equal(calls.length, 2, `unexpected calls: ${calls.join(', ')}`)
 })
 
@@ -136,13 +136,13 @@ test('限流卡进入退避窗口：窗口内后续判定直接改用第二张�
     calls = []
     respond = (url) => (url.includes('api.typesafe.ai') ? new Response('rate limited', { status: 429 }) : SECOND_CARD_OK())
     const first = await runAssertionJudge(assertionTask, 'good', assertionTask.goodAnswer)
-    assert.equal(first.result.source, 'jev-live')
+    assert.equal(first.result.source, 'decided')
     assert.equal(calls.length, 4, `unexpected calls: ${calls.join(', ')}`)
 
     // 窗口内再判一条：首卡直接跳过，只打第二张（不再连撞限流）。
     calls = []
     const second = await runAssertionJudge(assertionTask, 'bad', assertionTask.badAnswer)
-    assert.equal(second.result.source, 'jev-live')
+    assert.equal(second.result.source, 'decided')
     assert.equal(calls.length, 1, `unexpected calls: ${calls.join(', ')}`)
     assert.ok(calls[0]!.includes('opencode.ai'), calls[0])
   } finally {
@@ -152,14 +152,14 @@ test('限流卡进入退避窗口：窗口内后续判定直接改用第二张�
 })
 
 test('失败标签与 RAG 两条场景管线同样按排列顺序回退', async () => {
-  putJevSettings({ enabled: true, confidenceThreshold: 0.9 })
+  putJevSettings({ enabled: true })
   configureBothCards()
 
   calls = []
   respond = (url) => (url.includes('api.typesafe.ai') ? json({ error: 'boom' }, 500) : choiceAnswers(TAG_QUESTION_IDS.cls, 'scope-violation', 0.95, 'jev-1.13'))
   const tagTask = getTagTask('T1')!
   const tagRec = await runTagJudge(tagTask, 'good')
-  assert.equal(tagRec.result.source, 'jev-live')
+  assert.equal(tagRec.result.source, 'decided')
   assert.equal(tagRec.result.model, 'jev-1.13')
   assert.equal(calls.length, 2, `unexpected calls: ${calls.join(', ')}`)
   assert.ok(calls[1]!.includes('opencode.ai'), calls[1])
@@ -168,7 +168,7 @@ test('失败标签与 RAG 两条场景管线同样按排列顺序回退', async 
   respond = (url) => (url.includes('api.typesafe.ai') ? json({ error: 'boom' }, 500) : choiceAnswers(RAG_QUESTION_IDS.cls, 'grounded', 0.95, 'jev-1.13'))
   const ragTask = getRagTask('G1')!
   const ragRec = await runRagJudge(ragTask, 'good', ragTask.goodAnswer)
-  assert.equal(ragRec.result.source, 'jev-live')
+  assert.equal(ragRec.result.source, 'decided')
   assert.equal(ragRec.result.model, 'jev-1.13')
   assert.equal(calls.length, 2, `unexpected calls: ${calls.join(', ')}`)
   assert.ok(calls[1]!.includes('opencode.ai'), calls[1])
@@ -191,7 +191,7 @@ test('一键全测（法律断言）：判定返回 error 徽标 → 先退避�
     attempts += 1
     return attempts === 1
       ? judgeErrorRecord('Jev HTTP 429（官方建议指数退避）: FreeUsageLimitError')
-      : json({ result: { source: 'jev-live', choice: { choice: 'supported' }, consistency: 'consistent' }, detSuccess: null })
+      : json({ result: { source: 'decided', choice: { choice: 'supported' }, consistency: 'consistent' }, detSuccess: null })
   }
   const out = await assertionScenario([]).judge('A1', 'answer', 'good', 'batch-x', false)
   assert.equal(out.choice, 'supported')
@@ -219,10 +219,12 @@ test('一键全测（实况评估）：判定返回 error 徽标同样记失败�
       return json({ taskId: 'G1', scorerType: 'gate', success: true, score: 1, factChecks: [], articleChecks: [], securityChecks: [], failureTags: [], summary: '' })
     }
     attempts += 1
-    return attempts === 1 ? playgroundJudgeError('fetch failed') : json({ source: 'jev-live', choice: { choice: 'exact' }, consistency: 'consistent', error: null, detSuccess: true })
+    return attempts === 1
+      ? playgroundJudgeError('fetch failed')
+      : json({ source: 'decided', choice: { choice: 'exact' }, consistency: 'incomparable', error: null, success: true })
   }
   const out = await playgroundScenario([]).judge('G1', 'answer', 'good', 'batch-x', false)
   assert.equal(out.choice, 'exact')
-  assert.equal(out.detSuccess, true)
+  assert.equal(out.success, true)
   assert.equal(attempts, 2, `unexpected attempts: ${attempts}`)
 })
