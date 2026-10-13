@@ -61,24 +61,29 @@ function ParetoChart({ runs }: { runs: RunSummary[] }) {
         <text x={W / 2} y={H - 6} className="pg-axis-title" textAnchor="middle">
           {axisLabel}
         </text>
-        {points.map((p) => (
-          <g key={p.label}>
-            <circle
-              cx={x(paretoCost(p, axis))}
-              cy={y(p.successRate)}
-              r={7 + Math.min(10, p.avgLatency / 1000)}
-              className={front.has(p.label) ? 'pg-pareto-dot front' : 'pg-pareto-dot'}
-            />
-            <text
-              x={x(paretoCost(p, axis))}
-              y={y(p.successRate) - 12}
-              className="pg-dot-label"
-              textAnchor="middle"
-            >
-              {p.label}
-            </text>
-          </g>
-        ))}
+        {points.map((p) => {
+          // Bubble radius encodes latency, so the label has to clear the actual
+          // radius — a fixed offset puts it on top of the slow, large bubbles.
+          const r = 7 + Math.min(10, p.avgLatency / 1000)
+          return (
+            <g key={p.label}>
+              <circle
+                cx={x(paretoCost(p, axis))}
+                cy={y(p.successRate)}
+                r={r}
+                className={front.has(p.label) ? 'pg-pareto-dot front' : 'pg-pareto-dot'}
+              />
+              <text
+                x={x(paretoCost(p, axis))}
+                y={y(p.successRate) - r - 5}
+                className="pg-dot-label"
+                textAnchor="middle"
+              >
+                {p.label}
+              </text>
+            </g>
+          )
+        })}
       </svg>
       <div className="pg-legend">
         <span className="pg-legend-dot front" /> Pareto frontier
