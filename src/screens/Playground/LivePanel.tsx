@@ -42,7 +42,7 @@ const POLL_MS = 1500
 const PICKED_KEY = 'hwt-playground-picked'
 const PRESET_KEY = 'hwt-playground-preset'
 const FILTER_KEY = 'hwt-playground-filter'
-/** Collapsed/expanded state of the three M3 review sections, persisted. */
+/** Collapsed/expanded state of the review sections and the run setup, persisted. */
 const SECTIONS_KEY = 'hwt-playground-sections'
 
 function loadFilters(): RunsQuery {
@@ -60,12 +60,16 @@ function loadFilters(): RunsQuery {
   return { limit: 1000 }
 }
 
-function loadSections(): { search: boolean; metrics: boolean; compare: boolean } {
+// `setup` holds the run itself — config, question picking, the run button. It is
+// the only section open on a first visit (there is nothing to look up until a run
+// exists), and it is a peer of the three review sections rather than loose form
+// fields mixed into the top panel.
+function loadSections(): { setup: boolean; search: boolean; metrics: boolean; compare: boolean } {
   try {
     const raw = localStorage.getItem(SECTIONS_KEY)
-    if (raw) return { search: false, metrics: false, compare: false, ...(JSON.parse(raw) as object) }
+    if (raw) return { setup: true, search: false, metrics: false, compare: false, ...(JSON.parse(raw) as object) }
   } catch { /* defaults */ }
-  return { search: false, metrics: false, compare: false }
+  return { setup: true, search: false, metrics: false, compare: false }
 }
 
 function loadPicked(): string[] {
@@ -346,31 +350,15 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
           <ImportBar onImported={refresh} />
         </div>
 
-        {/* 检索 / 复盘表单 */}
-        <div className="pg-section-head" onClick={() => toggleSection('search')}>
-          <span>{sections.search ? '▾' : '▸'} Search / review</span>
+        {/* 实跑设置：Harness 配置 + 题目勾选 + 实跑按钮，自成一组 */}
+        <div className="pg-section-head" onClick={() => toggleSection('setup')}>
+          <span>{sections.setup ? '▾' : '▸'} Harness config / tasks / run</span>
           <span className="faint" style={{ fontSize: 11 }}>
-            Domain / source / status / failure tag / model / time
+            Which configuration runs · which questions · run this batch
           </span>
         </div>
-        {sections.search && (
-          <SearchBar filters={filters} setFilters={setFilters} resultCount={(runs ?? []).length} />
-        )}
-
-        {/* 指标区：聚合表 + 失败×配置 + Pareto + 模型×Harness */}
-        <div className="pg-section-head" onClick={() => toggleSection('metrics')}>
-          <span>{sections.metrics ? '▾' : '▸'} Metrics / matrices</span>
-          <span className="faint" style={{ fontSize: 11 }}>Success rate · lift · failure mode × config · Pareto · model × harness</span>
-        </div>
-        {sections.metrics && <MetricsPanel runs={runs ?? []} metrics={metrics} />}
-
-        {/* 轨迹分叉对比：同任务双配置逐步对齐 + 失败模式转移 */}
-        <div className="pg-section-head" onClick={() => toggleSection('compare')}>
-          <span>{sections.compare ? '▾' : '▸'} Trajectory divergence</span>
-          <span className="faint" style={{ fontSize: 11 }}>Same task, two configs, step-aligned · failure-mode transfer</span>
-        </div>
-        {sections.compare && <ComparePanel runs={runs ?? []} />}
-
+        {sections.setup && (
+        <div style={{ display: 'grid', gap: 10 }}>
         {usable.length === 0 && <div className="warn">{t('playground.live.noProvider')}</div>}
         {usable.length > 0 && targets?.kb && !targets.kb.ready && <div className="warn">{t('playground.live.kbNotReady')}</div>}
 
@@ -511,6 +499,34 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
         {batchTotal === 0 && inflight > 0 && (
           <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.inflight', { count: inflight })}</span>
         )}
+        </div>
+        )}
+
+        {/* 检索 / 复盘表单 */}
+        <div className="pg-section-head" onClick={() => toggleSection('search')}>
+          <span>{sections.search ? '▾' : '▸'} Search / review</span>
+          <span className="faint" style={{ fontSize: 11 }}>
+            Domain / source / status / failure tag / model / time
+          </span>
+        </div>
+        {sections.search && (
+          <SearchBar filters={filters} setFilters={setFilters} resultCount={(runs ?? []).length} />
+        )}
+
+        {/* 指标区：聚合表 + 失败×配置 + Pareto + 模型×Harness */}
+        <div className="pg-section-head" onClick={() => toggleSection('metrics')}>
+          <span>{sections.metrics ? '▾' : '▸'} Metrics / matrices</span>
+          <span className="faint" style={{ fontSize: 11 }}>Success rate · lift · failure mode × config · Pareto · model × harness</span>
+        </div>
+        {sections.metrics && <MetricsPanel runs={runs ?? []} metrics={metrics} />}
+
+        {/* 轨迹分叉对比：同任务双配置逐步对齐 + 失败模式转移 */}
+        <div className="pg-section-head" onClick={() => toggleSection('compare')}>
+          <span>{sections.compare ? '▾' : '▸'} Trajectory divergence</span>
+          <span className="faint" style={{ fontSize: 11 }}>Same task, two configs, step-aligned · failure-mode transfer</span>
+        </div>
+        {sections.compare && <ComparePanel runs={runs ?? []} />}
+
       </div>
 
       <BulkToolbar
