@@ -431,7 +431,7 @@ const extraZh: Record<string, string> = {
   'Δ +2.8pp illustrative (NLAH v2: Multi-Candidate small OSWorld gain, −1.6pp on SWE)': 'Δ +2.8pp 示意（NLAH v2：Multi-Candidate 在 OSWorld 小增益，SWE −1.6pp）',
   'Δ +4.6pp illustrative: sustained five-layer compression vs per-round reset (Ralph Loop direction, G. Huntley 2025-07; Databricks cost note)': 'Δ +4.6pp 示意：持续五层压缩 vs 每轮重置（Ralph Loop 方向，G. Huntley 2025-07；Databricks 成本笔记）',
   'Δ +5.8pp from NLAH Self-Evolution (SWE family, v2 Table 5); baseline illustrative': 'Δ +5.8pp 来自 NLAH Self-Evolution（SWE 族，v2 表 5）；基线为示意',
-  'Δ −3.5pp illustrative: 18+ tools → decision paralysis (Pi / Earendil direction, harness-research-v0.5 §4.5)': 'Δ −3.5pp 示意：18+ 工具 → 决策瘫痪（Pi / Earendil 方向，harness-research-v0.5 §4.5）',
+  'Δ −3.5pp illustrative: 18+ tools → decision paralysis (Pi / Earendil direction, harness-research-v0.5)': 'Δ −3.5pp 示意：18+ 工具 → 决策瘫痪（Pi / Earendil 方向，harness-research-v0.5）',
   'Δ −8.3pp illustrative (NLAH v2 direction: aggressive compression summaries drift from the evaluator)': 'Δ −8.3pp 示意（NLAH v2 方向：激进压缩摘要偏离评估器）',
 }
 

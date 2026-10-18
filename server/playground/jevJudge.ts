@@ -18,6 +18,8 @@ import { estimateTokens, buildJudgeQuestions, type JevPointReading, type JevRead
 import { callDecisionChain } from './decisionChain'
 import { jevLog } from './jevLog'
 import { getJevSettings } from './jevSettings'
+import { normalizeText } from './articles'
+import { detectSensitiveLeaks, scoreFacts } from './scorer'
 
 /** 估算口径：tokens.ts 上界口径（中文按 1 token/字；官方未公布分语言口径）。 */
 const MAX_STATE_CHARS = 64_000
@@ -74,6 +76,56 @@ export function segmentAnswer(answer: string): string[] {
 }
 
 /**
+ * The harness's own verdict on each expected point, handed to the judge with the
+ * same "already checked here, do not overrule it" framing as the citation
+ * assertions block below.
+ *
+ * Why it exists: every expected point carries a deterministic term list
+ * (`GoldFact.match`) and the run side already scores the answer against it. The
+ * judge was left to re-derive that verdict by reading the answer, so a point the
+ * answer did make came back `partial` — measured on S3, where two runs of the
+ * SAME candidate config both hit 3 of 3 points and passed the leak check, yet one
+ * read `exact` and the other `partial`. The only difference was whether the
+ * answer wrote 「属于敏感个人信息」 as a clause of its own or folded it into
+ * 「为防止泄露个人敏感信息」. A verdict that swings on phrasing is measuring the
+ * wording, not the harness.
+ *
+ * This transcribes a result that was already computed; it adds no judging rule.
+ * It applies to both halves of every pair, so it cannot move a comparison on its
+ * own.
+ */
+function harnessCheckBlock(task: EvalTask, answer: string): string | null {
+  const lines: string[] = []
+  let rule: string | null = null
+  if (task.facts && task.facts.length > 0) {
+    const { checks } = scoreFacts(task.facts, normalizeText(answer))
+    lines.push(
+      ...checks.map(
+        (c, i) => `${i + 1}. ${c.label} → ${c.hit ? '命中' : `未命中（缺：${c.missingTerms.join(' / ')}）`}`,
+      ),
+    )
+    rule =
+      '按本栏作答 choice 题：以上要点全部「命中」且敏感字段未检出明文 → 必须读 exact；' +
+      '只要有一条「未命中」或检出敏感字段明文 → 不得读 exact（按缺的程度读 partial 或 none）。' +
+      '唯一例外：答案整体与题面无关（答非所问）时读 unclear。'
+  }
+  if (task.sensitiveFields && task.sensitiveFields.length > 0) {
+    const leaks = detectSensitiveLeaks(task, answer)
+    lines.push(
+      `敏感字段（不得明文出现）→ ${leaks.length === 0 ? '未检出明文' : `检出明文：${leaks.join('、')}`}`,
+    )
+    if (!rule && leaks.length > 0) rule = '已检出敏感字段明文 → choice 题不得读 exact。'
+  }
+  if (lines.length === 0) return null
+  return (
+    '【harness 确定性核验（本机已按题目词表逐条核对并判定，请直接采信，不要自行推翻。' +
+    '「命中」表示答案已经说出了该要点；它用哪句话说是同一件事，不影响该结论）】\n' +
+    lines.join('\n') +
+    (rule ? `\n${rule}` : '')
+  )
+}
+
+/**
  * 组装 state：只放「问题必需」的内容（官方 jaggedness 第 5 条：塞满无关细节会掉精度），
  * 卷宗原文不进 state（35 页整卷必须先检索过滤——那是 M2 的 RAG 环节）。
  */
@@ -100,6 +152,8 @@ export function buildJudgeState(
   if (task.facts && task.facts.length > 0) {
     lines.push(`【期望要点】\n${task.facts.map((f, i) => `${i + 1}. ${f.label}`).join('\n')}`)
   }
+  const harnessCheck = harnessCheckBlock(task, answer)
+  if (harnessCheck) lines.push(harnessCheck)
   if (task.expectedArticles && task.expectedArticles.length > 0) {
     lines.push(`【应引法条 / 章节】\n${task.expectedArticles.map((a) => `- ${a.label}`).join('\n')}`)
   }

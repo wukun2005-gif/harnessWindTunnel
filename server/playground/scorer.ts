@@ -65,7 +65,7 @@ function allGroupsHit(haystackNorm: string, groups: string[]): { hit: boolean; m
   return { hit: missing.length === 0, matched, missing }
 }
 
-function scoreFacts(facts: GoldFact[], answerNorm: string): { checks: FactCheck[]; hit: number; total: number } {
+export function scoreFacts(facts: GoldFact[], answerNorm: string): { checks: FactCheck[]; hit: number; total: number } {
   const checks: FactCheck[] = facts.map((f) => {
     const r = allGroupsHit(answerNorm, f.match)
     return {

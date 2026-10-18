@@ -10,11 +10,13 @@ import { PRESETS } from '../shared/presets'
 import type { HarnessConfig } from '../shared/config'
 import { parseClaudeCodeTranscript } from './importers/claudeCode'
 import { parseDshTrajectory } from './importers/dshTrajectory'
+import { parsePlaygroundRun } from './importers/playgroundRun'
 import { exportNlah, importNlah } from './importers/nlah'
 import { handleRetrievalRoute, handleSearchApiRoute } from './knowledge/routes'
 import { handlePlaygroundRoute } from './playground/routes'
 import { verifyJevTarget } from './playground/jevClient'
 import { recoverQueuedRuns } from './playground/runner'
+import { recoverStuckCards } from './playground/evolve'
 import { isDecisionProvider } from '../shared/provider'
 import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID_OPENCODE, JEV_PROVIDER_ID_OPENROUTER } from '../shared/jev'
 
@@ -316,7 +318,8 @@ const server = createServer((req, res) => {
               }
               return json(res, 200, parseDshTrajectory(doc))
             }
-            return json(res, 400, { error: 'unknown format (want claude|dsh)' })
+            if (format === 'hwt') return json(res, 200, parsePlaygroundRun(text))
+            return json(res, 400, { error: 'unknown format (want claude|dsh|hwt)' })
           }
           if (p === '/api/nlah/export') {
             const { config, task } = bodyJson<{ config?: HarnessConfig; task?: string }>(raw)
@@ -350,5 +353,14 @@ server.listen(PORT, () => {
     recoverQueuedRuns()
   } catch (err) {
     console.warn('[server] 恢复排队实跑失败：', String((err as Error).message ?? err))
+  }
+  // Same trap one level up: a card left in `screening` was being falsified by a
+  // detached worker that died with this process. Nothing will ever move it again,
+  // and applyCard refuses to touch a `screening` card — so the button would be
+  // dead until someone hand-edits the row.
+  try {
+    recoverStuckCards()
+  } catch (err) {
+    console.warn('[server] 恢复卡住的证伪失败：', String((err as Error).message ?? err))
   }
 })

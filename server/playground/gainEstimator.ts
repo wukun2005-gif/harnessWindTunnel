@@ -11,6 +11,95 @@ export interface Pair {
   candidateTokens?: number | null
   candidateLatencyMs?: number | null
   candidateCostUsd?: number | null
+  /**
+   * Set when a DETERMINISTIC check (leak / injection / statute existence)
+   * flipped from clean on the parent to failing on the candidate. It is read
+   * off the detector, not off the judge's reading, so it is not subject to the
+   * reading's noise.
+   */
+  hardFlip?: string | null
+  /** Baseline deterministic checks were clean in this pair. */
+  baselineClean?: boolean
+  /** Candidate deterministic checks were clean in this pair. */
+  candidateClean?: boolean
+}
+
+/** A deterministic check the parent passed and the candidate failed. */
+export interface HardRegression {
+  taskId: string
+  reason: string
+}
+
+export interface PairedClass {
+  rescued: string[]
+  regressed: string[]
+  stillFailed: string[]
+  survived: string[]
+  /** Tasks whose flip did not reproduce on every pair — no signal, not counted. */
+  unstable: string[]
+  hardRegressions: HardRegression[]
+}
+
+/**
+ * Classify paired runs into rescued / regressed / unchanged.
+ *
+ * One pair is a single sample, and a single sample is not evidence here. Two
+ * measurements on this eval set say so: across 1486 same-config run pairs on the
+ * same task the score moves by 0.28 or more in 30% of them, and G1 — a task that
+ * passes 25% of the time — passed the baseline half of one screen by luck and
+ * then produced a "regression" that was nothing but that coin flip.
+ *
+ * So a flip counts only when it reproduces on EVERY pair the slot was given.
+ * Every other disagreement is `unstable`: recorded, shown, and counted as
+ * neither a rescue nor a regression. The rule is applied in both directions, so
+ * it cannot be gamed into passing.
+ *
+ * A deterministic check that flipped is a regression regardless of the reading:
+ * the reading can call both halves "failed" while the parent's answer was clean
+ * and the candidate's leaked a citizen ID number — that is exactly how a real
+ * safety regression stayed invisible.
+ */
+export function classifyPaired(pairs: Pair[]): PairedClass {
+  const byTask = new Map<string, Pair[]>()
+  for (const p of pairs) {
+    const list = byTask.get(p.taskId)
+    if (list) list.push(p)
+    else byTask.set(p.taskId, [p])
+  }
+  const rescued: string[] = []
+  const regressed: string[] = []
+  const stillFailed: string[] = []
+  const survived: string[] = []
+  const unstable: string[] = []
+  const hardRegressions: HardRegression[] = []
+  for (const [taskId, list] of byTask) {
+    const flipsUp = list.filter((p) => !p.baseline && p.candidate).length
+    const flipsDown = list.filter((p) => p.baseline && !p.candidate).length
+    // A deterministic check that was clean on every baseline half and broken on
+    // every candidate half. Requiring every pair keeps the same noise rule.
+    const hardDown = list.filter((p) => p.baselineClean === true && p.candidateClean === false)
+    const hardClean = list.filter((p) => p.baselineClean === true)
+    if (hardDown.length > 0 && hardDown.length === hardClean.length) {
+      regressed.push(taskId)
+      hardRegressions.push({ taskId, reason: hardDown[0]!.hardFlip ?? 'deterministic check regressed' })
+      continue
+    }
+    if (flipsDown > 0 && flipsDown === list.length) {
+      regressed.push(taskId)
+      continue
+    }
+    if (flipsUp > 0 && flipsUp === list.length) {
+      rescued.push(taskId)
+      continue
+    }
+    if (flipsDown > 0 || flipsUp > 0) {
+      unstable.push(taskId)
+      continue
+    }
+    if (list.every((p) => p.baseline && p.candidate)) survived.push(taskId)
+    else stillFailed.push(taskId)
+  }
+  return { rescued, regressed, stillFailed, survived, unstable, hardRegressions }
 }
 
 export interface PairedGain {
@@ -18,6 +107,10 @@ export interface PairedGain {
   regressed: string[]
   stillFailed: string[]
   survived: string[]
+  /** Tasks whose flip failed to reproduce — recorded, counted as neither. */
+  unstable: string[]
+  /** Deterministic-check regressions (same noise rule as `regressed`). */
+  hardRegressions: HardRegression[]
   screened: number
   baselineRate: number
   candidateRate: number
@@ -68,16 +161,8 @@ function meanOrNull(vals: Array<number | null | undefined>): number | null {
 }
 
 export function pairedGain(pairs: Pair[]): PairedGain {
-  const rescued: string[] = []
-  const regressed: string[] = []
-  const stillFailed: string[] = []
-  const survived: string[] = []
-  for (const p of pairs) {
-    if (!p.baseline && p.candidate) rescued.push(p.taskId)
-    else if (p.baseline && !p.candidate) regressed.push(p.taskId)
-    else if (!p.baseline && !p.candidate) stillFailed.push(p.taskId)
-    else survived.push(p.taskId)
-  }
+  const cls = classifyPaired(pairs)
+  const { rescued, regressed, stillFailed, survived, unstable, hardRegressions } = cls
   const n = pairs.length
   const baselineRate = n ? pairs.filter((p) => p.baseline).length / n : 0
   const candidateRate = n ? pairs.filter((p) => p.candidate).length / n : 0
@@ -88,6 +173,8 @@ export function pairedGain(pairs: Pair[]): PairedGain {
     regressed,
     stillFailed,
     survived,
+    unstable,
+    hardRegressions,
     screened: n,
     baselineRate,
     candidateRate,
@@ -149,6 +236,10 @@ export interface GatePair {
   candidateTokens?: number | null
   candidateLatencyMs?: number | null
   candidateCostUsd?: number | null
+  /** See Pair.hardFlip / baselineClean / candidateClean. */
+  hardFlip?: string | null
+  baselineClean?: boolean
+  candidateClean?: boolean
 }
 
 export interface GateStats {
@@ -159,6 +250,10 @@ export interface GateStats {
   gateLiftPp: number
   regressed: string[]
   fixed: string[]
+  /** Tasks whose flip did not reproduce across repeats — no signal. */
+  unstable: string[]
+  /** Deterministic-check regressions inside the gate. */
+  hardRegressions: HardRegression[]
   avgTokens: number | null
   avgLatencyMs: number | null
   avgCostUsd: number | null
@@ -168,27 +263,29 @@ function pct(x: number, n: number): number {
   return n ? Math.round((x / n) * 1000) / 10 : 0
 }
 
-function uniq(ids: string[]): string[] {
-  return [...new Set(ids)]
-}
-
-/** Pair-wise gate success/lift/regression over the held-out gate set (incl. repeats). */
+/**
+ * Pair-wise gate success/lift/regression over the held-out gate set (incl.
+ * repeats).
+ *
+ * Regressions and fixes go through the same noise rule as the screen
+ * (`classifyPaired`): a task must flip on every repeat it was given, so a
+ * single flipped sample at ×2 cannot roll back a generation. The pass counts
+ * and the lift still use every answered pair — the rule only decides which
+ * tasks get NAMED, never how much moved.
+ */
 export function gateStats(pairs: GatePair[]): GateStats {
   const n = pairs.length
   let bp = 0
   let cp = 0
-  const regressed: string[] = []
-  const fixed: string[] = []
   const tokens: number[] = []
   const lat: number[] = []
   for (const p of pairs) {
     if (p.baseline) bp += 1
     if (p.candidate) cp += 1
-    if (p.baseline && !p.candidate) regressed.push(p.taskId)
-    if (!p.baseline && p.candidate) fixed.push(p.taskId)
     if (p.candidateTokens != null) tokens.push(p.candidateTokens)
     if (p.candidateLatencyMs != null) lat.push(p.candidateLatencyMs)
   }
+  const cls = classifyPaired(pairs)
   const avg = (a: number[]) => (a.length ? Math.round(a.reduce((s, x) => s + x, 0) / a.length) : null)
   return {
     baselinePass: bp,
@@ -196,8 +293,10 @@ export function gateStats(pairs: GatePair[]): GateStats {
     baselinePassPp: pct(bp, n),
     candidatePassPp: pct(cp, n),
     gateLiftPp: Math.round((pct(cp, n) - pct(bp, n)) * 10) / 10,
-    regressed: uniq(regressed),
-    fixed: uniq(fixed),
+    regressed: cls.regressed,
+    fixed: cls.rescued,
+    unstable: cls.unstable,
+    hardRegressions: cls.hardRegressions,
     avgTokens: avg(tokens),
     avgLatencyMs: avg(lat),
     avgCostUsd: meanOrNull(pairs.map((p) => p.candidateCostUsd)),

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseClaudeCodeTranscript } from '../server/importers/claudeCode'
 import { parseDshTrajectory } from '../server/importers/dshTrajectory'
+import { parsePlaygroundRun } from '../server/importers/playgroundRun'
 import { exportNlah, importNlah } from '../server/importers/nlah'
 import { cfg } from '../shared/config'
 
@@ -44,6 +45,42 @@ test('dsh sample normalizes, unknown shapes reject', () => {
   assert.equal(k.filter((x) => x === 'tool.call').length, 2)
   assert.throws(() => parseDshTrajectory({}), /steps array/)
   assert.throws(() => parseDshTrajectory(null), /steps array/)
+})
+
+test('playground run export keeps the stream playable and restamps provenance', () => {
+  const base = { runId: 'run_x', scenarioId: 'legal', author: 'harness' }
+  const envelope = {
+    kind: 'hwt-playground-run',
+    schemaVersion: 1,
+    run: { runId: 'run_x', taskTitle: '定最接近的现有技术', model: 'nemotron' },
+    events: [
+      { ...base, type: 'run.started', model: 'nemotron', task: '定最接近的现有技术', id: 'e1', ts: 1 },
+      { ...base, type: 'model.request', step: 1, blocks: [], estTokens: 4, id: 'e2', ts: 2 },
+      { ...base, type: 'model.response', step: 1, thought: 'hi', stopReason: 'end_turn', id: 'e3', ts: 3 },
+      { ...base, type: 'run.finished', success: false, tokens: 4, latencyP50: 1, failureModes: { 'weak-grounding': 1 }, id: 'e4', ts: 4 },
+      { type: 'nope.bogus' },
+    ],
+  }
+  const { events, skipped } = parsePlaygroundRun(JSON.stringify(envelope))
+  const k = kinds(events)
+  assert.equal(k[0], 'run.started')
+  assert.equal(k[k.length - 1], 'run.finished')
+  assert.equal(events.length, 4)
+  assert.equal(skipped, 1)
+  // External trajectories are never harness interventions (shared/events.ts §provenance)
+  assert.ok(events.every((e) => e.author === 'imported'))
+  assert.ok(events.every((e) => e.scenarioId === 'imported'))
+  // An array of envelopes (multi-run export) flattens into one replay
+  const two = parsePlaygroundRun(JSON.stringify([envelope, envelope]))
+  assert.equal(two.events.length, 8)
+  // A truncated export that never started still yields a replay header
+  const headless = parsePlaygroundRun(JSON.stringify({ kind: 'hwt-playground-run', run: { taskTitle: 'T', model: 'm' }, events: envelope.events.slice(1, 3) }))
+  assert.equal(kinds(headless.events)[0], 'run.started')
+  const head = headless.events[0]
+  assert.ok(head?.type === 'run.started' && head.task === 'T')
+  assert.throws(() => parsePlaygroundRun('{"kind":"nope","events":[]}'), /hwt-playground-run/)
+  assert.throws(() => parsePlaygroundRun('{"kind":"hwt-playground-run"}'), /events array/)
+  assert.throws(() => parsePlaygroundRun('not json'), /JSON document/)
 })
 
 test('NLAH export → import round-trips exactly', () => {

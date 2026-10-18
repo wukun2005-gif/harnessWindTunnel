@@ -26,6 +26,7 @@ import {
   type JevScoreReading,
 } from '../../shared/jev'
 import { hostOf, jevLog, jevWarn } from './jevLog'
+import { awaitProviderQuota } from './providerQuota'
 import { estimateTokens } from './tokens'
 
 export interface JevTarget {
@@ -397,6 +398,8 @@ export async function callSystemOne(
   questions: Record<string, JevQuestionSpec>,
   opts: { timeoutMs?: number } = {},
 ): Promise<JevCallResult> {
+  await awaitProviderQuota(target.baseUrl)
+
   const started = Date.now()
   const questionIds = Object.keys(questions)
   const where = `${hostOf(target.baseUrl)} model=${target.model}`

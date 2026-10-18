@@ -17,6 +17,7 @@ import {
   listMutations,
   setCurrentGeneration,
   updateCardStatus,
+  updateCardFalsification,
   updateMutationGate,
   kvGetJson,
   kvSetJson,
@@ -38,6 +39,7 @@ import type {
   EvoAnalysis,
   EvoCluster,
   EvoGeneration,
+  EvoProfile,
   EvoMutation,
   EvoRace,
   EvoRaceEntry,
@@ -48,6 +50,7 @@ import type {
   PgMounts,
   RunDetail,
 } from '../../shared/playground'
+import { EVO_PROFILES } from '../../shared/playground'
 
 const now = () => new Date().toISOString()
 /**
@@ -154,6 +157,8 @@ export interface ApplyOptions {
   mode: 'manual' | 'auto'
   /** Slider level 0/1/2 (§7.5). */
   autonomyLevel?: number
+  /** Run profile: 'demo' shrinks the real-run sample, 'full' keeps the measured口径. */
+  profile?: EvoProfile
 }
 
 export interface ApplyResult {
@@ -215,17 +220,29 @@ function commitPassedCard(
   const cluster = getCluster(card.clusterId)
 
   if (opts.mode === 'auto' && level === 1 && falsification.regressed.length > 0) {
-    updateCardStatus(card.cardId, 'falsified', 'falsified')
+    updateCardFalsification(card.cardId, 'falsified', 'falsified', falsification)
     return { ok: false, card, falsification, generation: null, mutation: null, approvedBy: null,
       error: 'Level 1 (conditional auto): the re-run regressed, so auto-apply is forbidden.' }
   }
 
-  if (!falsificationPasses(falsification)) {
-    updateCardStatus(card.cardId, 'falsified', 'falsified')
+  // Tasks whose re-run produced no answer (provider/network error) carry no
+  // signal. Judging the card on the tasks that did answer would let a flaky
+  // endpoint decide the verdict, so the card goes back on the table instead of
+  // being accepted or falsified. The numbers are still stored for the panel.
+  if (falsification.incomplete.length > 0) {
+    updateCardFalsification(card.cardId, 'proposed', 'pending', falsification)
     return { ok: false, card, falsification, generation: null, mutation: null, approvedBy: null,
-      error: falsification.regressed.length
-        ? `Falsified: ${falsification.regressed.length} task(s) regressed, net lift ${falsification.netLiftPp}pp — not committed to the version tree.`
-        : 'Falsified: no failed task was rescued — not committed to the version tree.' }
+      error: `Inconclusive: ${falsification.incomplete.length} task(s) produced no answer after retries (${falsification.incomplete.join(', ')}). The card stays proposed — re-run verification when the provider is healthy.` }
+  }
+
+  if (!falsificationPasses(falsification)) {
+    updateCardFalsification(card.cardId, 'falsified', 'falsified', falsification)
+    return { ok: false, card, falsification, generation: null, mutation: null, approvedBy: null,
+      error: falsification.hardRegressions.length
+        ? `Falsified: a deterministic check regressed — ${falsification.hardRegressions.map((h) => h.reason).join('；')} — not committed to the version tree.`
+        : falsification.regressed.length
+          ? `Falsified: ${falsification.regressed.length} task(s) regressed, net lift ${falsification.netLiftPp}pp — not committed to the version tree.`
+          : 'Falsified: no failed task was rescued — not committed to the version tree.' }
   }
 
   const { config, mounts } = applyCardToConfig(card, parent.config, parent.mounts)
@@ -264,7 +281,7 @@ function commitPassedCard(
   }
   insertMutation(mutation)
   setCurrentGeneration(generation.generationId)
-  updateCardStatus(card.cardId, 'applied', 'accepted')
+  updateCardFalsification(card.cardId, 'applied', 'accepted', falsification)
 
   if (cluster && falsification.stillFailed.length === 0 && falsification.regressed.length === 0) {
     insertCluster({ ...cluster, status: 'resolved' })
@@ -312,6 +329,7 @@ async function runApplyCard(cardId: string, opts: ApplyOptions): Promise<ApplyRe
     failedRuns,
     passingRuns,
     provider: { providerId: providerHint?.providerId, model: providerHint?.model },
+    profile: opts.profile,
   })
   if ('error' in falsification) {
     updateCardStatus(cardId, 'proposed', 'pending')
@@ -334,6 +352,8 @@ export function rollbackTo(generationId: string): { ok: boolean; error?: string 
 export interface GateVerifyStartOpts {
   repeats?: number
   temperature?: number
+  /** Run profile: 'demo' shrinks the held-out sample. */
+  profile?: EvoProfile
 }
 
 /**
@@ -357,9 +377,23 @@ export function startGateVerify(commitId: string, opts: GateVerifyStartOpts = {}
         candidate,
         parent,
         { providerId: providerHint?.provider?.providerId, model: providerHint?.provider?.model },
-        { repeats: opts.repeats, temperature },
+        { repeats: opts.repeats, temperature, profile: opts.profile },
       )
-      if ('error' in out) { updateMutationGate(commitId, null, 'failed'); return }
+      // A GateResult may itself carry `error` (partial pass: some runs never
+      // answered), so discriminate on gateTaskIds — a real result always has it.
+      if (!('gateTaskIds' in out)) {
+        updateMutationGate(commitId, {
+          gateTaskIds: [], baselinePass: 0, candidatePass: 0,
+          baselinePassPp: 0, candidatePassPp: 0, gateLiftPp: 0,
+          regressed: [], fixed: [], avgTokens: null, avgLatencyMs: null,
+          avgCostUsd: null, repeats: 0,
+          baselineRunIds: [], newRunIds: [], ranAt: new Date().toISOString(),
+          error: out.error,
+        }, 'failed')
+        return
+      }
+      // A partial pass still gets a verdict from the pairs that answered; the
+      // missing task is recorded on the result, never assumed to pass.
       const passed = out.regressed.length === 0 && out.gateLiftPp >= 0
       updateMutationGate(commitId, out, passed ? 'passed' : 'failed')
     } catch (e) {
@@ -489,6 +523,25 @@ export function staleGuard<T extends { running: boolean; bootId?: string }>(
   return job
 }
 
+/**
+ * Boot recovery for cards frozen in `screening`.
+ *
+ * A card enters `screening` and then a detached worker re-runs real tasks for it.
+ * That worker lives in this process, so a restart kills it mid-flight and the row
+ * stays `screening` forever. `applyCard` refuses to start a card that is already
+ * screening, so the panel's button would be permanently dead with no way back
+ * except editing SQLite by hand.
+ *
+ * `screening` is never persisted, so any such row on boot is by definition dead.
+ * Put it back to `proposed` — NOT `falsified`: we learned nothing about the
+ * candidate, and marking it falsified would be a verdict we never measured.
+ */
+export function recoverStuckCards(): number {
+  const stuck = listCards().filter((c) => c.status === 'screening')
+  for (const c of stuck) updateCardStatus(c.cardId, 'proposed', 'pending')
+  return stuck.length
+}
+
 // ── §7.2④ stand-alone top-N Pareto race (design §10 M4) ────────────────────
 
 const RACE_JOB_KEY = 'race_job'
@@ -519,6 +572,8 @@ export interface RaceStartOpts {
   topN?: number
   /** §3.2 repeats per (task × config) in the gate pass. */
   repeats?: number
+  /** Run profile: 'demo' shrinks the real-run sample. */
+  profile?: EvoProfile
 }
 
 /**
@@ -564,6 +619,7 @@ export function startTopRace(opts: RaceStartOpts): { ok: boolean; error?: string
       const outcome = await raceTopCards(top, opts.autonomyLevel, {
         repeats: opts.repeats,
         topN: opts.topN ?? TOP_N_GATE,
+        profile: opts.profile,
       })
       writeRaceJob({
         running: false,
@@ -606,14 +662,19 @@ export interface RaceOutcome {
 export async function raceTopCards(
   cards: ChangeCard[],
   autonomyLevel: number,
-  opts: { repeats?: number; topN?: number } = {},
+  opts: { repeats?: number; topN?: number; profile?: EvoProfile } = {},
 ): Promise<RaceOutcome> {
   const topN = Math.max(1, Math.min(5, opts.topN ?? TOP_N_GATE))
   const parent = currentGeneration() ?? ensureBaseGeneration(scoredLiveRepairRuns())
   const providerHint = scoredLiveRepairRuns().slice(-1)[0]?.provider
   const provider = { providerId: providerHint?.providerId, model: providerHint?.model }
   const temperature = 0.2
-  const repeats = gateRepeatsFor(temperature, opts.repeats)
+  // The demo profile pins its own repeat count; an explicit caller override still
+  // wins, so the full profile keeps the §3.2 slider.
+  const repeats = gateRepeatsFor(
+    temperature,
+    opts.repeats ?? EVO_PROFILES[opts.profile ?? 'full'].gateRepeats ?? undefined,
+  )
 
   const entries: EvoRaceEntry[] = []
   const entryFor = (card: ChangeCard, dropped: string | null, gate?: GateResult): EvoRaceEntry => {
@@ -642,23 +703,30 @@ export async function raceTopCards(
     writeRaceJob({ running: true, phase: text })
   }
 
-  const screened: ScreenedFinalist[] = []
-  for (const card of cards) {
-    phase(`Repair screen: ${card.title}`)
+  // The candidates are screened side by side instead of one after the other. The
+  // provider quota is paced centrally (providerQuota.ts), so a second screen no
+  // longer has to queue behind the first: two screens overlap and the wall clock
+  // of a two-card race roughly halves, without asking the provider for more
+  // requests per minute than before. Results land in fixed slots so the table and
+  // the finalist order stay deterministic whichever screen finishes first.
+  const screenEntries: (EvoRaceEntry | null)[] = cards.map(() => null)
+  const screenResults: (ScreenedFinalist | null)[] = cards.map(() => null)
+  phase(`Repair screen: ${cards.length} candidate(s) side by side`)
+  await Promise.all(cards.map(async (card, i) => {
     updateCardStatus(card.cardId, 'screening', 'pending')
     const cluster = getCluster(card.clusterId)
     if (!cluster) {
       updateCardStatus(card.cardId, 'falsified', 'falsified')
-      entries.push(entryFor(card, 'failure cluster missing, cannot re-run'))
-      continue
+      screenEntries[i] = entryFor(card, 'failure cluster missing, cannot re-run')
+      return
     }
     const failedRuns = cluster.runIds
       .map((id) => getRunDetail(id))
       .filter((r): r is RunDetail => !!r && r.success === false)
     if (!failedRuns.length) {
       updateCardStatus(card.cardId, 'falsified', 'falsified')
-      entries.push(entryFor(card, 'no failed run available for re-runs'))
-      continue
+      screenEntries[i] = entryFor(card, 'no failed run available for re-runs')
+      return
     }
     const passingRuns = scoredLiveRepairRuns().filter(
       (r) => r.success === true && r.fingerprint === parent.fingerprint && !cluster.runIds.includes(r.runId),
@@ -670,21 +738,30 @@ export async function raceTopCards(
       failedRuns,
       passingRuns,
       provider,
+      profile: opts.profile,
     })
     if ('error' in falsification) {
       updateCardStatus(card.cardId, 'proposed', 'pending')
-      entries.push(entryFor(card, `repair screen failed: ${falsification.error}`))
-      continue
+      screenEntries[i] = entryFor(card, `repair screen failed: ${falsification.error}`)
+      return
+    }
+    if (falsification.incomplete.length > 0) {
+      updateCardFalsification(card.cardId, 'proposed', 'pending', falsification)
+      screenEntries[i] = entryFor(card,
+        `repair screen inconclusive: ${falsification.incomplete.length} task(s) produced no answer (${falsification.incomplete.join(', ')})`)
+      return
     }
     if (!falsificationPasses(falsification)) {
-      updateCardStatus(card.cardId, 'falsified', 'falsified')
-      entries.push(entryFor(card, falsification.regressed.length
+      updateCardFalsification(card.cardId, 'falsified', 'falsified', falsification)
+      screenEntries[i] = entryFor(card, falsification.regressed.length
         ? `repair screen regressed ${falsification.regressed.length} task(s)`
-        : 'repair screen rescued nothing'))
-      continue
+        : 'repair screen rescued nothing')
+      return
     }
-    screened.push({ card, falsification })
-  }
+    screenResults[i] = { card, falsification }
+  }))
+  for (const e of screenEntries) if (e) entries.push(e)
+  const screened: ScreenedFinalist[] = screenResults.filter((s): s is ScreenedFinalist => !!s)
 
   // Keep at most topN by repair net lift for the expensive gate pass. The rest
   // are not falsified — they simply never got a gate slot.
@@ -694,29 +771,35 @@ export async function raceTopCards(
     entries.push(entryFor(drop.card, `missed the top-${topN} after the repair screen (net lift ${drop.falsification.netLiftPp}pp)`))
   }
 
-  const gated: GatedFinalist[] = []
-  for (const f of finalists) {
-    phase(`gate×${repeats}: ${f.card.title} (${finalists.length} candidates side by side)`)
+  // Same reasoning as the screen above: the finalists' held-out gates run side
+  // by side under the same central quota pacing, and land in fixed slots so the
+  // Pareto pick sees the same row order every run.
+  const gateEntries: (EvoRaceEntry | null)[] = finalists.map(() => null)
+  const gateResults: (GatedFinalist | null)[] = finalists.map(() => null)
+  if (finalists.length > 0) phase(`gate×${repeats}: ${finalists.length} candidate(s) side by side`)
+  await Promise.all(finalists.map(async (f, i) => {
     const cand = applyCardToConfig(f.card, parent.config, parent.mounts)
     const gate = await gateVerifyConfigs(
       cand,
       { config: parent.config, mounts: parent.mounts },
-      { provider, repeats, temperature },
+      { provider, repeats, temperature, profile: opts.profile },
     )
-    if ('error' in gate) {
+    if (!('gateTaskIds' in gate)) {
       updateCardStatus(f.card.cardId, 'proposed', 'pending')
-      entries.push(entryFor(f.card, `gate verification failed: ${gate.error}`))
-      continue
+      gateEntries[i] = entryFor(f.card, `gate verification failed: ${gate.error}`)
+      return
     }
     if (gate.regressed.length > 0 || gate.gateLiftPp < 0) {
       updateCardStatus(f.card.cardId, 'falsified', 'falsified')
-      entries.push(entryFor(f.card, gate.regressed.length
+      gateEntries[i] = entryFor(f.card, gate.regressed.length
         ? `gate regressed ${gate.regressed.length} task(s)`
-        : `gate lift ${gate.gateLiftPp}pp is negative`, gate))
-      continue
+        : `gate lift ${gate.gateLiftPp}pp is negative`, gate)
+      return
     }
-    gated.push({ ...f, gate })
-  }
+    gateResults[i] = { ...f, gate }
+  }))
+  for (const e of gateEntries) if (e) entries.push(e)
+  const gated: GatedFinalist[] = gateResults.filter((g): g is GatedFinalist => !!g)
 
   // Pareto pick over (success ↑, cost ↓); regressions already disqualified.
   const rows = gated.map((g) => ({
@@ -830,7 +913,7 @@ export function startAutoEvolve(autonomyLevel: number): { ok: boolean; error?: s
           }
           noLiftStreak += 1
           if (reachedNoLiftStop(noLiftStreak)) {
-            writeAutoJob({ running: false, phase: 'Stopped', stopReason: `${NO_LIFT_LIMIT} consecutive generations with no positive lift (§7.5 stop condition); self-evolution stops.` })
+            writeAutoJob({ running: false, phase: 'Stopped', stopReason: `${NO_LIFT_LIMIT} consecutive generations with no positive lift; self-evolution stops.` })
             return
           }
           continue
@@ -841,7 +924,7 @@ export function startAutoEvolve(autonomyLevel: number): { ok: boolean; error?: s
         else {
           noLiftStreak += 1
           if (reachedNoLiftStop(noLiftStreak)) {
-            writeAutoJob({ running: false, phase: 'Stopped', stopReason: `${NO_LIFT_LIMIT} consecutive generations with no positive lift (§7.5 stop condition); self-evolution stops.` })
+            writeAutoJob({ running: false, phase: 'Stopped', stopReason: `${NO_LIFT_LIMIT} consecutive generations with no positive lift; self-evolution stops.` })
             return
           }
         }

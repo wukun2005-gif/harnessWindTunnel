@@ -97,7 +97,24 @@ export const ROUTE_TABLE: Record<MastTag, RouteRule | undefined> = {
   'weak-grounding': {
     tag: 'weak-grounding', initial: 'joint',
     seam: 'guides citation requirement + sensors=verifier check', seamControl: 'citation-audit',
-    dsl: { sensors: 'verifier' }, guideStyle: 'domain-checklist', hardGate: true,
+    // The floor, not more guidance — measured, not assumed.
+    //
+    // The seam is attributed to "the model needs a citation checklist and a
+    // verifier". The measured fix is neither. On the security tasks this cluster
+    // is drawn from, the citation checklist and the verifier leave the failures
+    // where they were — S2 0 of 5 runs, S3 1 of 6, S6 4 of 13 — while the output
+    // floor carries them: permissions=deny-first (rule 10 names the refusal and
+    // the lawful routes to the very material S2 asks about) plus
+    // globalPolicy=policy-enforced (rule 11 masks the numbers S3 asks to be
+    // printed) measures S2 3 of 3, S6 3 of 3, S3 2 of 3 on the same tasks.
+    //
+    // The verifier is dropped rather than stacked on: it tells the model its
+    // citations will be rejected and rewritten, so answers hedge the statute
+    // wording — and the reading then lands on `partial` for a point the answer
+    // did make. Guiding an agent harder without also fencing its output is how a
+    // grounding fix becomes a leak; here the fence is the whole fix.
+    dsl: { permissions: 'deny-first', globalPolicy: 'policy-enforced' },
+    hardGate: true,
   },
   'reasoning-action-mismatch': {
     tag: 'reasoning-action-mismatch', initial: 'joint',

@@ -1,7 +1,7 @@
 // Frozen snapshot of the Chinese dictionaries (zh + fixtureZh).
 // Used by scripts/i18n.test.ts: any intentional Chinese copy change must
 // regenerate this file; unintentional drift fails the test.
-// zh: 767 keys, sha256 46aad9519fb02772f2e7da02f9ef348ad1ee48624fdddb59675ca9dd5361b325
+// zh: 768 keys, sha256 6bc0316706af9cd0327f24490452b51188030134574326bcca6f2b553f9d46c1
 // fixtureZh: 200 keys, sha256 1e991d8e98dbb072302e0cf0611f658b2de8d518b56c79b93f3680e30d6ad69e
 {
   "zh": {
@@ -265,10 +265,11 @@
     "tunnel.nlah.error": "Harness 配置失败：{error}",
     "mri.import.title": "导入轨迹",
     "mri.import.tag": "· 真实轨迹回放",
-    "mri.import.desc": "在这里回放你自己的真实轨迹——Claude Code JSONL 或 dsh 轨迹都会转成和剧本一样的逐步回放。",
+    "mri.import.desc": "在这里回放你自己的真实轨迹——Claude Code JSONL、dsh 轨迹或 Playground 导出的 run 文件，都会转成和剧本一样的逐步回放。",
     "mri.import.orSample": "或试试内置样例",
     "mri.import.claude": "Claude Code JSONL",
     "mri.import.dsh": "dsh Trajectory",
+    "mri.import.hwt": "Playground 导出 run",
     "mri.import.file": "选择文件",
     "mri.import.sample": "载入 {name} 样例",
     "mri.import.ok": "已导入 {events} 个事件（跳过 {skipped}）",

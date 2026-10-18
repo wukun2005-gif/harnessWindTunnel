@@ -144,13 +144,13 @@ export default function MRI() {
 function ImportPanel() {
   const t = useT()
   const { loadImported } = useRun()
-  const [format, setFormat] = useState<'claude' | 'dsh'>('claude')
+  const [format, setFormat] = useState<'claude' | 'dsh' | 'hwt'>('claude')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const send = async (fmt: 'claude' | 'dsh', text: string, label: string) => {
+  const send = async (fmt: 'claude' | 'dsh' | 'hwt', text: string, label: string) => {
     setBusy(true)
     setError(null)
     setInfo(null)
@@ -189,9 +189,10 @@ function ImportPanel() {
       <h3>{t('mri.import.title')} <span className="tag">{t('mri.import.tag')}</span></h3>
       <div className="faint" style={{ marginBottom: 8 }}>{t('mri.import.desc')}</div>
       <label className="faint" style={{ display: 'grid', gap: 4, fontSize: 12, marginBottom: 8 }}>
-        <select value={format} onChange={(e) => setFormat(e.target.value as 'claude' | 'dsh')} style={{ width: '100%' }}>
+        <select value={format} onChange={(e) => setFormat(e.target.value as 'claude' | 'dsh' | 'hwt')} style={{ width: '100%' }}>
           <option value="claude">{t('mri.import.claude')}</option>
           <option value="dsh">{t('mri.import.dsh')}</option>
+          <option value="hwt">{t('mri.import.hwt')}</option>
         </select>
       </label>
       <button className="primary" disabled={busy} style={{ width: '100%', marginBottom: 10 }} onClick={() => fileRef.current?.click()}>{t('mri.import.file')}</button>

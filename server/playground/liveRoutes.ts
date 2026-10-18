@@ -5,6 +5,7 @@ import type { HarnessConfig } from '../../shared/config'
 import type {
   ChatTarget,
   CreateRunsRequest,
+  EvoProfile,
   PlaygroundRunFile,
   PgDomain,
   PgPresetId,
@@ -497,9 +498,9 @@ export async function handleLiveRoute(
   const applyMatch = p.match(/^\/api\/playground\/cards\/([^/]+)\/apply$/)
   if (applyMatch && method === 'POST') {
     const cardId = decodeURIComponent(applyMatch[1]!)
-    let body: { mode?: 'manual' | 'auto'; autonomyLevel?: number }
+    let body: { mode?: 'manual' | 'auto'; autonomyLevel?: number; profile?: EvoProfile }
     try {
-      body = JSON.parse(await readBody(req)) as { mode?: 'manual' | 'auto'; autonomyLevel?: number }
+      body = JSON.parse(await readBody(req)) as { mode?: 'manual' | 'auto'; autonomyLevel?: number; profile?: EvoProfile }
     } catch {
       send(res, 400, { ok: false, error: 'request body is not valid JSON' })
       return true
@@ -507,6 +508,7 @@ export async function handleLiveRoute(
     const result = await applyCard(cardId, {
       mode: body.mode === 'auto' ? 'auto' : 'manual',
       autonomyLevel: body.autonomyLevel ?? 0,
+      profile: body.profile === 'demo' ? 'demo' : 'full',
     })
     send(res, result.started ? 202 : result.ok ? 200 : 422, { ...result, state: getEvoState() })
     return true
@@ -526,15 +528,16 @@ export async function handleLiveRoute(
   const gateMatch = p.match(/^\/api\/playground\/mutations\/([^/]+)\/gate$/)
   if (gateMatch && method === 'POST') {
     const commitId = decodeURIComponent(gateMatch[1]!)
-    let body: { repeats?: number; temperature?: number } = {}
+    let body: { repeats?: number; temperature?: number; profile?: EvoProfile } = {}
     try {
-      body = JSON.parse(await readBody(req)) as { repeats?: number; temperature?: number }
+      body = JSON.parse(await readBody(req)) as { repeats?: number; temperature?: number; profile?: EvoProfile }
     } catch {
       body = {}
     }
     const out = startGateVerify(commitId, {
       repeats: typeof body.repeats === 'number' ? body.repeats : undefined,
       temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
+      profile: body.profile === 'demo' ? 'demo' : 'full',
     })
     send(res, out.ok ? 202 : 422, { ...out, state: getEvoState() })
     return true
@@ -542,16 +545,23 @@ export async function handleLiveRoute(
 
   // POST /api/playground/evolve/race — §7.2④ top-N side-by-side Pareto race
   if (p === '/api/playground/evolve/race' && method === 'POST') {
-    let body: { autonomyLevel?: number; topN?: number; repeats?: number } = {}
+    let body: { autonomyLevel?: number; topN?: number; repeats?: number; profile?: string } = {}
     try {
-      body = JSON.parse(await readBody(req)) as { autonomyLevel?: number; topN?: number; repeats?: number }
+      body = JSON.parse(await readBody(req)) as { autonomyLevel?: number; topN?: number; repeats?: number; profile?: string }
     } catch {
       body = {}
     }
+    // The profile has to reach the race, the same way it reaches a single card:
+    // without it the race falls back to `full` (9 screen slots, 14 gate tasks ×3
+    // repeats ×2 sides per candidate ≈ 240 real runs) while the picker above says
+    // "demo profile". The demo profile's own repeat count is pinned inside
+    // raceTopCards, so a missing profile is what makes a two-card race take hours.
+    const profile = body.profile === 'demo' || body.profile === 'full' ? body.profile : undefined
     const out = startTopRace({
       autonomyLevel: body.autonomyLevel ?? 0,
       topN: typeof body.topN === 'number' ? body.topN : undefined,
       repeats: typeof body.repeats === 'number' ? body.repeats : undefined,
+      profile,
     })
     send(res, out.ok ? 202 : 422, { ...out, state: getEvoState() })
     return true

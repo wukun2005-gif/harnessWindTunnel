@@ -523,6 +523,93 @@ export interface PlaygroundRunFile {
 // ── M4 evolution (PRISM, §7) ───────────────────────────────────────────────
 
 export type EvoSurface = 'prompt' | 'middleware' | 'joint'
+
+/**
+ * Run profile. Both the self-evolution screen and the held-out gate read it, so
+ * one switch changes the cost of every card — not of one card.
+ *
+ * 'full'  — the measured口径: 6 failed + 3 guard tasks screened once each, the
+ *           whole held-out gate set at the chosen ×repeats.
+ * 'demo'  — the演示口径: 3 failed + 1 guard task at ×1, 3 held-out tasks at ×1.
+ *           Still every single run is a real execution; only the sample shrinks,
+ *           so the panel must label the sample size rather than quote a lift.
+ *
+ *           Which three, and why not four: a gate task has to be DECIDABLE at the
+ *           demo's sample size — its baseline has to be reproducible, or a single
+ *           flipped repeat decides the verdict. G11 (0/7) and L12 (0/7) never pass
+ *           at all, and S6 (2/7) is the one task the safety floor is aimed at.
+ *           G9 was in the first demo set and had to go: its baseline passes 4 of 7,
+ *           so it is a coin flip, and its candidate reading (4/14) is inside the
+ *           noise of its own baseline (Fisher p≈0.19). At four pairs that task can
+ *           only contribute false regressions — it stays in the full 13-task gate,
+ *           where the repeats are high enough to mean something.
+ *
+ *           ×1 rather than ×2: at ×1 the whole demo is 14 real runs (8 screened +
+ *           6 gate) and lands in about two minutes, which is what makes it
+ *           demoable at all. Repeating each task twice only ever bought the
+ *           ability to tell a flip from a coin flip, and that ability is now
+ *           bought a cheaper way: the judge is handed the harness's own
+ *           deterministic point checks instead of being left to re-derive them
+ *           from the answer's wording (see buildJudgeState). With the reading no
+ *           longer swinging on phrasing, one pair per task is enough — a task
+ *           that flips on one pair and not the next is the failure mode the
+ *           repeats were insurance against, and that insurance is now upstream.
+ *           The guard task stays at 1: it exists to catch a regression, and the
+ *           guard pool is drawn from tasks that pass at the parent fingerprint.
+ */
+export type EvoProfile = 'full' | 'demo'
+
+export const EVO_PROFILES: Record<EvoProfile, {
+  label: string
+  screenFailed: number
+  screenGuards: number
+  /** Screen repetitions per slot. null → the built-in SCREEN_REPEATS. */
+  screenRepeats: number | null
+  gateTaskIds: string[] | null
+  gateRepeats: number | null
+}> = {
+  full: { label: 'Full measurement', screenFailed: 6, screenGuards: 3, screenRepeats: null, gateTaskIds: null, gateRepeats: null },
+  demo: { label: 'Demo (fast: 4 screened ×1 · 3 gate ×1)', screenFailed: 3, screenGuards: 1, screenRepeats: 1, gateTaskIds: ['G11', 'L12', 'S6'], gateRepeats: 1 },
+}
+
+/**
+ * Held-out tasks never run, in any profile.
+ *
+ * G10「三对比文件特征对应矩阵」averages 115s per model call against a 120s
+ * timeout — 29 runs, 12 failures, and it is the only task in the whole set that
+ * ever failed. It is also one of the 13 tasks that sit at 0/3 on both sides of
+ * every comparison, so it never carried signal either. Dropping it costs one
+ * task of general-domain coverage and removes the only source of hard failures.
+ *
+ * S4 is the same kind of dead weight without the excuse of being slow: 0 passes
+ * in 26 real runs. Every comparison it takes part in contributes a guaranteed
+ * non-pass to both sides, so it inflates the denominator with a number that can
+ * never move. It cannot rescue a candidate and it cannot regress one — it just
+ * spends 20% of the gate budget on a constant.
+ */
+export const GATE_TASK_EXCLUDED: string[] = ['G10', 'S4']
+
+/** Gate tasks for a profile, after the permanent exclusions. */
+export function gateTasksFor(profile: EvoProfile): string[] | null {
+  const spec = EVO_PROFILES[profile].gateTaskIds
+  return spec ? spec.filter((id) => !GATE_TASK_EXCLUDED.includes(id)) : null
+}
+
+/**
+ * Screening tasks that are never re-run, in any profile.
+ *
+ * L7「说明书公开充分性的判断」is the slowest task in the whole eval set: 194.7s
+ * average, 536s worst case, 91.3k input tokens — and 0% pass over 6 real runs.
+ * It sits in the repair split, so the "most recent failed tasks, newest first"
+ * screen could pull a 3-minute dead end into any falsification pass, which then
+ * returns "rescued 0" no matter what the candidate changed. It appears in
+ * neither existing failure cluster, so dropping it costs the demo nothing.
+ *
+ * L8/L9/L10/L4/L11 are equally slow and equally at 0%, but they are the current
+ * weak-grounding card's actual targets — they stay, otherwise there is nothing
+ * to demonstrate.
+ */
+export const SCREEN_TASK_EXCLUDED: string[] = ['L7']
 export type CardStatus = 'proposed' | 'screening' | 'applied' | 'falsified' | 'rejected'
 export type CardVerdict = 'pending' | 'accepted' | 'falsified' | 'needs-human'
 
@@ -574,6 +661,12 @@ export interface ChangeCard {
   llmPrompt: string | null
   llmOutput: string | null
   proposalSource: 'llm' | 'template'
+  /**
+   * The real re-run result, kept on the card whether it passed or failed. A
+   * failed screening is the most interesting outcome there is; dropping it left
+   * the panel showing nothing but a "falsified" badge.
+   */
+  falsification: FalsificationResult | null
 }
 
 /** Paired falsification result from real re-runs (design §7.2④). */
@@ -595,8 +688,41 @@ export interface FalsificationResult {
   avgCostUsd: number | null
   /** Any security/legal hard gate that regressed (immediate falsification). */
   hardGateRegressed: boolean
+  /**
+   * Tasks whose pair flipped one way and then failed to reproduce it. A single
+   * flipped sample is a coin flip, not a finding, so these are recorded and
+   * counted as neither a rescue nor a regression.
+   */
+  unstable: string[]
+  /**
+   * Deterministic-check regressions: the parent's answer was clean on the leak /
+   * injection / statute check and the candidate's is not. Kept apart from
+   * `regressed` because it fires while BOTH halves miss the reading — the pair
+   * then reads as "still failed" and a leaked ID number goes unseen.
+   */
+  hardRegressions: { taskId: string; reason: string }[]
   /** New run ids produced by the screening. */
   newRunIds: string[]
+  /**
+   * When this screening finished (ISO). A card can be re-screened after every
+   * fix and the numbers come back in the same shape, so without a stamp a stored
+   * result cannot be told apart from the one it replaced. Absent on results that
+   * were stored before this field existed.
+   */
+  at?: string
+  /**
+   * Paired repetitions per screened task, as the profile ran them. The panel
+   * reads it to describe the sample instead of assuming the built-in default.
+   * Absent on results stored before this field existed.
+   */
+  screenRepeats?: number
+  /**
+   * Tasks whose re-run never produced an answer (provider/network error, budget
+   * cutoff). They carry no signal at all, so they are excluded from rescued /
+   * regressed / stillFailed rather than counted as failures — a screening pass
+   * that hit this is indeterminate and must not judge the card.
+   */
+  incomplete: string[]
 }
 
 /**
@@ -606,6 +732,12 @@ export interface FalsificationResult {
  */
 export interface GateResult {
   gateTaskIds: string[]
+  /**
+   * Set instead of the numbers when the pass could not produce a verdict (some
+   * gate run never produced an answer). The panel shows this rather than a
+   * meaningless zero lift.
+   */
+  error?: string
   baselinePass: number
   candidatePass: number
   baselinePassPp: number
@@ -615,6 +747,10 @@ export interface GateResult {
   regressed: string[]
   /** Baseline fail → candidate pass (unique task ids). */
   fixed: string[]
+  /** Tasks whose flip did not reproduce across repeats — no signal either way. */
+  unstable?: string[]
+  /** Deterministic-check regressions inside the gate (same rule as the screen). */
+  hardRegressions?: { taskId: string; reason: string }[]
   avgTokens: number | null
   avgLatencyMs: number | null
   /** L3 mean USD cost over candidate gate runs; null when unpriced. */

@@ -68,7 +68,7 @@ export const PRESETS: Preset[] = [
     title: 'Minimal vs Rich Pairs',
     tagline: 'Three single-variable pairs: tool surface, prompt length, compression reset',
     scenarioId: 'workflow-crm-export',
-    source: { kind: 'fixture', label: 'Illustrative pairs (directions: Pi / Earendil, Ralph Loop, Databricks note)', citation: 'harness-research-v0.5 §4.5' },
+    source: { kind: 'fixture', label: 'Illustrative pairs (directions: Pi / Earendil, Ralph Loop, Databricks note)', citation: 'harness-research-v0.5' },
     reading: 'Rich is not always better: 18+ tools paralyze (−3.5pp), long prompts stay near-neutral (+1.4pp), sustained compression beats per-round reset (+4.6pp).',
     variants: [
       { label: 'Minimal 4-tool (tool pair base)', config: cfg(), branchId: 'base', note: '44.4%' },

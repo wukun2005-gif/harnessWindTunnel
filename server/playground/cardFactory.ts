@@ -190,6 +190,7 @@ export async function buildCardsForCluster(
       llmPrompt: null,
       llmOutput: null,
       proposalSource: 'template',
+      falsification: null,
     }
     insertCard(card)
     return [card]
@@ -279,6 +280,7 @@ export async function buildCardsForCluster(
     llmPrompt: proposalSource === 'llm' ? llmPrompt : null,
     llmOutput: proposalSource === 'llm' ? llmOutput : null,
     proposalSource,
+    falsification: null,
   }
   cards.push(primary)
 

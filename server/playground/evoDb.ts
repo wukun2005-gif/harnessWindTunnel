@@ -58,7 +58,8 @@ function db(): DatabaseSync {
         verdict TEXT NOT NULL,
         llm_prompt TEXT,
         llm_output TEXT,
-        proposal_source TEXT NOT NULL
+        proposal_source TEXT NOT NULL,
+        falsification_json TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_pg_evo_cards_cluster ON pg_evo_cards(cluster_id);
 
@@ -94,6 +95,8 @@ function db(): DatabaseSync {
     for (const stmt of [
       'ALTER TABLE pg_evo_mutations ADD COLUMN gate_json TEXT',
       "ALTER TABLE pg_evo_mutations ADD COLUMN gate_status TEXT NOT NULL DEFAULT 'idle'",
+      // Migration for DBs created before a card kept its own screening result.
+      'ALTER TABLE pg_evo_cards ADD COLUMN falsification_json TEXT',
     ]) {
       try { d.exec(stmt) } catch { /* column already exists */ }
     }
@@ -159,10 +162,11 @@ export function insertCard(card: ChangeCard): void {
     `INSERT INTO pg_evo_cards
        (card_id, cluster_id, created_at, surface, seam, title, nl, prompt_diff_json,
         middleware_diff_json, mount_diff_json, surface_reason, in_table, predicted_gain_pp,
-        hard_gate, status, verdict, llm_prompt, llm_output, proposal_source)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        hard_gate, status, verdict, llm_prompt, llm_output, proposal_source, falsification_json)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(card_id) DO UPDATE SET
-       status=excluded.status, verdict=excluded.verdict, predicted_gain_pp=excluded.predicted_gain_pp`,
+       status=excluded.status, verdict=excluded.verdict, predicted_gain_pp=excluded.predicted_gain_pp,
+       falsification_json=COALESCE(excluded.falsification_json, pg_evo_cards.falsification_json)`,
   ).run(
     card.cardId, card.clusterId, card.createdAt, card.surface, card.seam, card.title, card.nl,
     card.promptDiff ? JSON.stringify(card.promptDiff) : null,
@@ -170,11 +174,27 @@ export function insertCard(card: ChangeCard): void {
     card.mountDiff ? JSON.stringify(card.mountDiff) : null,
     card.surfaceReason, card.inTable ? 1 : 0, card.predictedGainPp, card.hardGate ? 1 : 0,
     card.status, card.verdict, card.llmPrompt, card.llmOutput, card.proposalSource,
+    card.falsification ? JSON.stringify(card.falsification) : null,
   )
 }
 
 export function updateCardStatus(cardId: string, status: ChangeCard['status'], verdict: ChangeCard['verdict']): void {
   db().prepare('UPDATE pg_evo_cards SET status = ?, verdict = ? WHERE card_id = ?').run(status, verdict, cardId)
+}
+
+/**
+ * Record a screening outcome together with the card's status, so a failed
+ * screening keeps its numbers (rescued / regressed / incomplete / net lift)
+ * instead of leaving only a "falsified" badge behind.
+ */
+export function updateCardFalsification(
+  cardId: string,
+  status: ChangeCard['status'],
+  verdict: ChangeCard['verdict'],
+  falsification: FalsificationResult,
+): void {
+  db().prepare('UPDATE pg_evo_cards SET status = ?, verdict = ?, falsification_json = ? WHERE card_id = ?')
+    .run(status, verdict, JSON.stringify(falsification), cardId)
 }
 
 function rowToCard(row: Record<string, unknown>): ChangeCard {
@@ -198,6 +218,9 @@ function rowToCard(row: Record<string, unknown>): ChangeCard {
     llmPrompt: row.llm_prompt as string | null,
     llmOutput: row.llm_output as string | null,
     proposalSource: row.proposal_source as ChangeCard['proposalSource'],
+    falsification: row.falsification_json
+      ? (JSON.parse(row.falsification_json as string) as ChangeCard['falsification'])
+      : null,
   }
 }
 

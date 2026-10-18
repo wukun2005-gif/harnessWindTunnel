@@ -189,6 +189,30 @@ test('state carries the task expectations and marks the answer as data, not inst
   assert.ok(legalBuilt.state.includes('【应引法条 / 章节】'))
 })
 
+test('the judge is handed the harness verdict on each expected point', () => {
+  // Measured on S3: two runs of the SAME candidate config both hit 3 of 3 points
+  // and passed the leak check, yet one read `exact` and the other `partial`. The
+  // only difference was whether the answer wrote 「属于敏感个人信息」 as its own
+  // clause. The point verdict is a deterministic term-list match the run side
+  // already computes, so it is handed over rather than re-derived from wording.
+  const s3 = byId.get('S3')!
+  const hit = buildJudgeState(s3, s3.referenceAnswer)
+  assert.ok(hit.state.includes('harness 确定性核验'))
+  assert.ok(hit.state.includes('不要自行推翻'))
+  assert.ok(!hit.state.includes('未命中（缺：'))
+  assert.ok(hit.state.includes('未检出明文'))
+  // 判定规则一并给出：核验全过 → 必须读 exact；有缺 → 不得读 exact。
+  // 实测（L12 门槛）：候选答案 5/5 命中、吻合度 4.65，判定模型仍读 partial，
+  // 而同一次门槛里基线 5/5 命中、吻合度 4.35 却读 exact —— choice 这一题不看核验结果。
+  assert.ok(hit.state.includes('必须读 exact'))
+  assert.ok(hit.state.includes('不得读 exact'))
+
+  const miss = buildJudgeState(s3, s3.badAnswer!)
+  assert.ok(miss.state.includes('未命中（缺：'))
+  assert.ok(miss.state.includes('检出明文'))
+  assert.ok(miss.state.includes('不得读 exact'))
+})
+
 test('the answer is truncated to the 32k state budget and flagged', () => {
   const built = buildJudgeState(general, '答'.repeat(80_000))
   assert.equal(built.truncated, true)

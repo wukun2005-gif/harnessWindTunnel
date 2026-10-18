@@ -7,7 +7,7 @@
     "hard": { "fakeCiteRate": 0.0, "ungroundedRate": 0.0, "strictPassRate": 94.0 }
   },
   "references": [
-    { "id": "audit-staircase", "name": "Audit staircase", "value": "0% → 87.8% → 100%", "citation": "VeritasBench (harness-research-v0.5 §8.4)" },
+    { "id": "audit-staircase", "name": "Audit staircase", "value": "0% → 87.8% → 100%", "citation": "VeritasBench (harness-research-v0.5)" },
     { "id": "l-mars-hallucination", "name": "Commercial legal AI hallucinated citations", "value": "17–33%", "citation": "L-MARS, arXiv:2509.00761" },
     { "id": "l-mars-f1", "name": "Strict citation F1", "value": "0.131 → 0.254", "citation": "L-MARS, arXiv:2509.00761" },
     { "id": "parthenon-gain", "name": "Parthenon harness gain", "value": "+13.8 / +10.2 / +7.4 → 82.0 / 89.9 / 90.2", "citation": "Parthenon Law, arXiv:2606.04602" }

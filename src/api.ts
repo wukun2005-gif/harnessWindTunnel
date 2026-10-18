@@ -21,6 +21,7 @@ import type {
   PlaygroundRunFile,
   EvoAnalysis,
   EvoState,
+  EvoProfile,
   ApplyResult,
 } from '../shared/playground'
 
@@ -84,7 +85,7 @@ export const api = {
   forge: () => jget<ForgeData>('/api/forge'),
   adaptation: (scenarioId: string) =>
     jget<AdaptationDoc>(`/api/adaptation?scenario=${encodeURIComponent(scenarioId)}`),
-  importEvents: (format: 'claude' | 'dsh', text: string) =>
+  importEvents: (format: 'claude' | 'dsh' | 'hwt', text: string) =>
     jpost<{ events: unknown[]; skipped: number }>('/api/import', { format, text }),
   importSample: (name: 'claude' | 'dsh') =>
     jget<{ name: string; text: string }>(`/api/import-sample?name=${name}`),
@@ -308,7 +309,7 @@ export const api = {
   pgEvoState: () => jget<{ ok: boolean } & EvoState>('/api/playground/evolve'),
   pgEvolve: (runIds?: string[]) =>
     jpost<{ ok: boolean } & EvoAnalysis & { state: EvoState; note?: string }>('/api/playground/evolve', { runIds }),
-  pgApplyCard: async (cardId: string, body: { mode: 'manual' | 'auto'; autonomyLevel?: number }) => {
+  pgApplyCard: async (cardId: string, body: { mode: 'manual' | 'auto'; autonomyLevel?: number; profile?: EvoProfile }) => {
     // 422 carries the falsification result (falsified), so return the body
     // instead of throwing; the UI shows rescued/regressed either way.
     const r = await fetch(`/api/playground/cards/${encodeURIComponent(cardId)}/apply`, {
@@ -323,12 +324,12 @@ export const api = {
       `/api/playground/generations/${encodeURIComponent(generationId)}/rollback`,
       {},
     ),
-  pgGateVerify: (commitId: string, opts?: { repeats?: number }) =>
+  pgGateVerify: (commitId: string, opts?: { repeats?: number; profile?: EvoProfile }) =>
     jpost<{ ok: boolean; state: EvoState; error?: string }>(
       `/api/playground/mutations/${encodeURIComponent(commitId)}/gate`,
       opts ?? {},
     ),
-  pgRace: (body: { autonomyLevel: number; topN?: number; repeats?: number }) =>
+  pgRace: (body: { autonomyLevel: number; topN?: number; repeats?: number; profile?: EvoProfile }) =>
     jpost<{ ok: boolean; state: EvoState; error?: string }>('/api/playground/evolve/race', body),
   pgAutoEvolve: (autonomyLevel: number) =>
     jpost<{ ok: boolean; state: EvoState; error?: string }>(

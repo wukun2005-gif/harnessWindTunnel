@@ -523,11 +523,22 @@ input[type='range'] { accent-color: var(--accent); width: 130px; }
 .pg-cluster-domain { font-size: 11px; margin-left: auto; }
 .pg-cluster-summary { font-size: 13px; margin: 8px 0 4px; }
 .pg-cluster-seam, .pg-cluster-route, .pg-cluster-steps { font-size: 11px; margin: 2px 0; }
-.pg-card { border: 1px solid var(--dim); border-radius: 8px; padding: 10px; margin-top: 10px; background: var(--bg-panel); }
-.pg-card-hard { border-color: rgba(192,106,106,.5); }
-.pg-card-applied { border-color: rgba(90,164,105,.6); }
+.pg-card { border: 1px solid var(--dim); border-left: 3px solid var(--dim); border-radius: 8px; padding: 10px;
+  margin-top: 14px; background: var(--bg-panel); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.pg-cluster .pg-card:nth-of-type(even) { background: var(--bg-panel2); }
+.pg-card + .pg-card { border-top: 1px solid var(--border); }
+.pg-card-hard { border-color: rgba(192,106,106,.5); border-left-color: rgba(192,106,106,.9); }
+.pg-card-applied { border-color: rgba(90,164,105,.6); border-left-color: rgba(90,164,105,.9); }
 .pg-card-falsified { opacity: .72; }
 .pg-card-head { display: flex; align-items: center; gap: 8px; }
+.pg-card-seq { font-family: var(--mono); font-size: 11px; font-weight: 700; color: inherit;
+  background: var(--bg-panel2); border: 1px solid var(--dim); border-radius: 4px; padding: 1px 7px; }
+.pg-card-uid { font-family: var(--mono); font-size: 10.5px; font-weight: 600; color: var(--accent);
+  background: rgba(2,132,199,.08); border: 1px dashed var(--accent-dim); border-radius: 4px;
+  padding: 1px 7px; cursor: pointer; }
+.pg-card-uid:hover { background: rgba(2,132,199,.18); }
+.pg-card-meta { display: flex; gap: 10px; flex-wrap: wrap; font-family: var(--mono); font-size: 10.5px;
+  color: var(--dim); margin-top: -2px; }
 .pg-surface { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; }
 .pg-surface-prompt { background: rgba(90,140,200,.18); color: #5a8cc8; }
 .pg-surface-middleware { background: rgba(190,140,60,.18); color: #c89a3c; }

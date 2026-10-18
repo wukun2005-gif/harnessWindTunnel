@@ -10,6 +10,7 @@ import type {
   EvoRaceJob,
   EvoState,
 } from '../../../shared/playground'
+import { EVO_PROFILES, gateTasksFor, type EvoProfile } from '../../../shared/playground'
 import { MAST_LABEL } from '../../../shared/mast'
 
 const SLIDER_KEY = 'hwt-pg-autonomy'
@@ -17,6 +18,17 @@ const SLIDER_KEY = 'hwt-pg-autonomy'
 const REPEATS_KEY = 'hwt-pg-gate-repeats'
 /** How many cards race side by side (design §7.2④ top-2). */
 const TOPN_KEY = 'hwt-pg-race-topn'
+const PROFILE_KEY = 'hwt-pg-profile'
+/** At or below this many screened tasks, the panel stops presenting a lift as a measurement. */
+/** Real executions per screen repetition: the parent run plus the candidate run. */
+const RUNS_PER_SLOT = 2
+/** Repetitions per screen slot — a flip has to reproduce before it is named. */
+const SCREEN_REPEATS = 2
+/** Screen repetitions per slot as the demo profile runs them. */
+const DEMO_SCREEN_REPEATS = EVO_PROFILES.demo.screenRepeats ?? SCREEN_REPEATS
+const DEMO_SCREEN_SIZE = (EVO_PROFILES.demo.screenFailed + EVO_PROFILES.demo.screenGuards) * RUNS_PER_SLOT * DEMO_SCREEN_REPEATS
+/** At or below this many paired gate runs, the panel stops presenting a lift as a measurement. */
+const DEMO_GATE_SAMPLES = (EVO_PROFILES.demo.gateTaskIds?.length ?? 0) * 2
 
 /** USD with 4 significant decimals — gate runs cost fractions of a cent. */
 function fmtUsd(v: number | null | undefined): string {
@@ -25,6 +37,19 @@ function fmtUsd(v: number | null | undefined): string {
   if (v < 0.01) return `$${v.toFixed(4)}`
   return `$${v.toFixed(2)}`
 }
+/**
+ * Local wall-clock stamp for a stored result, minute precision. A card can be
+ * re-screened after every fix and comes back with numbers of the same shape, so
+ * the stamp is what tells one screening apart from the one it replaced.
+ */
+function fmtStamp(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 const SURFACE_LABEL: Record<string, string> = {
   prompt: 'prompt',
   middleware: 'middleware',
@@ -47,6 +72,9 @@ export default function EvolutionPanel() {
   const [level, setLevel] = useState<number>(() => Number(localStorage.getItem(SLIDER_KEY) ?? '1'))
   const [repeats, setRepeats] = useState<number>(() => Number(localStorage.getItem(REPEATS_KEY) ?? '3'))
   const [topN, setTopN] = useState<number>(() => Number(localStorage.getItem(TOPN_KEY) ?? '2'))
+  const [profile, setProfile] = useState<EvoProfile>(
+    () => (localStorage.getItem(PROFILE_KEY) === 'full' ? 'full' : 'demo'),
+  )
   const [traceCard, setTraceCard] = useState<string | null>(null)
 
   useEffect(() => {
@@ -58,6 +86,9 @@ export default function EvolutionPanel() {
   useEffect(() => {
     localStorage.setItem(TOPN_KEY, String(topN))
   }, [topN])
+  useEffect(() => {
+    localStorage.setItem(PROFILE_KEY, profile)
+  }, [profile])
 
   const refresh = () => api.pgEvoState().then((s) => setState(s)).catch((e) => setErr(String(e.message)))
 
@@ -105,10 +136,16 @@ export default function EvolutionPanel() {
       const r: ApplyResult & { ok: boolean; state: EvoState; error?: string } = await api.pgApplyCard(card.cardId, {
         mode,
         autonomyLevel: level,
+        profile,
       })
       setState(r.state)
       if (!r.ok && r.error) setErr(r.error)
-      if (r.started) setNote('Falsification re-runs started in the background (about 2–6 minutes); the result refreshes automatically.')
+      if (r.started) {
+        const slots = EVO_PROFILES[profile].screenFailed + EVO_PROFILES[profile].screenGuards
+        setNote(profile === 'demo'
+          ? `Demo profile: ${slots} task(s) re-run twice — once on the current version, once on the candidate, same seed each time (${slots * 2} real executions, about 1–3 minutes). The result refreshes automatically.`
+          : `Falsification re-runs started in the background: ${slots} task(s) × both versions, paired by seed (${slots * 2} real executions); the result refreshes automatically.`)
+      }
     } catch (e) {
       setErr(String((e as Error).message))
     } finally {
@@ -135,7 +172,10 @@ export default function EvolutionPanel() {
     setBusy(commitId)
     setErr(null)
     try {
-      const r = await api.pgGateVerify(commitId, { repeats })
+      // The demo profile owns the repeat count. Passing the knob's value would always
+// override it — the select always has a number in it — so the knob's ×N only
+// applies to the full profile.
+const r = await api.pgGateVerify(commitId, profile === 'demo' ? { profile } : { repeats, profile })
       setState(r.state)
       if (!r.ok && r.error) setErr(r.error)
     } catch (e) {
@@ -146,13 +186,21 @@ export default function EvolutionPanel() {
   }
 
   const race = async () => {
+    // Cost must be quoted from the profile that will actually run, not from the
+    // full measured set — the demo profile uses 3 gate tasks at ×1 and one
+    // repetition per screened slot.
+    const gateN = gateTasksFor(profile)?.length ?? 14
+    const gateRep = profile === 'demo' ? (EVO_PROFILES.demo.gateRepeats ?? 1) : repeats
+    const screenRep = EVO_PROFILES[profile].screenRepeats ?? SCREEN_REPEATS
+    const screenRuns = (EVO_PROFILES[profile].screenFailed + EVO_PROFILES[profile].screenGuards) * RUNS_PER_SLOT * screenRep
+    const cost = topN * (screenRuns + gateN * gateRep * 2)
     if (!window.confirm(
-      `Race the top-${topN} candidates side by side: screen them on the failed repair subset, then re-run the 15-task held-out gate at gate×${repeats} (${topN} × 15 × ${repeats} × 2 real executions), and finally pick on the (success ↑ / cost ↓) Pareto frontier. This takes a while and spends real tokens. Continue?`,
+      `Race the top-${topN} candidates side by side (${profile === 'demo' ? 'demo profile' : 'full profile'}): screen each on ${EVO_PROFILES[profile].screenFailed} failed + ${EVO_PROFILES[profile].screenGuards} guard tasks, running both the current version and the candidate at the same seed ${screenRep}×, then re-run ${gateN} held-out gate tasks at ×${gateRep} for both sides, and finally pick on the (success ↑ / cost ↓) Pareto frontier. That is about ${cost} real executions. Continue?`,
     )) return
     setBusy('race')
     setErr(null)
     try {
-      const r = await api.pgRace({ autonomyLevel: level, topN, repeats })
+      const r = await api.pgRace({ autonomyLevel: level, topN, profile, ...(profile === 'demo' ? {} : { repeats }) })
       setState(r.state)
       if (!r.ok && r.error) setErr(r.error)
       else setNote('Top-N race started in the background; the result refreshes automatically.')
@@ -202,6 +250,16 @@ export default function EvolutionPanel() {
           </span>
         </div>
         <div className="pg-evo-controls">
+          <label
+            className="pg-slider"
+            title="Both the falsification screen and the held-out gate read this. Every run stays a real execution — the demo profile just screens fewer tasks, which is why its numbers are labelled with the sample size instead of quoted as a precise lift."
+          >
+            Profile
+            <select value={profile} onChange={(e) => setProfile(e.target.value as EvoProfile)}>
+              <option value="demo">演示口径 — 证伪 {EVO_PROFILES.demo.screenFailed}+{EVO_PROFILES.demo.screenGuards} 题（每题改前改后各 {EVO_PROFILES.demo.screenRepeats ?? 1} 遍）、门槛 {EVO_PROFILES.demo.gateTaskIds?.length} 题×{EVO_PROFILES.demo.gateRepeats ?? 1}（约 2 分钟）</option>
+              <option value="full">完整口径 — 证伪 {EVO_PROFILES.full.screenFailed}+{EVO_PROFILES.full.screenGuards} 题、门槛 14 题×N（约 30 分钟）</option>
+            </select>
+          </label>
           <label className="pg-slider">
             Autonomy
             <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
@@ -212,8 +270,8 @@ export default function EvolutionPanel() {
           </label>
           <label className="pg-slider">
             Gate repeats
-            <select value={repeats} onChange={(e) => setRepeats(Number(e.target.value))} title="Design §3.2: how many times each gate task runs per config (baseline and candidate share a seed inside a repeat, a new seed across repeats)">
-              <option value={1}>×1 (suggested at temperature 0)</option>
+            <select value={repeats} onChange={(e) => setRepeats(Number(e.target.value))} title="How many times each gate task runs per config (baseline and candidate share a seed inside a repeat, a new seed across repeats). The demo profile pins this to ×1 — the number here only applies to the full profile.">
+              <option value={1}>×1</option>
               <option value={2}>×2</option>
               <option value={3}>×3 (default, temperature &gt; 0)</option>
               <option value={5}>×5</option>
@@ -327,9 +385,10 @@ function ClusterBlock({
       {cards.length === 0 ? (
         <p className="faint">No change card (this cluster may need human judgement).</p>
       ) : (
-        cards.map((card) => (
+        cards.map((card, i) => (
           <CardBlock
             key={card.cardId}
+            seq={i + 1}
             card={card}
             mutation={mutationByCard.get(card.cardId) ?? null}
             busy={busy === card.cardId || card.status === 'screening' || mutationByCard.get(card.cardId)?.gateStatus === 'running'}
@@ -346,6 +405,7 @@ function ClusterBlock({
 
 function CardBlock({
   card,
+  seq,
   mutation,
   busy,
   onApply,
@@ -354,6 +414,8 @@ function CardBlock({
   toggleTrace,
 }: {
   card: ChangeCard
+  /** Position within its cluster — two cards in one cluster can look identical. */
+  seq: number
   mutation: EvoMutation | null
   busy: boolean
   onApply: (card: ChangeCard, mode: 'manual' | 'auto') => void
@@ -361,16 +423,28 @@ function CardBlock({
   traceOpen: boolean
   toggleTrace: () => void
 }) {
-  const f = mutation?.falsification ?? null
+  const f = mutation?.falsification ?? card.falsification
   const gate = mutation?.gate ?? null
   const gateStatus = mutation?.gateStatus ?? 'idle'
   const hardHuman = card.hardGate || !card.inTable || card.verdict === 'needs-human'
   return (
     <div className={`pg-card pg-card-${card.status} ${card.hardGate ? 'pg-card-hard' : ''}`}>
       <div className="pg-card-head">
+        <span className="pg-card-seq" title="Card number within this failure cluster">#{seq}</span>
+        <button
+          type="button"
+          className="pg-card-uid"
+          title={`Unique card ID ${card.cardId} — click to copy`}
+          onClick={() => { void navigator.clipboard?.writeText(card.cardId) }}
+        >
+          {card.cardId}
+        </button>
         <span className={`pg-surface pg-surface-${card.surface}`}>{SURFACE_LABEL[card.surface]}</span>
         <span className="pg-card-title">{card.title}</span>
         <span className={`pg-card-status pg-card-state-${card.status}`}>{CARD_STATE_LABEL[card.status] ?? card.status}</span>
+      </div>
+      <div className="pg-card-meta">
+        <span title="When this card was proposed">created {fmtStamp(card.createdAt) ?? '—'}</span>
       </div>
       {card.status === 'screening' && (
         <p className="pg-card-screening">Falsifying with real re-runs: re-executing the failed tasks and the regression guards, paired one by one — this takes minutes…</p>
@@ -426,6 +500,12 @@ function CardBlock({
 
       {f && <FalsificationView f={f} />}
       {mutation && <GateView gate={gate} status={gateStatus} />}
+      {card.status === 'applied' && gateStatus === 'failed' && (
+        <div className="pg-falsify pg-falsify-bad">
+          This version is in the tree but its held-out verification failed — it no longer has the evidence it
+          was approved on. Nothing rolls back automatically: roll back to the earlier version by hand if you agree.
+        </div>
+      )}
 
       <div className="pg-card-actions">
         <button className="primary" onClick={() => void onApply(card, 'manual')} disabled={busy || card.status === 'applied' || card.verdict === 'needs-human'}>
@@ -524,7 +604,7 @@ function RacePanel({
       )}
       {race && race.awaitingHuman && winner && (
         <div className="pg-race-actions">
-          <span>A winner was picked, but §7.5 forbids auto-applying it:</span>
+          <span>A winner was picked, but it cannot be auto-applied:</span>
           <button
             className="primary"
             onClick={() => void onApply(winner, 'manual')}
@@ -541,21 +621,61 @@ function RacePanel({
 function GateView({ gate, status }: { gate: NonNullable<EvoMutation['gate']> | null; status: string }) {
   if (status === 'idle') return null
   if (status === 'running') {
-    return <div className="pg-falsify pg-falsify-running">Re-running the 15 held-out gate tasks at ×N repeats for both baseline and candidate (about 30×N real executions)…</div>
+    return (
+      <div className="pg-falsify pg-falsify-running">
+        Re-running the held-out gate tasks at ×N repeats for both baseline and candidate (real executions; the
+        result refreshes automatically)…
+      </div>
+    )
   }
   if (!gate) return <div className="pg-falsify pg-falsify-bad">Gate verification failed (execution error).</div>
+  // `error` here means "some runs never answered", not "no verdict". When the
+  // pass still produced numbers, show them — a partial pass is a real verdict on
+  // the pairs that answered, and hiding it would bury a regression.
+  const hasVerdict = gate.gateTaskIds.length > 0 && gate.repeats > 0 && gate.gateTaskIds.some((id) => id !== '')
+  if (gate.error && !hasVerdict) {
+    return (
+      <div className="pg-falsify pg-falsify-bad">
+        <div><b>Full held-out verification: no verdict — </b>{gate.error}</div>
+        <div className="pg-falsify-regress">nothing here means the change is good or bad; re-run when the provider is healthy</div>
+      </div>
+    )
+  }
   const ok = status === 'passed'
-  const sample = gate.gateTaskIds.length * gate.repeats
+  const sample = hasVerdict ? gate.gateTaskIds.length * gate.repeats : 0
+  const gateUnstable = gate.unstable ?? []
+  const gateHard = gate.hardRegressions ?? []
   return (
     <div className={`pg-falsify ${ok ? 'pg-falsify-good' : 'pg-falsify-bad'}`}>
+      {gate.error && (
+        <div className="pg-falsify-regress"><b>partial pass: </b>{gate.error}</div>
+      )}
       <div>
-        <b>Full gate-15 verification: </b>
+        <b>Full held-out verification: </b>
         success {gate.baselinePassPp}% → {gate.candidatePassPp}% (gate lift {gate.gateLiftPp}pp)
         regressed {gate.regressed.length} · fixed {gate.fixed.length}
+        {gateUnstable.length > 0 && ` · did not reproduce ${gateUnstable.length}`}
       </div>
       <div className="faint">
         repeats ×{gate.repeats} ({sample} paired samples) · avg tokens {gate.avgTokens ?? '—'} · avg cost {fmtUsd(gate.avgCostUsd)} · avg time {gate.avgLatencyMs ? `${Math.round(gate.avgLatencyMs / 1000)}s` : '—'}
       </div>
+      {sample <= DEMO_GATE_SAMPLES && (
+        <div className="faint">
+          demo sample: {sample} paired runs over {gate.gateTaskIds.length} tasks (×{gate.repeats}), both sides executed
+          live, and a task only counts as regressed or fixed when the flip reproduces on every repetition.
+          Read the lift as a smoke signal, not a measurement.
+        </div>
+      )}
+      {gateUnstable.length > 0 && (
+        <div className="faint">
+          flipped on one repetition only, so counted as neither: {gateUnstable.join(', ')}
+        </div>
+      )}
+      {gateHard.length > 0 && (
+        <div className="pg-falsify-regress">
+          {gateHard.map((h) => `${h.taskId} — ${h.reason}`).join('；')}
+        </div>
+      )}
       {gate.regressed.length > 0 && <div className="pg-falsify-regress">hold-out regressed: {gate.regressed.join(', ')}</div>}
       {gate.fixed.length > 0 && <div className="pg-falsify-rescue">hold-out fixed: {gate.fixed.join(', ')}</div>}
     </div>
@@ -564,12 +684,45 @@ function GateView({ gate, status }: { gate: NonNullable<EvoMutation['gate']> | n
 
 function FalsificationView({ f }: { f: NonNullable<EvoMutation['falsification']> }) {
   const ci = f.relLift95 == null ? 'sample too small for a 95% lower bound' : `RelLift₉₅ lower bound ≈ ${f.relLift95}pp`
+  const unanswered = f.incomplete ?? []
+  const unstable = f.unstable ?? []
+  const hardRegressions = f.hardRegressions ?? []
+  const runsPerSlot = RUNS_PER_SLOT * (f.screenRepeats ?? SCREEN_REPEATS)
+  const stamp = fmtStamp(f.at)
   return (
-    <div className={`pg-falsify ${f.regressed.length > 0 ? 'pg-falsify-bad' : f.rescued.length > 0 ? 'pg-falsify-good' : ''}`}>
+    <div className={`pg-falsify ${unanswered.length > 0 || hardRegressions.length > 0 ? 'pg-falsify-bad' : f.regressed.length > 0 ? 'pg-falsify-bad' : f.rescued.length > 0 ? 'pg-falsify-good' : ''}`}>
       <div>
-        <b>Falsification by real re-runs: </b>
+        <b>Falsification by real re-runs{stamp ? ` (${stamp})` : ''}: </b>
         rescued {f.rescued.length} · regressed {f.regressed.length} · still failed {f.stillFailed.length} · net lift {f.netLiftPp}pp
+        {unanswered.length > 0 && ` · unanswered ${unanswered.length}`}
+        {unstable.length > 0 && ` · did not reproduce ${unstable.length}`}
       </div>
+      {f.screened * runsPerSlot <= DEMO_SCREEN_SIZE && (
+        <div className="faint">
+          demo sample:
+          paired screen over {f.screened} task(s), {f.screened * runsPerSlot} real runs — current version and candidate at the
+          same seed
+          {(f.screenRepeats ?? SCREEN_REPEATS) > 1
+            ? `, and each task run ${f.screenRepeats ?? SCREEN_REPEATS}× so a flip has to reproduce before it counts`
+            : ', one pair per task'}.
+          A lift over a handful of tasks is a smoke signal, not a measurement.
+        </div>
+      )}
+      {unanswered.length > 0 && (
+        <div className="pg-falsify-regress">
+          no answer produced (not counted as failures): {unanswered.join(', ')} — re-run verification to get a verdict
+        </div>
+      )}
+      {unstable.length > 0 && (
+        <div className="faint">
+          flipped once and then did not reproduce, so counted as neither: {unstable.join(', ')}
+        </div>
+      )}
+      {hardRegressions.length > 0 && (
+        <div className="pg-falsify-regress">
+          {hardRegressions.map((h) => `${h.taskId} — ${h.reason}`).join('；')}
+        </div>
+      )}
       <div className="faint">
         {ci} · avg tokens {f.avgTokens ?? '—'} · avg cost {fmtUsd(f.avgCostUsd)} · avg time {f.avgLatencyMs ? `${Math.round(f.avgLatencyMs / 1000)}s` : '—'}
       </div>

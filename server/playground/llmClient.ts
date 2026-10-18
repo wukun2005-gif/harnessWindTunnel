@@ -8,6 +8,7 @@ import { isDecisionProvider } from '../../shared/provider'
 import { getModelCapabilities } from '../providers/model-capabilities-registry'
 import { estimateTokens } from './tokens'
 import { hostOf, llmLog, llmWarn } from './jevLog'
+import { awaitProviderQuota } from './providerQuota'
 
 export interface ChatToolCall {
   id: string
@@ -296,6 +297,11 @@ export async function chatCompletion(target: ResolvedTarget, req: ChatRequest): 
   }
 
   if (req.extraBody) Object.assign(body, req.extraBody)
+
+  // Spend the provider quota only once a request slot is free (shared with the
+  // judge — see providerQuota.ts). Waiting here instead of 429-ing is what lets
+  // callers keep more runs in flight than the quota alone would allow.
+  await awaitProviderQuota(target.baseUrl)
 
   const started = Date.now()
   const where = `${target.providerId}/${target.model}@${hostOf(target.baseUrl)}`
