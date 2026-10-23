@@ -11,7 +11,7 @@ import type {
   EvoState,
 } from '../../../shared/playground'
 import { EVO_PROFILES, gateTasksFor, type EvoProfile } from '../../../shared/playground'
-import { MAST_LABEL } from '../../../shared/mast'
+import { useEvoI18n } from './evoI18n'
 
 const SLIDER_KEY = 'hwt-pg-autonomy'
 /** §3.2 gate repeats per (task × config). Default 3 while temperature > 0. */
@@ -19,7 +19,6 @@ const REPEATS_KEY = 'hwt-pg-gate-repeats'
 /** How many cards race side by side (design §7.2④ top-2). */
 const TOPN_KEY = 'hwt-pg-race-topn'
 const PROFILE_KEY = 'hwt-pg-profile'
-/** At or below this many screened tasks, the panel stops presenting a lift as a measurement. */
 /** Real executions per screen repetition: the parent run plus the candidate run. */
 const RUNS_PER_SLOT = 2
 /** Repetitions per screen slot — a flip has to reproduce before it is named. */
@@ -30,6 +29,27 @@ const DEMO_SCREEN_SIZE = (EVO_PROFILES.demo.screenFailed + EVO_PROFILES.demo.scr
 /** At or below this many paired gate runs, the panel stops presenting a lift as a measurement. */
 const DEMO_GATE_SAMPLES = (EVO_PROFILES.demo.gateTaskIds?.length ?? 0) * 2
 
+type CardPhase = 'screening' | 'ready' | 'needs' | 'human' | 'applied' | 'failed'
+type InboxFilter = 'all' | 'ready' | 'needs' | 'running' | 'applied' | 'closed'
+
+const PHASE_TONE: Record<CardPhase, string> = {
+  screening: 'run',
+  ready: 'good',
+  needs: 'warn',
+  human: 'warn',
+  applied: 'good',
+  failed: 'bad',
+}
+
+const PHASE_RANK: Record<CardPhase, number> = {
+  screening: 0,
+  ready: 1,
+  needs: 2,
+  human: 3,
+  applied: 4,
+  failed: 5,
+}
+
 /** USD with 4 significant decimals — gate runs cost fractions of a cent. */
 function fmtUsd(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -37,6 +57,7 @@ function fmtUsd(v: number | null | undefined): string {
   if (v < 0.01) return `$${v.toFixed(4)}`
   return `$${v.toFixed(2)}`
 }
+
 /**
  * Local wall-clock stamp for a stored result, minute precision. A card can be
  * re-screened after every fix and comes back with numbers of the same shape, so
@@ -50,21 +71,75 @@ function fmtStamp(iso: string | null | undefined): string | null {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-const SURFACE_LABEL: Record<string, string> = {
-  prompt: 'prompt',
-  middleware: 'middleware',
-  joint: 'joint',
+function humanField(key: string): string {
+  return key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase())
 }
 
-const CARD_STATE_LABEL: Record<string, string> = {
-  proposed: 'Awaiting falsification',
-  screening: 'Falsification running',
-  applied: 'Applied',
-  falsified: 'Falsified',
-  rejected: 'Rejected',
+/**
+ * The same failure key analysed twice with the same run set keeps the cluster id,
+ * so its card table accumulates identical-looking proposals. Keep the newest card
+ * per (surface, title); older copies stay reachable through the Applied/Closed
+ * filters and the version tree.
+ */
+function newestPerShape(cards: ChangeCard[]): ChangeCard[] {
+  const seen = new Set<string>()
+  return cards.filter((card) => {
+    const shape = `${card.surface}::${card.title}`
+    if (seen.has(shape)) return false
+    seen.add(shape)
+    return true
+  })
 }
 
-export default function EvolutionPanel() {
+function phaseOf(card: ChangeCard, mutation: EvoMutation | undefined): CardPhase {
+  if (card.status === 'screening' || mutation?.gateStatus === 'running') return 'screening'
+  if (card.status === 'applied') return 'applied'
+  if (card.status === 'falsified' || card.status === 'rejected') return 'failed'
+  if (card.verdict === 'needs-human') return 'human'
+  const f = mutation?.falsification ?? card.falsification
+  if (!f || f.incomplete.length > 0) return 'needs'
+  if (f.hardGateRegressed || f.hardRegressions.length > 0 || f.regressed.length > 0) return 'failed'
+  if (f.rescued.length > 0 || (f.netLiftPp ?? 0) > 0) return 'ready'
+  return 'needs'
+}
+
+interface FailureGroup {
+  key: string
+  analyses: EvoCluster[]
+  latest: EvoCluster
+  /** Cards proposed by the latest analysis — the default inbox content. */
+  latestCards: ChangeCard[]
+}
+
+function cardsFor(
+  group: FailureGroup,
+  filter: InboxFilter,
+  mutationByCard: Map<string, EvoMutation>,
+): ChangeCard[] {
+  // Every tab counts the same base (the latest pass for this failure type), so a
+  // narrower tab can never show a bigger number than "All". Applied history lives
+  // in the version tree, not in the inbox.
+  if (filter === 'applied') return group.latestCards.filter((c) => c.status === 'applied')
+  if (filter === 'closed') {
+    return group.latestCards.filter((c) => c.status === 'falsified' || c.status === 'rejected')
+  }
+  if (filter === 'all') return group.latestCards
+  return group.latestCards.filter((c) => {
+    const p = phaseOf(c, mutationByCard.get(c.cardId))
+    if (filter === 'needs') return p === 'needs' || p === 'human'
+    if (filter === 'running') return p === 'screening'
+    return p === filter
+  })
+}
+
+function groupRank(group: FailureGroup, mutationByCard: Map<string, EvoMutation>): number {
+  const phases = group.latestCards.map((c) => phaseOf(c, mutationByCard.get(c.cardId)))
+  if (phases.length === 0) return 9
+  return Math.min(...phases.map((p) => PHASE_RANK[p]))
+}
+
+export default function EvolutionPanel({ onOpenEvaluate }: { onOpenEvaluate?: () => void }) {
+  const E = useEvoI18n()
   const [state, setState] = useState<EvoState | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -75,7 +150,9 @@ export default function EvolutionPanel() {
   const [profile, setProfile] = useState<EvoProfile>(
     () => (localStorage.getItem(PROFILE_KEY) === 'full' ? 'full' : 'demo'),
   )
-  const [traceCard, setTraceCard] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [filter, setFilter] = useState<InboxFilter>('all')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   useEffect(() => {
     localStorage.setItem(SLIDER_KEY, String(level))
@@ -107,10 +184,10 @@ export default function EvolutionPanel() {
   }, [state])
   useEffect(() => {
     if (!busyPolling) return
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       void api.pgEvoState().then((s) => setState(s)).catch(() => { /* keep polling */ })
     }, 4000)
-    return () => clearInterval(t)
+    return () => clearInterval(timer)
   }, [busyPolling])
 
   const analyze = async () => {
@@ -142,9 +219,10 @@ export default function EvolutionPanel() {
       if (!r.ok && r.error) setErr(r.error)
       if (r.started) {
         const slots = EVO_PROFILES[profile].screenFailed + EVO_PROFILES[profile].screenGuards
-        setNote(profile === 'demo'
-          ? `Demo profile: ${slots} task(s) re-run twice — once on the current version, once on the candidate, same seed each time (${slots * 2} real executions, about 1–3 minutes). The result refreshes automatically.`
-          : `Falsification re-runs started in the background: ${slots} task(s) × both versions, paired by seed (${slots * 2} real executions); the result refreshes automatically.`)
+        setNote(E.t(profile === 'demo' ? 'playground.evo.note.demoApply' : 'playground.evo.note.fullApply', {
+          slots,
+          runs: slots * 2,
+        }))
       }
     } catch (e) {
       setErr(String((e as Error).message))
@@ -154,7 +232,7 @@ export default function EvolutionPanel() {
   }
 
   const autoEvolve = async () => {
-    if (!window.confirm('Continuous self-evolution re-runs several generations for real (minutes and real tokens per generation). It stops at a hard-gate / out-of-table card, or after 2 consecutive generations with no positive lift. Continue?')) return
+    if (!window.confirm(E.t('playground.evo.confirm.auto'))) return
     setBusy('auto')
     setErr(null)
     try {
@@ -173,9 +251,9 @@ export default function EvolutionPanel() {
     setErr(null)
     try {
       // The demo profile owns the repeat count. Passing the knob's value would always
-// override it — the select always has a number in it — so the knob's ×N only
-// applies to the full profile.
-const r = await api.pgGateVerify(commitId, profile === 'demo' ? { profile } : { repeats, profile })
+      // override it — the select always has a number in it — so the knob's ×N only
+      // applies to the full profile.
+      const r = await api.pgGateVerify(commitId, profile === 'demo' ? { profile } : { repeats, profile })
       setState(r.state)
       if (!r.ok && r.error) setErr(r.error)
     } catch (e) {
@@ -195,7 +273,16 @@ const r = await api.pgGateVerify(commitId, profile === 'demo' ? { profile } : { 
     const screenRuns = (EVO_PROFILES[profile].screenFailed + EVO_PROFILES[profile].screenGuards) * RUNS_PER_SLOT * screenRep
     const cost = topN * (screenRuns + gateN * gateRep * 2)
     if (!window.confirm(
-      `Race the top-${topN} candidates side by side (${profile === 'demo' ? 'demo profile' : 'full profile'}): screen each on ${EVO_PROFILES[profile].screenFailed} failed + ${EVO_PROFILES[profile].screenGuards} guard tasks, running both the current version and the candidate at the same seed ${screenRep}×, then re-run ${gateN} held-out gate tasks at ×${gateRep} for both sides, and finally pick on the (success ↑ / cost ↓) Pareto frontier. That is about ${cost} real executions. Continue?`,
+      E.t('playground.evo.confirm.race', {
+        n: topN,
+        profile: E.t(profile === 'demo' ? 'playground.evo.profileLower.demo' : 'playground.evo.profileLower.full'),
+        failed: EVO_PROFILES[profile].screenFailed,
+        guards: EVO_PROFILES[profile].screenGuards,
+        rep: screenRep,
+        gate: gateN,
+        gateRep,
+        cost,
+      }),
     )) return
     setBusy('race')
     setErr(null)
@@ -203,7 +290,7 @@ const r = await api.pgGateVerify(commitId, profile === 'demo' ? { profile } : { 
       const r = await api.pgRace({ autonomyLevel: level, topN, profile, ...(profile === 'demo' ? {} : { repeats }) })
       setState(r.state)
       if (!r.ok && r.error) setErr(r.error)
-      else setNote('Top-N race started in the background; the result refreshes automatically.')
+      else setNote(E.t('playground.evo.note.raceStarted'))
     } catch (e) {
       setErr(String((e as Error).message))
     } finally {
@@ -212,7 +299,10 @@ const r = await api.pgGateVerify(commitId, profile === 'demo' ? { profile } : { 
   }
 
   const rollback = async (g: EvoGeneration) => {
-    if (!window.confirm(`Roll back to "${g.label}"? The current version is replaced (history is kept).`)) return
+    const card = state?.cards.find((c) => c.cardId === g.cardId) ?? null
+    const cluster = card ? state?.clusters.find((c) => c.clusterId === card.clusterId) ?? null : null
+    const label = E.generationLabel(g, card, cluster)
+    if (!window.confirm(E.t('playground.evo.confirm.rollback', { label }))) return
     setBusy(g.generationId)
     try {
       const r = await api.pgRollback(g.generationId)
@@ -224,308 +314,764 @@ const r = await api.pgGateVerify(commitId, profile === 'demo' ? { profile } : { 
     }
   }
 
-  const cardsByCluster = useMemo(() => {
-    const m = new Map<string, ChangeCard[]>()
-    for (const c of state?.cards ?? []) {
-      const arr = m.get(c.clusterId) ?? []
-      arr.push(c)
-      m.set(c.clusterId, arr)
-    }
-    return m
-  }, [state])
-
   const mutationByCard = useMemo(() => {
     const m = new Map<string, EvoMutation>()
     for (const mu of state?.mutations ?? []) m.set(mu.cardId, mu)
     return m
   }, [state])
 
+  const clusterById = useMemo(() => {
+    const m = new Map<string, EvoCluster>()
+    for (const c of state?.clusters ?? []) m.set(c.clusterId, c)
+    return m
+  }, [state])
+
+  const cardById = useMemo(() => {
+    const m = new Map<string, ChangeCard>()
+    for (const c of state?.cards ?? []) m.set(c.cardId, c)
+    return m
+  }, [state])
+
+  // Repeated diagnoses create a fresh cluster (and a fresh copy of the same card)
+  // for the same underlying failure. Group by the stable failure key so the inbox
+  // reads as "failure types", not "every analysis ever run".
+  const groups = useMemo<FailureGroup[]>(() => {
+    const byKey = new Map<string, EvoCluster[]>()
+    for (const c of state?.clusters ?? []) {
+      const arr = byKey.get(c.key) ?? []
+      arr.push(c)
+      byKey.set(c.key, arr)
+    }
+    const out: FailureGroup[] = []
+    for (const [key, list] of byKey) {
+      const analyses = [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      const latest = analyses[0]!
+      const allCards = (state?.cards ?? [])
+        .filter((card) => clusterById.get(card.clusterId)?.key === key)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      out.push({
+        key,
+        analyses,
+        latest,
+        latestCards: newestPerShape(allCards.filter((c) => c.clusterId === latest.clusterId)),
+      })
+    }
+    return out.sort(
+      (a, b) =>
+        groupRank(a, mutationByCard) - groupRank(b, mutationByCard) ||
+        b.latest.createdAt.localeCompare(a.latest.createdAt),
+    )
+  }, [state, clusterById, mutationByCard])
+
+  const visibleGroups = useMemo(
+    () =>
+      groups
+        .map((g) => ({ group: g, cards: cardsFor(g, filter, mutationByCard) }))
+        .filter(({ group, cards }) => cards.length > 0 || (filter === 'all' && group.latestCards.length === 0)),
+    [groups, filter, mutationByCard],
+  )
+
+  const filterCount = (f: InboxFilter): number =>
+    groups.reduce((n, g) => n + cardsFor(g, f, mutationByCard).length, 0)
+
+  const visibleCards = visibleGroups.flatMap((x) => x.cards)
+  const activeCard = visibleCards.find((c) => c.cardId === selectedId) ?? visibleCards[0] ?? null
+  const activeCluster = activeCard ? clusterById.get(activeCard.clusterId) ?? null : null
+  const activeMutation = activeCard ? mutationByCard.get(activeCard.cardId) ?? null : null
+
+  const latestCards = groups.flatMap((g) => g.latestCards)
+  const screeningCount = latestCards.filter((c) => phaseOf(c, mutationByCard.get(c.cardId)) === 'screening').length
+  const readyCards = latestCards.filter((c) => phaseOf(c, mutationByCard.get(c.cardId)) === 'ready')
+  const needsCards = latestCards.filter((c) => phaseOf(c, mutationByCard.get(c.cardId)) === 'needs')
+  const humanCards = latestCards.filter((c) => phaseOf(c, mutationByCard.get(c.cardId)) === 'human')
+  const verifiedCards = latestCards.filter((c) => (mutationByCard.get(c.cardId)?.falsification ?? c.falsification) != null).length
+  const evolveGens = (state?.generations ?? []).filter((g) => g.source === 'evolve')
+  const currentGen = (state?.generations ?? []).find((g) => g.generationId === state?.currentGenerationId) ?? null
+  const currentCard = currentGen?.cardId ? cardById.get(currentGen.cardId) ?? null : null
+  const currentCluster = currentCard ? clusterById.get(currentCard.clusterId) ?? null : null
+  const currentLabel = currentGen
+    ? E.generationLabel(currentGen, currentCard, currentCluster)
+    : E.t('playground.evo.noVersion')
+
+  const focusCard = (card: ChangeCard) => {
+    setFilter('all')
+    setSelectedId(card.cardId)
+    requestAnimationFrame(() => {
+      document.getElementById('pg-evo-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+  }
+
+  const next = (() => {
+    if (!state) return null
+    if (screeningCount > 0) {
+      return {
+        tone: 'run',
+        title: E.t('playground.evo.next.screeningTitle', { n: screeningCount }),
+        body: E.t('playground.evo.next.screeningBody'),
+        card: null as ChangeCard | null,
+        action: '',
+      }
+    }
+    if (readyCards.length > 0) {
+      return {
+        tone: 'good',
+        title: E.t('playground.evo.next.readyTitle', { n: readyCards.length }),
+        body: E.t('playground.evo.next.readyBody'),
+        card: readyCards[0]!,
+        action: E.t('playground.evo.next.readyAction'),
+      }
+    }
+    if (needsCards.length > 0) {
+      return {
+        tone: 'warn',
+        title: E.t('playground.evo.next.needsTitle', { n: needsCards.length }),
+        body: E.t('playground.evo.next.needsBody'),
+        card: needsCards[0]!,
+        action: E.t('playground.evo.next.needsAction'),
+      }
+    }
+    if (humanCards.length > 0) {
+      return {
+        tone: 'warn',
+        title: E.t('playground.evo.next.humanTitle'),
+        body: E.t('playground.evo.next.humanBody'),
+        card: humanCards[0]!,
+        action: E.t('playground.evo.next.humanAction'),
+      }
+    }
+    return {
+      tone: 'done',
+      title: E.t('playground.evo.next.doneTitle'),
+      body: E.t('playground.evo.next.doneBody'),
+      card: null,
+      action: '',
+    }
+  })()
+
   return (
-    <div className="pg-panel">
-      <div className="pg-evo-head">
-        <div className="pg-evo-title">
-          <h3 style={{ margin: 0 }}>PRISM self-evolution loop</h3>
-          <span className="faint">
-            Deterministic clustering → edit-surface routing → LLM proposes inside the routed surface → real re-run falsification → approval gate → immutable version tree
+    <div className="pg-evo">
+      <div className="pg-evo-hero">
+        <div className="pg-evo-intro">
+          <span className="pg-eyebrow">{E.t('playground.evo.eyebrow')}</span>
+          <h2>{E.t('playground.evo.title')}</h2>
+          <p>{E.t('playground.evo.intro')}</p>
+        </div>
+        <div className="pg-evo-pills">
+          <span className="pg-evo-pill">
+            <span>{E.t('playground.evo.currentVersion')}</span>
+            <b>{currentLabel}</b>
+          </span>
+          <span className="pg-evo-pill">
+            <span>{E.t('playground.evo.profile')}</span>
+            <b>{E.t(profile === 'demo' ? 'playground.evo.profileDemo' : 'playground.evo.profileFull')}</b>
+          </span>
+          <span className="pg-evo-pill">
+            <span>{E.t('playground.evo.autonomy')}</span>
+            <b>{level} · {E.autonomy(level)}</b>
           </span>
         </div>
-        <div className="pg-evo-controls">
-          <label
-            className="pg-slider"
-            title="Both the falsification screen and the held-out gate read this. Every run stays a real execution — the demo profile just screens fewer tasks, which is why its numbers are labelled with the sample size instead of quoted as a precise lift."
-          >
-            Profile
+      </div>
+
+      <div className="pg-evo-runbar">
+        <button
+          className="primary pg-diagnose"
+          onClick={() => void analyze()}
+          disabled={busy === 'analyze' || state?.autoJob?.running}
+        >
+          {busy === 'analyze' ? E.t('playground.evo.diagnosing') : E.t('playground.evo.diagnose')}
+        </button>
+        <span className="pg-runbar-explain">{E.t('playground.evo.diagnoseHint')}</span>
+        <div className="pg-evo-runbar-actions">
+          <button onClick={() => setSettingsOpen((v) => !v)} aria-expanded={settingsOpen}>
+            {E.t(settingsOpen ? 'playground.evo.hideSettings' : 'playground.evo.runSettings')}
+          </button>
+          <details className="pg-more">
+            <summary>{E.t('playground.evo.moreRuns')}</summary>
+            <div className="pg-more-body">
+              <button
+                onClick={() => void race()}
+                disabled={busy === 'race' || state?.raceJob?.running || state?.autoJob?.running}
+              >
+                {state?.raceJob?.running
+                  ? E.t('playground.evo.raceRunning')
+                  : E.t('playground.evo.race', { n: topN })}
+              </button>
+              <label>
+                {E.t('playground.evo.raceWidth')}
+                <select value={topN} onChange={(e) => setTopN(Number(e.target.value))}>
+                  <option value={2}>{E.t('playground.evo.raceWidthDefault')}</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                  <option value={5}>5</option>
+                </select>
+              </label>
+              <button
+                onClick={() => void autoEvolve()}
+                disabled={busy === 'auto' || state?.autoJob?.running || level === 0}
+              >
+                {state?.autoJob?.running
+                  ? E.t('playground.evo.continuousActive')
+                  : E.t('playground.evo.runContinuous')}
+              </button>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      {settingsOpen && (
+        <div className="pg-evo-settings">
+          <label className="pg-setting-field">
+            <span>{E.t('playground.evo.profile')}</span>
             <select value={profile} onChange={(e) => setProfile(e.target.value as EvoProfile)}>
-              <option value="demo">演示口径 — 证伪 {EVO_PROFILES.demo.screenFailed}+{EVO_PROFILES.demo.screenGuards} 题（每题改前改后各 {EVO_PROFILES.demo.screenRepeats ?? 1} 遍）、门槛 {EVO_PROFILES.demo.gateTaskIds?.length} 题×{EVO_PROFILES.demo.gateRepeats ?? 1}（约 2 分钟）</option>
-              <option value="full">完整口径 — 证伪 {EVO_PROFILES.full.screenFailed}+{EVO_PROFILES.full.screenGuards} 题、门槛 14 题×N（约 30 分钟）</option>
+              <option value="demo">
+                {E.t('playground.evo.profileOption.demo', {
+                  failed: EVO_PROFILES.demo.screenFailed,
+                  guards: EVO_PROFILES.demo.screenGuards,
+                  gate: EVO_PROFILES.demo.gateTaskIds?.length ?? 0,
+                  reps: EVO_PROFILES.demo.gateRepeats ?? 1,
+                })}
+              </option>
+              <option value="full">
+                {E.t('playground.evo.profileOption.full', {
+                  failed: EVO_PROFILES.full.screenFailed,
+                  guards: EVO_PROFILES.full.screenGuards,
+                })}
+              </option>
             </select>
+            <small>{E.t('playground.evo.profileHint')}</small>
           </label>
-          <label className="pg-slider">
-            Autonomy
+          <label className="pg-setting-field">
+            <span>{E.t('playground.evo.autonomy')}</span>
             <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
-              <option value={0}>0 — all manual</option>
-              <option value={1}>1 — conditional auto</option>
-              <option value={2}>2 — fully auto</option>
+              <option value={0}>{E.t('playground.evo.autonomyOption.0')}</option>
+              <option value={1}>{E.t('playground.evo.autonomyOption.1')}</option>
+              <option value={2}>{E.t('playground.evo.autonomyOption.2')}</option>
             </select>
+            <small>{E.t('playground.evo.autonomyHint')}</small>
           </label>
-          <label className="pg-slider">
-            Gate repeats
-            <select value={repeats} onChange={(e) => setRepeats(Number(e.target.value))} title="How many times each gate task runs per config (baseline and candidate share a seed inside a repeat, a new seed across repeats). The demo profile pins this to ×1 — the number here only applies to the full profile.">
+          <label className="pg-setting-field">
+            <span>{E.t('playground.evo.gateRepeats')}</span>
+            <select
+              value={repeats}
+              onChange={(e) => setRepeats(Number(e.target.value))}
+              title={E.t('playground.evo.gateRepeatsTitle')}
+            >
               <option value={1}>×1</option>
               <option value={2}>×2</option>
-              <option value={3}>×3 (default, temperature &gt; 0)</option>
+              <option value={3}>{E.t('playground.evo.gateRepeatsDefault')}</option>
               <option value={5}>×5</option>
             </select>
+            <small>{E.t('playground.evo.gateRepeatsHint')}</small>
           </label>
-          <button className="primary" onClick={() => void analyze()} disabled={busy === 'analyze' || state?.autoJob?.running}>
-            {busy === 'analyze' ? 'Attributing…' : 'Cluster failed runs and propose change cards'}
-          </button>
-          <button onClick={() => void race()} disabled={busy === 'race' || state?.raceJob?.running || state?.autoJob?.running}>
-            {state?.raceJob?.running ? 'Race running…' : `top-${topN} race (Pareto)`}
-          </button>
-          <button onClick={() => void autoEvolve()} disabled={busy === 'auto' || state?.autoJob?.running || level === 0}>
-            {state?.autoJob?.running ? 'Self-evolution running…' : 'Continuous self-evolution (auto by slider)'}
-          </button>
-          <label className="pg-slider" title="How many candidate cards enter the gate side by side">
-            Race width
-            <select value={topN} onChange={(e) => setTopN(Number(e.target.value))}>
-              <option value={2}>2 (design default)</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-              <option value={5}>5</option>
-            </select>
-          </label>
+          <p className="pg-guardrail">{E.t('playground.evo.guardrail')}</p>
         </div>
-      </div>
+      )}
+
       {state?.autoJob && (
         <div className={`pg-autojob ${state.autoJob.running ? 'pg-autojob-run' : 'pg-autojob-done'}`}>
-          <b>{state.autoJob.running ? 'Self-evolution running: ' : 'Self-evolution finished: '}</b>{state.autoJob.phase}
-          {state.autoJob.generationsApplied > 0 && ` (${state.autoJob.generationsApplied} generations applied)`}
-          {state.autoJob.stopReason && <span className="pg-autojob-stop"> | {state.autoJob.stopReason}</span>}
-          {state.autoJob.lastError && <span className="pg-err"> | {state.autoJob.lastError}</span>}
+          <b>{E.t(state.autoJob.running ? 'playground.evo.autoRunning' : 'playground.evo.autoFinished')}</b>
+          {E.msg(state.autoJob.phase)}
+          {state.autoJob.generationsApplied > 0 && E.t('playground.evo.autoGenerations', { n: state.autoJob.generationsApplied })}
+          {state.autoJob.stopReason && (
+            <span className="pg-autojob-stop"> | {E.msg(state.autoJob.stopReason)}</span>
+          )}
+          {state.autoJob.lastError && <span className="pg-err"> | {E.msg(state.autoJob.lastError)}</span>}
         </div>
       )}
-      <RacePanel
-        job={state?.raceJob ?? null}
-        cards={state?.cards ?? []}
-        onApply={apply}
-      />
-      <p className="faint pg-evo-note">
-        Hard guardrails: out-of-table candidates and security/legal hard-gate seams (permissions, globalPolicy,
-        sandbox, authority-mcp, citation-audit) always require a human at any autonomy level; the scorecard is
-        invisible to evolution; each generation changes exactly one seam.
-      </p>
-      {note && <p className="pg-note">{note}</p>}
-      {err && <p className="pg-err">{err}</p>}
 
-      {!state || state.clusters.length === 0 ? (
-        <div className="pg-empty">
-          No failure clusters yet. Run the flagship questions under the baseline on the Run tab until failures
-          exist, then come back here to attribute them.
-        </div>
-      ) : (
-        <div className="pg-evo-body">
-          <div className="pg-evo-clusters">
-            {state.clusters.map((cluster) => (
-              <ClusterBlock
-                key={cluster.clusterId}
-                cluster={cluster}
-                cards={cardsByCluster.get(cluster.clusterId) ?? []}
-                mutationByCard={mutationByCard}
-                busy={busy}
-                onApply={apply}
-                onGate={gateVerify}
-                traceCard={traceCard}
-                setTraceCard={setTraceCard}
-              />
-            ))}
-          </div>
-          <VersionTree state={state} busy={busy} onRollback={rollback} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ClusterBlock({
-  cluster,
-  cards,
-  mutationByCard,
-  busy,
-  onApply,
-  onGate,
-  traceCard,
-  setTraceCard,
-}: {
-  cluster: EvoCluster
-  cards: ChangeCard[]
-  mutationByCard: Map<string, EvoMutation>
-  busy: string | null
-  onApply: (card: ChangeCard, mode: 'manual' | 'auto') => void
-  onGate: (commitId: string) => void
-  traceCard: string | null
-  setTraceCard: (id: string | null) => void
-}) {
-  const lastRoute = cluster.routeHistory[cluster.routeHistory.length - 1]
-  return (
-    <div className="pg-cluster">
-      <div className="pg-cluster-head">
-        <span className="pg-cluster-tag">{MAST_LABEL[cluster.tag] ?? cluster.tag}</span>
-        <span className="pg-cluster-count">{cluster.count} run</span>
-        <span className={`pg-cluster-status pg-cluster-${cluster.status}`}>{cluster.status}</span>
-        <span className="faint pg-cluster-domain">{cluster.domain}</span>
-      </div>
-      <p className="pg-cluster-summary">{cluster.summary}</p>
-      <p className="faint pg-cluster-seam">Attributed seam: {cluster.seam}</p>
-      <p className="faint pg-cluster-route">Route: {lastRoute?.surface} · {lastRoute?.reason}</p>
-      {cluster.criticalSteps.length > 0 && (
-        <p className="faint pg-cluster-steps">Critical failure steps: {cluster.criticalSteps.join(', ')}</p>
-      )}
-
-      {cards.length === 0 ? (
-        <p className="faint">No change card (this cluster may need human judgement).</p>
-      ) : (
-        cards.map((card, i) => (
-          <CardBlock
-            key={card.cardId}
-            seq={i + 1}
-            card={card}
-            mutation={mutationByCard.get(card.cardId) ?? null}
-            busy={busy === card.cardId || card.status === 'screening' || mutationByCard.get(card.cardId)?.gateStatus === 'running'}
-            onApply={onApply}
-            onGate={onGate}
-            traceOpen={traceCard === card.cardId}
-            toggleTrace={() => setTraceCard(traceCard === card.cardId ? null : card.cardId)}
+      {state?.raceJob && (
+        <details className="pg-race-fold" open={state.raceJob.running}>
+          <summary>
+            <b>{E.t('playground.evo.raceTitle')}</b>
+            <span>
+              {state.raceJob.running
+                ? E.msg(state.raceJob.phase)
+                : state.raceJob.race
+                  ? E.t(state.raceJob.race.winnerCardId
+                    ? 'playground.evo.raceComparedWinner'
+                    : 'playground.evo.raceComparedNoWinner', { n: state.raceJob.race.entries.length })
+                  : E.msg(state.raceJob.phase)}
+            </span>
+            {state.raceJob.lastError && <span className="pg-err">{E.msg(state.raceJob.lastError)}</span>}
+          </summary>
+          <RacePanel
+            job={state.raceJob}
+            cards={state.cards}
+            clusters={state.clusters}
+            onApply={apply}
           />
-        ))
+        </details>
+      )}
+
+      {note && <p className="pg-note">{E.msg(note)}</p>}
+      {err && <p className="pg-err">{E.msg(err)}</p>}
+
+      {!state ? (
+        <div className="pg-empty">
+          {err ? E.t('playground.evo.loadFail') : E.t('playground.evo.loading')}
+        </div>
+      ) : state.clusters.length === 0 ? (
+        <div className="pg-evo-empty">
+          <div className="pg-empty-mark">{E.t('playground.evo.noEvidence')}</div>
+          <h3>{E.t('playground.evo.emptyTitle')}</h3>
+          <p>{E.t('playground.evo.emptyBody')}</p>
+          {onOpenEvaluate && (
+            <button className="primary" onClick={onOpenEvaluate}>{E.t('playground.evo.goEvaluate')}</button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="pg-evo-steps">
+            <div className="pg-evo-step">
+              <span className="pg-step-index">1</span>
+              <div>
+                <b>{E.t('playground.evo.step.diagnose')}</b>
+                <span>{E.t('playground.evo.step.groups', { n: groups.length })}</span>
+              </div>
+            </div>
+            <div className="pg-evo-step">
+              <span className="pg-step-index">2</span>
+              <div>
+                <b>{E.t('playground.evo.step.propose')}</b>
+                <span>{E.t('playground.evo.step.cards', { n: latestCards.length })}</span>
+              </div>
+            </div>
+            <div className="pg-evo-step">
+              <span className="pg-step-index">3</span>
+              <div>
+                <b>{E.t('playground.evo.step.falsify')}</b>
+                <span>{E.t('playground.evo.step.verified', { n: verifiedCards })}</span>
+              </div>
+            </div>
+            <div className="pg-evo-step">
+              <span className="pg-step-index">4</span>
+              <div>
+                <b>{E.t('playground.evo.step.approve')}</b>
+                <span>{E.t('playground.evo.step.versions', { n: evolveGens.length })}</span>
+              </div>
+            </div>
+          </div>
+
+          {next && (
+            <div className={`pg-evo-next pg-next-${next.tone}`}>
+              <div>
+                <b>{next.title}</b>
+                <span>{next.body}</span>
+              </div>
+              {next.card && (
+                <button onClick={() => focusCard(next.card!)}>{next.action}</button>
+              )}
+            </div>
+          )}
+
+          <div className="pg-evo-work">
+            <aside className="pg-inbox">
+              <div className="pg-inbox-head">
+                <div>
+                  <h3>{E.t('playground.evo.inbox.title')}</h3>
+                  <span>
+                    {E.t('playground.evo.inbox.sub', { n: groups.length })}
+                    {groups.some((g) => g.analyses.length > 1) && ` · ${E.t('playground.evo.inbox.folded')}`}
+                  </span>
+                </div>
+              </div>
+              <div className="pg-inbox-filters">
+                {(['all', 'ready', 'needs', 'running', 'applied', 'closed'] as InboxFilter[]).map((id) => {
+                  const n = filterCount(id)
+                  return (
+                    <button
+                      key={id}
+                      className={`pg-filter-chip ${filter === id ? 'active' : ''}`}
+                      onClick={() => setFilter(id)}
+                    >
+                      {E.t(`playground.evo.filter.${id}`)}<span>{n}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="pg-inbox-list">
+                {visibleGroups.length === 0 ? (
+                  <div className="pg-inbox-empty">{E.t('playground.evo.inbox.empty')}</div>
+                ) : (
+                  visibleGroups.map(({ group, cards }) => {
+                    const route = group.latest.routeHistory[group.latest.routeHistory.length - 1]
+                    return (
+                      <div className="pg-inbox-group" key={group.key}>
+                        <div className="pg-inbox-group-head">
+                          <span className="pg-inbox-tag">{E.mast(group.latest.tag)}</span>
+                          <span className="pg-inbox-count">
+                            {E.t('playground.evo.inbox.failed', { n: group.latest.count })}
+                          </span>
+                          <span className="pg-inbox-domain">{E.domain(group.latest.domain)}</span>
+                        </div>
+                        <div className="pg-inbox-seam">
+                          {E.seam(group.latest.seam)}
+                          <span>→ {E.surface(route?.surface ?? 'joint')}</span>
+                        </div>
+                        {cards.length === 0 ? (
+                          <div className="pg-inbox-empty-card">{E.t('playground.evo.inbox.noCard')}</div>
+                        ) : (
+                          cards.map((card, i) => {
+                            const p = phaseOf(card, mutationByCard.get(card.cardId))
+                            const active = activeCard?.cardId === card.cardId
+                            const stale = card.clusterId !== group.latest.clusterId
+                            return (
+                              <button
+                                key={card.cardId}
+                                className={`pg-card-row ${active ? 'active' : ''}`}
+                                onClick={() => setSelectedId(card.cardId)}
+                              >
+                                <span className="pg-row-top">
+                                  <span className="pg-row-seq">#{i + 1}</span>
+                                  <span className="pg-row-title">{E.cardTitle(card, group.latest)}</span>
+                                  <span className={`pg-phase pg-phase-${PHASE_TONE[p]}`}>{E.phase(p)}</span>
+                                </span>
+                                <span className="pg-row-meta">
+                                  <span>{E.surface(card.surface)}</span>
+                                  <span>{fmtStamp(card.createdAt) ?? E.t('playground.evo.inbox.unknownTime')}</span>
+                                  {stale && <span className="pg-row-stale">{E.t('playground.evo.inbox.earlier')}</span>}
+                                </span>
+                              </button>
+                            )
+                          })
+                        )}
+                        {group.analyses.length > 1 && (
+                          <div className="pg-inbox-history">
+                            {E.t('playground.evo.inbox.grouped', {
+                              n: group.analyses.length,
+                              count: group.latest.count,
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </aside>
+
+            <section className="pg-evo-detail" id="pg-evo-detail">
+              {activeCard ? (
+                <CardDetail
+                  card={activeCard}
+                  cluster={activeCluster}
+                  mutation={activeMutation}
+                  busy={busy === activeCard.cardId || activeCard.status === 'screening' || activeMutation?.gateStatus === 'running'}
+                  level={level}
+                  onApply={apply}
+                  onGate={gateVerify}
+                />
+              ) : (
+                <div className="pg-detail-placeholder">
+                  <b>{E.t('playground.evo.selectCard')}</b>
+                  <span>{E.t('playground.evo.selectCardHint')}</span>
+                </div>
+              )}
+            </section>
+          </div>
+
+          <VersionTimeline state={state} busy={busy} onRollback={rollback} />
+        </>
       )}
     </div>
   )
 }
 
-function CardBlock({
+function CardDetail({
   card,
-  seq,
+  cluster,
   mutation,
   busy,
+  level,
   onApply,
   onGate,
-  traceOpen,
-  toggleTrace,
 }: {
   card: ChangeCard
-  /** Position within its cluster — two cards in one cluster can look identical. */
-  seq: number
+  cluster: EvoCluster | null
   mutation: EvoMutation | null
   busy: boolean
+  level: number
   onApply: (card: ChangeCard, mode: 'manual' | 'auto') => void
   onGate: (commitId: string) => void
-  traceOpen: boolean
-  toggleTrace: () => void
 }) {
+  const E = useEvoI18n()
+  const phase = phaseOf(card, mutation ?? undefined)
   const f = mutation?.falsification ?? card.falsification
   const gate = mutation?.gate ?? null
   const gateStatus = mutation?.gateStatus ?? 'idle'
   const hardHuman = card.hardGate || !card.inTable || card.verdict === 'needs-human'
+  const canApply = card.status !== 'applied' && card.status !== 'screening' && card.verdict !== 'needs-human'
+  const hasChanges = !!(card.promptDiff || card.middlewareDiff || card.mountDiff)
+  const route = cluster?.routeHistory[cluster.routeHistory.length - 1]
+
   return (
-    <div className={`pg-card pg-card-${card.status} ${card.hardGate ? 'pg-card-hard' : ''}`}>
-      <div className="pg-card-head">
-        <span className="pg-card-seq" title="Card number within this failure cluster">#{seq}</span>
-        <button
-          type="button"
-          className="pg-card-uid"
-          title={`Unique card ID ${card.cardId} — click to copy`}
-          onClick={() => { void navigator.clipboard?.writeText(card.cardId) }}
-        >
-          {card.cardId}
-        </button>
-        <span className={`pg-surface pg-surface-${card.surface}`}>{SURFACE_LABEL[card.surface]}</span>
-        <span className="pg-card-title">{card.title}</span>
-        <span className={`pg-card-status pg-card-state-${card.status}`}>{CARD_STATE_LABEL[card.status] ?? card.status}</span>
+    <div className="pg-detail-body">
+      <div className="pg-detail-head">
+        <div className="pg-detail-kicker">
+          <span className={`pg-surface pg-surface-${card.surface}`}>{E.surface(card.surface)}</span>
+          <span className={`pg-phase pg-phase-${PHASE_TONE[phase]}`}>{E.phase(phase)}</span>
+          <button
+            type="button"
+            className="pg-card-uid"
+            title={E.t('playground.evo.detail.cardIdTitle', { id: card.cardId })}
+            onClick={() => { void navigator.clipboard?.writeText(card.cardId) }}
+          >
+            {card.cardId}
+          </button>
+        </div>
+        <h3>{E.cardTitle(card, cluster)}</h3>
+        <p className="pg-detail-nl">{E.cardNl(card, cluster)}</p>
+        <div className="pg-detail-meta">
+          <span>{E.t('playground.evo.detail.proposed', { time: fmtStamp(card.createdAt) ?? '—' })}</span>
+          {cluster && (
+            <span>{E.t('playground.evo.detail.failedRuns', { n: cluster.count, domain: E.domain(cluster.domain) })}</span>
+          )}
+          {mutation && <span>{E.t('playground.evo.detail.appliedAs', { id: mutation.generationId })}</span>}
+        </div>
       </div>
-      <div className="pg-card-meta">
-        <span title="When this card was proposed">created {fmtStamp(card.createdAt) ?? '—'}</span>
+
+      <div className="pg-detail-section">
+        <div className="pg-detail-label">{E.t('playground.evo.detail.why')}</div>
+        <p className="pg-detail-why">
+          {cluster ? E.clusterSummary(cluster) : E.t('playground.evo.detail.clusterGone')}
+        </p>
+        <dl className="pg-detail-kv">
+          <div>
+            <dt>{E.t('playground.evo.detail.seam')}</dt>
+            <dd>{E.seam(cluster?.seam ?? card.seam)}</dd>
+          </div>
+          <div>
+            <dt>{E.t('playground.evo.detail.routedTo')}</dt>
+            <dd>
+              {E.surface(route?.surface ?? card.surface)}
+              {route?.reason && <span className="faint"> — {E.routeReason(route.reason)}</span>}
+            </dd>
+          </div>
+          {cluster && cluster.criticalSteps.length > 0 && (
+            <div>
+              <dt>{E.t('playground.evo.detail.criticalSteps')}</dt>
+              <dd>
+                {[...new Set(cluster.criticalSteps)]
+                  .map((n) => E.t('playground.evo.detail.step', { n }))
+                  .join('、')}
+              </dd>
+            </div>
+          )}
+          {cluster && cluster.taskIds.length > 0 && (
+            <div>
+              <dt>{E.t('playground.evo.detail.tasks')}</dt>
+              <dd>{cluster.taskIds.join(', ')}</dd>
+            </div>
+          )}
+        </dl>
       </div>
-      {card.status === 'screening' && (
-        <p className="pg-card-screening">Falsifying with real re-runs: re-executing the failed tasks and the regression guards, paired one by one — this takes minutes…</p>
-      )}
-      <p className="pg-card-nl">{card.nl}</p>
-      <div className="pg-card-badges">
-        <span className={`pg-badge ${card.inTable ? 'pg-badge-intable' : 'pg-badge-outtable'}`}>
-          {card.inTable ? 'In-table candidate' : 'Out-of-table combination · human review required'}
-        </span>
-        {card.hardGate && <span className="pg-badge pg-badge-hard">Security/legal hard gate · always human-approved</span>}
-        <span className="pg-badge pg-badge-src">{card.proposalSource === 'llm' ? 'LLM proposal' : 'Deterministic template'}</span>
-        {card.predictedGainPp != null && (
-          <span className="pg-badge pg-badge-pred">Predicted ceiling ≈ +{card.predictedGainPp}pp</span>
+
+      <div className="pg-detail-section">
+        <div className="pg-detail-label">{E.t('playground.evo.detail.whatChanges')}</div>
+        {hasChanges ? <ChangePreview card={card} /> : (
+          <p className="pg-diff-empty">{E.t('playground.evo.detail.noPatch')}</p>
+        )}
+        <div className="pg-detail-flags">
+          <span className={`pg-badge ${card.inTable ? 'pg-badge-intable' : 'pg-badge-outtable'}`}>
+            {E.t(card.inTable ? 'playground.evo.detail.inTable' : 'playground.evo.detail.outTable')}
+          </span>
+          {card.hardGate && (
+            <span className="pg-badge pg-badge-hard">{E.t('playground.evo.detail.hardGate')}</span>
+          )}
+          <span className="pg-badge pg-badge-src">
+            {E.t(card.proposalSource === 'llm' ? 'playground.evo.detail.llm' : 'playground.evo.detail.template')}
+          </span>
+          {card.predictedGainPp != null && (
+            <span className="pg-badge pg-badge-pred">
+              {E.t('playground.evo.detail.predicted', { n: card.predictedGainPp })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="pg-detail-section">
+        <div className="pg-detail-label">{E.t('playground.evo.detail.evidence')}</div>
+        {phase === 'screening' && (
+          <div className="pg-evidence-empty pg-evidence-run">{E.t('playground.evo.detail.screening')}</div>
+        )}
+        {f ? <FalsificationView f={f} /> : phase !== 'screening' ? (
+          <div className="pg-evidence-empty">{E.t('playground.evo.detail.noEvidence')}</div>
+        ) : null}
+        {mutation && <GateView gate={gate} status={gateStatus} />}
+        {card.status === 'applied' && gateStatus === 'failed' && (
+          <div className="pg-falsify pg-falsify-bad">{E.t('playground.evo.detail.gateFailedAfterApply')}</div>
         )}
       </div>
 
-      {(card.promptDiff || card.middlewareDiff || card.mountDiff) && (
-        <div className="pg-card-diff">
-          {card.promptDiff?.guideStyle && (
-            <div><b>guides: </b><code>{card.promptDiff.guideStyle}</code></div>
+      {(card.llmPrompt || card.llmOutput) && (
+        <details className="pg-detail-trace">
+          <summary>{E.t('playground.evo.detail.trace')}</summary>
+          {card.llmPrompt && (
+            <details>
+              <summary>{E.t('playground.evo.detail.prompt')}</summary>
+              <pre>{card.llmPrompt}</pre>
+            </details>
           )}
-          {card.promptDiff?.guides && (
-            <div className="pg-card-guide">
-              <b>Guidance text: </b>{card.promptDiff.guides}
-            </div>
+          {card.llmOutput && (
+            <details>
+              <summary>{E.t('playground.evo.detail.raw')}</summary>
+              <pre>{card.llmOutput}</pre>
+            </details>
           )}
-          {card.middlewareDiff && (
-            <div><b>DSL: </b><code>{JSON.stringify(card.middlewareDiff)}</code></div>
-          )}
-          {card.mountDiff && (
-            <div><b>mounts: </b><code>{JSON.stringify(card.mountDiff)}</code></div>
-          )}
-        </div>
+        </details>
       )}
 
-      {card.llmOutput && (
-        <button className="pg-trace-toggle" onClick={toggleTrace}>
-          {traceOpen ? 'Hide the LLM proposal trace' : 'Show the LLM proposal trace (prompt / raw output)'}
-        </button>
-      )}
-      {traceOpen && card.llmOutput && (
-        <div className="pg-card-trace">
-          <details open>
-            <summary>Proposal prompt</summary>
-            <pre>{card.llmPrompt}</pre>
-          </details>
-          <details open>
-            <summary>Raw model output</summary>
-            <pre>{card.llmOutput}</pre>
-          </details>
-        </div>
-      )}
-
-      {f && <FalsificationView f={f} />}
-      {mutation && <GateView gate={gate} status={gateStatus} />}
-      {card.status === 'applied' && gateStatus === 'failed' && (
-        <div className="pg-falsify pg-falsify-bad">
-          This version is in the tree but its held-out verification failed — it no longer has the evidence it
-          was approved on. Nothing rolls back automatically: roll back to the earlier version by hand if you agree.
-        </div>
-      )}
-
-      <div className="pg-card-actions">
-        <button className="primary" onClick={() => void onApply(card, 'manual')} disabled={busy || card.status === 'applied' || card.verdict === 'needs-human'}>
-          {busy ? 'Falsifying with real re-runs…' : 'Approve and apply (re-run verification)'}
-        </button>
-        {!hardHuman && (
-          <button onClick={() => void onApply(card, 'auto')} disabled={busy || card.status === 'applied'}>
-            Apply automatically per slider
+      <div className="pg-detail-actions">
+        {canApply ? (
+          <button className="primary" onClick={() => void onApply(card, 'manual')} disabled={busy}>
+            {busy
+              ? E.t('playground.evo.detail.running')
+              : E.t(f ? 'playground.evo.detail.reverify' : 'playground.evo.detail.runApply')}
+          </button>
+        ) : card.status === 'applied' ? (
+          <span className="pg-action-note">{E.t('playground.evo.detail.appliedNote')}</span>
+        ) : null}
+        {!hardHuman && canApply && (
+          <button onClick={() => void onApply(card, 'auto')} disabled={busy}>
+            {E.t('playground.evo.detail.letAuto', { n: level })}
           </button>
         )}
         {mutation && (
           <button onClick={() => void onGate(mutation.commitId)} disabled={busy || gateStatus === 'running'}>
-            {gateStatus === 'running' ? 'Full gate-15 verification running…' : 'Full held-out verification on the gate-15 set'}
+            {E.t(gateStatus === 'running'
+              ? 'playground.evo.detail.gateRunning'
+              : 'playground.evo.detail.gateRun')}
           </button>
         )}
         {card.verdict === 'needs-human' && (
-          <span className="faint">This candidate never auto-applies; it is for human judgement only.</span>
+          <span className="pg-action-note pg-action-warn">{E.t('playground.evo.detail.humanWarn')}</span>
         )}
       </div>
     </div>
+  )
+}
+
+function ChangePreview({ card }: { card: ChangeCard }) {
+  const E = useEvoI18n()
+  const middleware = card.middlewareDiff ? Object.entries(card.middlewareDiff) : []
+  const mounts = card.mountDiff ? Object.entries(card.mountDiff) : []
+  const showPrompt = !!(card.promptDiff?.guides || card.promptDiff?.guideStyle)
+  const value = (v: unknown) => (typeof v === 'object' ? JSON.stringify(v) : String(v))
+
+  return (
+    <div className="pg-diff">
+      {showPrompt && (
+        <div className="pg-diff-guide">
+          <span>{E.t('playground.evo.diff.guidance')}</span>
+          {card.promptDiff?.guides && <p>{card.promptDiff.guides}</p>}
+          {card.promptDiff?.guideStyle && (
+            <div className="pg-diff-line">
+              <span>{E.t('playground.evo.diff.guideStyle')}</span>
+              <code>{card.promptDiff.guideStyle}</code>
+            </div>
+          )}
+        </div>
+      )}
+      {middleware.length > 0 && (
+        <div className="pg-diff-table-wrap">
+          <div className="pg-diff-table-title">{E.t('playground.evo.diff.harness')}</div>
+          <table className="pg-diff-table">
+            <tbody>
+              {middleware.map(([k, v]) => (
+                <tr key={k}>
+                  <td>{humanField(k)}</td>
+                  <td><code>{value(v)}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {mounts.length > 0 && (
+        <div className="pg-diff-table-wrap">
+          <div className="pg-diff-table-title">{E.t('playground.evo.diff.mounts')}</div>
+          <table className="pg-diff-table">
+            <tbody>
+              {mounts.map(([k, v]) => (
+                <tr key={k}>
+                  <td>{humanField(k)}</td>
+                  <td><code>{value(v)}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function VersionTimeline({
+  state,
+  busy,
+  onRollback,
+}: {
+  state: EvoState
+  busy: string | null
+  onRollback: (g: EvoGeneration) => void
+}) {
+  const E = useEvoI18n()
+  const gens = [...state.generations].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const current = gens.find((g) => g.generationId === state.currentGenerationId) ?? null
+  const cardById = new Map(state.cards.map((c) => [c.cardId, c]))
+  const clusterById = new Map(state.clusters.map((c) => [c.clusterId, c]))
+  const labelOf = (g: EvoGeneration) => {
+    const card = g.cardId ? cardById.get(g.cardId) ?? null : null
+    const cluster = card ? clusterById.get(card.clusterId) ?? null : null
+    return E.generationLabel(g, card, cluster)
+  }
+
+  return (
+    <section className="pg-versions">
+      <div className="pg-versions-head">
+        <div>
+          <h3>{E.t('playground.evo.versions.title')}</h3>
+          <p>{E.t('playground.evo.versions.desc')}</p>
+        </div>
+        <span className="pg-version-current">
+          {E.t('playground.evo.versions.current')}
+          <span>{current ? labelOf(current) : E.t('playground.evo.noVersion')}</span>
+        </span>
+      </div>
+      {gens.length === 0 ? (
+        <p className="faint" style={{ margin: 0 }}>{E.t('playground.evo.versions.empty')}</p>
+      ) : (
+        <ol className="pg-version-track">
+          {gens.map((g, i) => {
+            const isCurrent = g.generationId === state.currentGenerationId
+            const label = labelOf(g)
+            return (
+              <li key={g.generationId} className={`pg-version ${isCurrent ? 'current' : ''}`}>
+                <div className="pg-version-rail"><span className="pg-version-dot" /></div>
+                <div className="pg-version-card">
+                  <div className="pg-version-top">
+                    <span className="pg-version-num">v{i}</span>
+                    <span className="pg-version-source">
+                      {E.t(g.source === 'base' ? 'playground.evo.versions.base' : 'playground.evo.versions.evolved')}
+                    </span>
+                  </div>
+                  <b title={label}>{label}</b>
+                  <span className="pg-version-time">{fmtStamp(g.createdAt) ?? '—'}</span>
+                  {isCurrent ? (
+                    <span className="pg-version-badge">{E.t('playground.evo.versions.badge')}</span>
+                  ) : (
+                    <button className="chip" disabled={busy != null} onClick={() => void onRollback(g)}>
+                      {E.t('playground.evo.versions.rollback')}
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </section>
   )
 }
 
@@ -538,79 +1084,92 @@ function CardBlock({
 function RacePanel({
   job,
   cards,
+  clusters,
   onApply,
 }: {
   job: EvoRaceJob | null
   cards: ChangeCard[]
+  clusters: EvoCluster[]
   onApply: (card: ChangeCard, mode: 'manual' | 'auto') => void
 }) {
+  const E = useEvoI18n()
   if (!job) return null
   const race: EvoRace | null = job.race
-  const titleById = new Map(cards.map((c) => [c.cardId, c]))
-  const winner = race?.winnerCardId ? titleById.get(race.winnerCardId) ?? null : null
+  const cardById = new Map(cards.map((c) => [c.cardId, c]))
+  const clusterById = new Map(clusters.map((c) => [c.clusterId, c]))
+  const titleOf = (cardId: string): string => {
+    const card = cardById.get(cardId)
+    if (!card) return cardId
+    return E.cardTitle(card, clusterById.get(card.clusterId) ?? null)
+  }
+  const winner = race?.winnerCardId ? cardById.get(race.winnerCardId) ?? null : null
   return (
     <div className={`pg-race ${job.running ? 'pg-race-run' : 'pg-race-done'}`}>
-      <div className="pg-race-head">
-        <b>{job.running ? 'Top-N race running: ' : 'Top-N race result: '}</b>
-        {job.phase}
-        {race && ` (top-${race.topN} · gate×${race.repeats} · screened ${race.screened} · gated ${race.gated})`}
-        {job.lastError && <span className="pg-err"> | {job.lastError}</span>}
-      </div>
-      {race?.note && <div className="pg-race-note">{race.note}</div>}
+      {race?.note && <div className="pg-race-note">{E.msg(race.note)}</div>}
       {race && race.entries.length > 0 && (
-        <table className="pg-race-table">
-          <thead>
-            <tr>
-              <th>Candidate</th>
-              <th>Surface</th>
-              <th>Gate success</th>
-              <th>Gate lift</th>
-              <th>Regressed</th>
-              <th>Cost</th>
-              <th>Pareto</th>
-              <th>Outcome</th>
-            </tr>
-          </thead>
-          <tbody>
-            {race.entries.map((e) => {
-              const isWinner = e.cardId === race.winnerCardId
-              return (
-                <tr key={e.cardId} className={isWinner ? 'pg-race-win' : ''}>
-                  <td className="pg-race-title">{e.title}</td>
-                  <td>{e.surface}</td>
-                  <td>
-                    {e.dropped === null
-                      ? `${e.baselinePassPp}% → ${e.candidatePassPp}%`
-                      : '—'}
-                  </td>
-                  <td>{e.dropped === null ? `${e.gateLiftPp >= 0 ? '+' : ''}${e.gateLiftPp}pp` : '—'}</td>
-                  <td>{e.dropped === null ? e.regressed : '—'}</td>
-                  <td>
-                    {e.dropped === null
-                      ? e.costAxis === 'usd'
-                        ? fmtUsd(e.avgCostUsd)
-                        : `${Math.round(e.cost)} tok${e.costAxis === 'token' ? ' (proxy)' : ''}`
-                      : '—'}
-                  </td>
-                  <td>{e.onFrontier ? 'Frontier' : e.dropped === null ? 'Dominated' : '—'}</td>
-                  <td className="pg-race-verdict">
-                    {isWinner ? 'Pareto winner' : e.dropped ?? ''}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div className="pg-race-table-wrap">
+          <table className="pg-race-table">
+            <thead>
+              <tr>
+                <th>{E.t('playground.evo.race.candidate')}</th>
+                <th>{E.t('playground.evo.race.surface')}</th>
+                <th>{E.t('playground.evo.race.gateSuccess')}</th>
+                <th>{E.t('playground.evo.race.gateLift')}</th>
+                <th>{E.t('playground.evo.race.regressed')}</th>
+                <th>{E.t('playground.evo.race.cost')}</th>
+                <th>{E.t('playground.evo.race.pareto')}</th>
+                <th>{E.t('playground.evo.race.outcome')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {race.entries.map((e) => {
+                const isWinner = e.cardId === race.winnerCardId
+                return (
+                  <tr key={e.cardId} className={isWinner ? 'pg-race-win' : ''}>
+                    <td className="pg-race-title">{titleOf(e.cardId)}</td>
+                    <td>{E.surface(e.surface)}</td>
+                    <td>
+                      {e.dropped === null
+                        ? `${e.baselinePassPp}% → ${e.candidatePassPp}%`
+                        : '—'}
+                    </td>
+                    <td>{e.dropped === null ? `${e.gateLiftPp >= 0 ? '+' : ''}${e.gateLiftPp}pp` : '—'}</td>
+                    <td>{e.dropped === null ? e.regressed : '—'}</td>
+                    <td>
+                      {e.dropped === null
+                        ? e.costAxis === 'usd'
+                          ? fmtUsd(e.avgCostUsd)
+                          : e.costAxis === 'token'
+                            ? E.t('playground.evo.race.tokenProxy', { n: Math.round(e.cost) })
+                            : `${Math.round(e.cost)} tok`
+                        : '—'}
+                    </td>
+                    <td>
+                      {e.onFrontier
+                        ? E.t('playground.evo.race.frontier')
+                        : e.dropped === null
+                          ? E.t('playground.evo.race.dominated')
+                          : '—'}
+                    </td>
+                    <td className="pg-race-verdict">
+                      {isWinner ? E.t('playground.evo.race.winner') : e.dropped ? E.msg(e.dropped) : ''}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {race && race.awaitingHuman && winner && (
         <div className="pg-race-actions">
-          <span>A winner was picked, but it cannot be auto-applied:</span>
+          <span>{E.t('playground.evo.race.awaiting')}</span>
           <button
             className="primary"
             onClick={() => void onApply(winner, 'manual')}
             disabled={winner.status === 'screening' || winner.status === 'applied'}
           >
-            Approve and apply the winning card
+            {E.t('playground.evo.race.applyWinner')}
           </button>
         </div>
       )}
@@ -619,16 +1178,12 @@ function RacePanel({
 }
 
 function GateView({ gate, status }: { gate: NonNullable<EvoMutation['gate']> | null; status: string }) {
+  const E = useEvoI18n()
   if (status === 'idle') return null
   if (status === 'running') {
-    return (
-      <div className="pg-falsify pg-falsify-running">
-        Re-running the held-out gate tasks at ×N repeats for both baseline and candidate (real executions; the
-        result refreshes automatically)…
-      </div>
-    )
+    return <div className="pg-falsify pg-falsify-running">{E.t('playground.evo.gate.running')}</div>
   }
-  if (!gate) return <div className="pg-falsify pg-falsify-bad">Gate verification failed (execution error).</div>
+  if (!gate) return <div className="pg-falsify pg-falsify-bad">{E.t('playground.evo.gate.execError')}</div>
   // `error` here means "some runs never answered", not "no verdict". When the
   // pass still produced numbers, show them — a partial pass is a real verdict on
   // the pairs that answered, and hiding it would bury a regression.
@@ -636,8 +1191,11 @@ function GateView({ gate, status }: { gate: NonNullable<EvoMutation['gate']> | n
   if (gate.error && !hasVerdict) {
     return (
       <div className="pg-falsify pg-falsify-bad">
-        <div><b>Full held-out verification: no verdict — </b>{gate.error}</div>
-        <div className="pg-falsify-regress">nothing here means the change is good or bad; re-run when the provider is healthy</div>
+        <div>
+          <b>{E.t('playground.evo.gate.noVerdict')}</b>
+          {E.msg(gate.error)}
+        </div>
+        <div className="pg-falsify-regress">{E.t('playground.evo.gate.noVerdictNote')}</div>
       </div>
     )
   }
@@ -648,27 +1206,43 @@ function GateView({ gate, status }: { gate: NonNullable<EvoMutation['gate']> | n
   return (
     <div className={`pg-falsify ${ok ? 'pg-falsify-good' : 'pg-falsify-bad'}`}>
       {gate.error && (
-        <div className="pg-falsify-regress"><b>partial pass: </b>{gate.error}</div>
+        <div className="pg-falsify-regress">
+          <b>{E.t('playground.evo.gate.partial')}</b>
+          {E.msg(gate.error)}
+        </div>
       )}
       <div>
-        <b>Full held-out verification: </b>
-        success {gate.baselinePassPp}% → {gate.candidatePassPp}% (gate lift {gate.gateLiftPp}pp)
-        regressed {gate.regressed.length} · fixed {gate.fixed.length}
-        {gateUnstable.length > 0 && ` · did not reproduce ${gateUnstable.length}`}
+        <b>{E.t('playground.evo.gate.label')}</b>
+        {E.t('playground.evo.gate.stat', {
+          b: gate.baselinePassPp,
+          c: gate.candidatePassPp,
+          l: gate.gateLiftPp,
+          r: gate.regressed.length,
+          f: gate.fixed.length,
+        })}
+        {gateUnstable.length > 0 && ` ${E.t('playground.evo.gate.unstable', { n: gateUnstable.length })}`}
       </div>
       <div className="faint">
-        repeats ×{gate.repeats} ({sample} paired samples) · avg tokens {gate.avgTokens ?? '—'} · avg cost {fmtUsd(gate.avgCostUsd)} · avg time {gate.avgLatencyMs ? `${Math.round(gate.avgLatencyMs / 1000)}s` : '—'}
+        {E.t('playground.evo.gate.sample', {
+          r: gate.repeats,
+          n: sample,
+          tokens: gate.avgTokens ?? '—',
+          cost: fmtUsd(gate.avgCostUsd),
+          time: gate.avgLatencyMs ? `${Math.round(gate.avgLatencyMs / 1000)}s` : '—',
+        })}
       </div>
       {sample <= DEMO_GATE_SAMPLES && (
         <div className="faint">
-          demo sample: {sample} paired runs over {gate.gateTaskIds.length} tasks (×{gate.repeats}), both sides executed
-          live, and a task only counts as regressed or fixed when the flip reproduces on every repetition.
-          Read the lift as a smoke signal, not a measurement.
+          {E.t('playground.evo.gate.demo', {
+            n: sample,
+            tasks: gate.gateTaskIds.length,
+            reps: gate.repeats,
+          })}
         </div>
       )}
       {gateUnstable.length > 0 && (
         <div className="faint">
-          flipped on one repetition only, so counted as neither: {gateUnstable.join(', ')}
+          {E.t('playground.evo.gate.unstableList', { list: gateUnstable.join(', ') })}
         </div>
       )}
       {gateHard.length > 0 && (
@@ -676,46 +1250,68 @@ function GateView({ gate, status }: { gate: NonNullable<EvoMutation['gate']> | n
           {gateHard.map((h) => `${h.taskId} — ${h.reason}`).join('；')}
         </div>
       )}
-      {gate.regressed.length > 0 && <div className="pg-falsify-regress">hold-out regressed: {gate.regressed.join(', ')}</div>}
-      {gate.fixed.length > 0 && <div className="pg-falsify-rescue">hold-out fixed: {gate.fixed.join(', ')}</div>}
+      {gate.regressed.length > 0 && (
+        <div className="pg-falsify-regress">
+          {E.t('playground.evo.gate.regressedList', { list: gate.regressed.join(', ') })}
+        </div>
+      )}
+      {gate.fixed.length > 0 && (
+        <div className="pg-falsify-rescue">
+          {E.t('playground.evo.gate.fixedList', { list: gate.fixed.join(', ') })}
+        </div>
+      )}
     </div>
   )
 }
 
 function FalsificationView({ f }: { f: NonNullable<EvoMutation['falsification']> }) {
-  const ci = f.relLift95 == null ? 'sample too small for a 95% lower bound' : `RelLift₉₅ lower bound ≈ ${f.relLift95}pp`
+  const E = useEvoI18n()
+  const ci = f.relLift95 == null
+    ? E.t('playground.evo.falsify.ciSmall')
+    : E.t('playground.evo.falsify.ci', { n: f.relLift95 })
   const unanswered = f.incomplete ?? []
   const unstable = f.unstable ?? []
   const hardRegressions = f.hardRegressions ?? []
-  const runsPerSlot = RUNS_PER_SLOT * (f.screenRepeats ?? SCREEN_REPEATS)
+  const repeats = f.screenRepeats ?? SCREEN_REPEATS
+  const runsPerSlot = RUNS_PER_SLOT * repeats
   const stamp = fmtStamp(f.at)
   return (
     <div className={`pg-falsify ${unanswered.length > 0 || hardRegressions.length > 0 ? 'pg-falsify-bad' : f.regressed.length > 0 ? 'pg-falsify-bad' : f.rescued.length > 0 ? 'pg-falsify-good' : ''}`}>
       <div>
-        <b>Falsification by real re-runs{stamp ? ` (${stamp})` : ''}: </b>
-        rescued {f.rescued.length} · regressed {f.regressed.length} · still failed {f.stillFailed.length} · net lift {f.netLiftPp}pp
-        {unanswered.length > 0 && ` · unanswered ${unanswered.length}`}
-        {unstable.length > 0 && ` · did not reproduce ${unstable.length}`}
+        <b>
+          {stamp
+            ? E.t('playground.evo.falsify.labelAt', { stamp })
+            : E.t('playground.evo.falsify.label')}
+        </b>
+        {E.t('playground.evo.falsify.stats', {
+          r: f.rescued.length,
+          g: f.regressed.length,
+          s: f.stillFailed.length,
+          n: f.netLiftPp ?? '—',
+        })}
+        {unanswered.length > 0 && ` ${E.t('playground.evo.falsify.unanswered', { n: unanswered.length })}`}
+        {unstable.length > 0 && ` ${E.t('playground.evo.falsify.unstable', { n: unstable.length })}`}
       </div>
       {f.screened * runsPerSlot <= DEMO_SCREEN_SIZE && (
         <div className="faint">
-          demo sample:
-          paired screen over {f.screened} task(s), {f.screened * runsPerSlot} real runs — current version and candidate at the
-          same seed
-          {(f.screenRepeats ?? SCREEN_REPEATS) > 1
-            ? `, and each task run ${f.screenRepeats ?? SCREEN_REPEATS}× so a flip has to reproduce before it counts`
-            : ', one pair per task'}.
-          A lift over a handful of tasks is a smoke signal, not a measurement.
+          {E.t('playground.evo.falsify.demo', {
+            n: f.screened,
+            runs: f.screened * runsPerSlot,
+            repeat: E.t(
+              repeats > 1 ? 'playground.evo.falsify.demoRepeat' : 'playground.evo.falsify.demoOne',
+              { n: repeats },
+            ),
+          })}
         </div>
       )}
       {unanswered.length > 0 && (
         <div className="pg-falsify-regress">
-          no answer produced (not counted as failures): {unanswered.join(', ')} — re-run verification to get a verdict
+          {E.t('playground.evo.falsify.unansweredList', { list: unanswered.join(', ') })}
         </div>
       )}
       {unstable.length > 0 && (
         <div className="faint">
-          flipped once and then did not reproduce, so counted as neither: {unstable.join(', ')}
+          {E.t('playground.evo.falsify.unstableList', { list: unstable.join(', ') })}
         </div>
       )}
       {hardRegressions.length > 0 && (
@@ -724,45 +1320,22 @@ function FalsificationView({ f }: { f: NonNullable<EvoMutation['falsification']>
         </div>
       )}
       <div className="faint">
-        {ci} · avg tokens {f.avgTokens ?? '—'} · avg cost {fmtUsd(f.avgCostUsd)} · avg time {f.avgLatencyMs ? `${Math.round(f.avgLatencyMs / 1000)}s` : '—'}
+        {E.t('playground.evo.falsify.meta', {
+          ci,
+          tokens: f.avgTokens ?? '—',
+          cost: fmtUsd(f.avgCostUsd),
+          time: f.avgLatencyMs ? `${Math.round(f.avgLatencyMs / 1000)}s` : '—',
+        })}
       </div>
-      {f.rescued.length > 0 && <div className="pg-falsify-rescue">rescued: {f.rescued.join(', ')}</div>}
-      {f.regressed.length > 0 && <div className="pg-falsify-regress">regressed: {f.regressed.join(', ')}</div>}
-    </div>
-  )
-}
-
-function VersionTree({
-  state,
-  busy,
-  onRollback,
-}: {
-  state: EvoState
-  busy: string | null
-  onRollback: (g: EvoGeneration) => void
-}) {
-  const gens = [...state.generations].reverse()
-  return (
-    <div className="pg-evo-tree">
-      <h4>Immutable version tree</h4>
-      {gens.length === 0 ? (
-        <p className="faint">No change applied yet. The first card that passes falsification creates a version here.</p>
-      ) : (
-        <ul className="pg-gen-list">
-          {gens.map((g) => (
-            <li key={g.generationId} className={`pg-gen ${g.generationId === state.currentGenerationId ? 'pg-gen-current' : ''}`}>
-              <div className="pg-gen-row">
-                <span className="pg-gen-label">{g.generationId === state.currentGenerationId ? '● ' : '○ '}{g.label}</span>
-                <span className="faint pg-gen-meta">{g.source} · {g.fingerprint.slice(0, 10)}</span>
-              </div>
-              {g.generationId !== state.currentGenerationId && (
-                <button disabled={busy != null} onClick={() => void onRollback(g)} className="pg-rollback">
-                  Roll back to this version
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+      {f.rescued.length > 0 && (
+        <div className="pg-falsify-rescue">
+          {E.t('playground.evo.falsify.rescuedList', { list: f.rescued.join(', ') })}
+        </div>
+      )}
+      {f.regressed.length > 0 && (
+        <div className="pg-falsify-regress">
+          {E.t('playground.evo.falsify.regressedList', { list: f.regressed.join(', ') })}
+        </div>
       )}
     </div>
   )

@@ -9,6 +9,7 @@ import Settings from './screens/Settings'
 import Legal from './screens/Legal'
 import Security from './screens/Security'
 import Playground from './screens/Playground'
+import { ModuleNav } from './components/ModuleNav'
 
 function useHashRoute(): string {
   const normalize = (h: string) => {
@@ -46,43 +47,46 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <a href="#/" style={{ textDecoration: 'none', fontWeight: 700 }}>{t('app.brand.title')}</a>
+        <div className="topbar-main">
+          <div className="brand">
+            <a href="#/" style={{ textDecoration: 'none', fontWeight: 700 }}>{t('app.brand.title')}</a>
+          </div>
+          <div className="spacer" />
+          <button
+            id="demo-btn"
+            className="primary demo-btn"
+            style={{ padding: '4px 12px', fontSize: '13px', marginRight: '8px' }}
+            onClick={() => { if (isDemoPlaying()) stopDemo(); else startDemo() }}
+          >
+            {t('demo.button')}
+          </button>
+          <a
+            href="#/settings"
+            className="settings-link"
+            title={t('settings.title')}
+          >
+            ⚙ {t('nav.settings')}
+          </a>
+          <button 
+            onClick={toggleLang}
+            className="lang-toggle"
+            style={{ 
+              padding: '4px 10px', 
+              fontSize: '13px', 
+              border: '1px solid var(--dim)', 
+              background: 'transparent',
+              color: 'var(--fg)',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginRight: '12px',
+              fontFamily: 'var(--mono)'
+            }}
+            title={t('common.switchLang')}
+          >
+            {lang === 'en' ? 'EN' : '中'}
+          </button>
         </div>
-        <div className="spacer" />
-        <button
-          id="demo-btn"
-          className="primary demo-btn"
-          style={{ padding: '4px 12px', fontSize: '13px', marginRight: '8px' }}
-          onClick={() => { if (isDemoPlaying()) stopDemo(); else startDemo() }}
-        >
-          {t('demo.button')}
-        </button>
-        <a
-          href="#/settings"
-          className="settings-link"
-          title={t('settings.title')}
-        >
-          ⚙ {t('nav.settings')}
-        </a>
-        <button 
-          onClick={toggleLang}
-          className="lang-toggle"
-          style={{ 
-            padding: '4px 10px', 
-            fontSize: '13px', 
-            border: '1px solid var(--dim)', 
-            background: 'transparent',
-            color: 'var(--fg)',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginRight: '12px',
-            fontFamily: 'var(--mono)'
-          }}
-          title={t('common.switchLang')}
-        >
-          {lang === 'en' ? 'EN' : '中'}
-        </button>
+        <ModuleNav current={route} />
       </header>
 
       {!ready ? (

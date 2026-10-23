@@ -6,7 +6,6 @@ import { useApp, useRun, useTunnel } from '../../stores'
 import { api } from '../../api'
 import { useT, useFixture } from '../../i18n'
 import { fmtTokens } from '../../lib/derive'
-import { ScreenNav } from '../../components/ScreenNav'
 
 export function SourceBadge({ source }: { source: SourceRef }) {
   const t = useT()
@@ -54,7 +53,6 @@ export default function MRI() {
         <h1>{t('mri.title')}</h1>
         <span className="q">{t('mri.subtitle')}</span>
       </div>
-      <ScreenNav current="/insight" />
       <div className="mri-layout">
         {/* Left toggle button — always visible */}
         <button

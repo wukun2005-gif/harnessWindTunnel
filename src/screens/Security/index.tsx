@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api'
 import { useT, useFixture } from '../../i18n'
-import { ScreenNav } from '../../components/ScreenNav'
 import { SourceBadge } from '../MRI'
 import { downloadJson } from '../../lib/pack'
 import { paretoFrontier } from '../../../shared/reliability'
@@ -67,7 +66,6 @@ export default function Security() {
     return (
       <div className="page">
         <div className="screen-head"><span className="no">{t('security.eyebrow')}</span><h1>{t('sec.title')}</h1></div>
-        <ScreenNav current="/security" />
         <div className="panel loading">{failed ? t('sec.error') : t('sec.loading')}</div>
       </div>
     )
@@ -84,7 +82,6 @@ export default function Security() {
         <h1>{t('sec.title')}</h1>
         <span className="q">{t('sec.subtitle')}</span>
       </div>
-      <ScreenNav current="/security" />
 
       <div className="grid-tunnel">
         <div>

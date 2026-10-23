@@ -42,8 +42,6 @@ const POLL_MS = 1500
 const PICKED_KEY = 'hwt-playground-picked'
 const PRESET_KEY = 'hwt-playground-preset'
 const FILTER_KEY = 'hwt-playground-filter'
-/** Collapsed/expanded state of the review sections and the run setup, persisted. */
-const SECTIONS_KEY = 'hwt-playground-sections'
 
 function loadFilters(): RunsQuery {
   // Back-compat: FILTER_KEY used to hold a bare preset id string.
@@ -58,18 +56,6 @@ function loadFilters(): RunsQuery {
     }
   } catch { /* fall through */ }
   return { limit: 1000 }
-}
-
-// `setup` holds the run itself — config, question picking, the run button. It is
-// the only section open on a first visit (there is nothing to look up until a run
-// exists), and it is a peer of the three review sections rather than loose form
-// fields mixed into the top panel.
-function loadSections(): { setup: boolean; search: boolean; metrics: boolean; compare: boolean } {
-  try {
-    const raw = localStorage.getItem(SECTIONS_KEY)
-    if (raw) return { setup: true, search: false, metrics: false, compare: false, ...(JSON.parse(raw) as object) }
-  } catch { /* defaults */ }
-  return { setup: true, search: false, metrics: false, compare: false }
 }
 
 function loadPicked(): string[] {
@@ -151,17 +137,17 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   const [presets, setPresets] = useState<PgPreset[]>([])
   const [presetId, setPresetId] = useState<string>(() => loadString(PRESET_KEY, 'C0'))
   const [picked, setPicked] = useState<Set<string>>(() => new Set(loadPicked()))
-  // 题目清单按领域折叠（与下方跑过的清单同款交互）：默认只展开已有勾选的领域——
-  // 45 道题全铺开会把整个 section 撑得很长。折叠态不持久化，每次进屏按当前勾选重算。
-  const [openDomains, setOpenDomains] = useState<Set<PgDomain>>(
-    () => new Set(DOMAINS.filter((d) => tasks.some((x) => x.domain === d && picked.has(x.id)))),
-  )
+  // 选题抽屉自带滚动，默认三个领域全展开；折叠态不持久化。
+  const [openDomains, setOpenDomains] = useState<Set<PgDomain>>(() => new Set(DOMAINS))
   const [runs, setRuns] = useState<RunSummary[] | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   /** Full search/review query (domain/source/status/tag/model/preset/date). */
   const [filters, setFilters] = useState<RunsQuery>(() => loadFilters())
   const [metrics, setMetrics] = useState<LiveMetrics | null>(null)
-  const [sections, setSections] = useState(loadSections)
+  /** Which result view is open. The four used to be folded sections stacked on one page. */
+  const [view, setView] = useState<'matrix' | 'metrics' | 'compare' | 'detail'>('matrix')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   /** Run ids ticked for bulk export (matrix cell checkbox). */
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
@@ -170,9 +156,6 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   /** runIds created by the last 跑 click, so the panel can say how far that batch got. */
   const [batch, setBatch] = useState<string[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const toggleSection = (k: keyof typeof sections) =>
-    setSections((prev) => ({ ...prev, [k]: !prev[k] }))
 
   // Nothing is pre-ticked: which questions to run is the user's call. Saved ids
   // are re-validated against the loaded set so a question that no longer exists
@@ -197,11 +180,6 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
       localStorage.setItem(FILTER_KEY, JSON.stringify(filters))
     } catch { /* ignore */ }
   }, [filters])
-  useEffect(() => {
-    try {
-      localStorage.setItem(SECTIONS_KEY, JSON.stringify(sections))
-    } catch { /* ignore */ }
-  }, [sections])
 
   // A saved config that no longer exists would leave the <select> with no matching
   // option, so validate against what the server actually offers.
@@ -339,231 +317,302 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   /** The task the scorecard compares configs for — whichever run is selected. */
   const activeTaskId = (runs ?? []).find((r) => r.runId === activeId)?.taskId ?? null
 
+  const selectedPreset = presets.find((p) => p.id === presetId)
+  const pickedByDomain = DOMAINS.map((d) => ({
+    domain: d,
+    picked: (byDomain.get(d) ?? []).filter((x) => picked.has(x.id)).length,
+    total: (byDomain.get(d) ?? []).length,
+  }))
+  const activeFilterCount = Object.entries(filters).filter(([k, v]) => k !== 'limit' && v != null && v !== '').length
+
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <div className="panel" style={{ display: 'grid', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+    <div className="pg-live">
+      <div className="panel pg-composer">
+        <div className="pg-composer-head">
           <div>
-            <b style={{ color: 'var(--text)' }}>{t('playground.live.title')}</b>
-            <div className="faint" style={{ fontSize: 12 }}>{t('playground.live.desc')}</div>
+            <span className="pg-kicker">{t('playground.live.kickerSetup')}</span>
+            <h3>{t('playground.live.title')}</h3>
+            <p className="faint">{t('playground.live.desc')}</p>
           </div>
           <ImportBar onImported={refresh} />
         </div>
 
-        {/* 实跑设置：Harness 配置 + 题目勾选 + 实跑按钮，自成一组 */}
-        <div className="pg-section-head" onClick={() => toggleSection('setup')}>
-          <span>{sections.setup ? '▾' : '▸'} Harness config / tasks / run</span>
-          <span className="faint" style={{ fontSize: 11 }}>
-            Which configuration runs · which questions · run this batch
-          </span>
-        </div>
-        {sections.setup && (
-        <div style={{ display: 'grid', gap: 10 }}>
-        {usable.length === 0 && <div className="warn">{t('playground.live.noProvider')}</div>}
-        {usable.length > 0 && targets?.kb && !targets.kb.ready && <div className="warn">{t('playground.live.kbNotReady')}</div>}
-
-        <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-          <span className="faint">{t('playground.live.preset')}</span>
-          <select value={presetId} onChange={(e) => setPresetId(e.target.value)} style={{ maxWidth: 420 }}>
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.id} · {p.name} — {p.summary}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span className="faint" style={{ fontSize: 12 }}>
-              {t('playground.live.pickTasks')} — {picked.size}/{tasks.length}
-            </span>
-            <button
-              className="chip"
-              onClick={() => setOpenDomains(allDomainsOpen ? new Set() : new Set(DOMAINS))}
-              title={t('playground.live.collapseHint')}
-            >
-              {allDomainsOpen ? t('playground.live.collapseAll') : t('playground.live.expandAll')}
-            </button>
-          </div>
-          {DOMAINS.map((d) => {
-            const list = byDomain.get(d) ?? []
-            const open = openDomains.has(d)
-            return (
-              <div key={d} style={{ display: 'grid', gap: 4, marginTop: 4 }}>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <button
-                    onClick={() => toggleDomain(d)}
-                    aria-expanded={open}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      gap: 6,
-                      alignItems: 'center',
-                      font: 'inherit',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: 'var(--text)',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <span style={{ fontFamily: 'var(--mono)', color: 'var(--text-faint)' }}>
-                      {open ? '▾' : '▸'}
-                    </span>
-                    {t(`playground.live.domain.${d}`)}
-                  </button>
-                  <span className="faint" style={{ fontSize: 11 }}>
-                    {list.filter((x) => picked.has(x.id)).length}/{list.length}
-                  </span>
-                  <button
-                    className="chip"
-                    onClick={() => {
-                      setPicked(new Set([...picked, ...list.map((x) => x.id)]))
-                      // 全选后展开本领域，否则勾选结果被折叠藏着看不见。
-                      setOpenDomains((cur) => new Set(cur).add(d))
-                    }}
-                  >
-                    {t('playground.live.pickAll')}
-                  </button>
-                  <button
-                    className="chip"
-                    onClick={() => {
-                      const next = new Set(picked)
-                      for (const x of list) next.delete(x.id)
-                      setPicked(next)
-                    }}
-                  >
-                    {t('playground.live.pickNone')}
-                  </button>
-                </div>
-                {open &&
-                  list.map((x) => {
-                    const on = picked.has(x.id)
-                    return (
-                      <label
-                        key={x.id}
-                        style={{ display: 'flex', gap: 6, alignItems: 'baseline', fontSize: 12, cursor: 'pointer' }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          onChange={() => {
-                            const next = new Set(picked)
-                            if (on) next.delete(x.id)
-                            else next.add(x.id)
-                            setPicked(next)
-                          }}
-                          style={{ flex: 'none' }}
-                        />
-                        <code style={{ minWidth: 30, flex: 'none' }}>{x.id}</code>
-                        <span style={{ color: on ? 'var(--text)' : 'var(--text-dim, inherit)' }}>{x.title}</span>
-                        {x.signature && <span className="badge" style={{ flex: 'none' }}>{t('playground.live.signature')}</span>}
-                      </label>
-                    )
-                  })}
+        <div className="pg-composer-steps">
+          <div className="pg-composer-step">
+            <div className="pg-step-head">
+              <span className="pg-step-number">1</span>
+              <div>
+                <b>{t('playground.live.stepConfig')}</b>
+                <p className="faint">{t('playground.live.stepConfigHint')}</p>
               </div>
-            )
-          })}
-        </div>
+            </div>
+            <select value={presetId} onChange={(e) => setPresetId(e.target.value)} className="pg-config-select">
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name.startsWith(p.id) ? p.name : `${p.id} · ${p.name}`} — {p.summary}
+                </option>
+              ))}
+            </select>
+            {selectedPreset && <span className="pg-step-note">{selectedPreset.summary}</span>}
+          </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="primary" disabled={!canRun} onClick={() => void start()}>
-            {busy ? t('playground.live.running') : t('playground.live.run', { count: picked.size })}
+          <div className="pg-composer-step">
+            <div className="pg-step-head">
+              <span className="pg-step-number">2</span>
+              <div>
+                <b>{t('playground.live.stepQuestions')}</b>
+                <p className="faint">{t('playground.live.stepQuestionsHint')}</p>
+              </div>
+            </div>
+            <div className="pg-picked-count">
+              <b>{picked.size}</b><span>/ {tasks.length}</span>
+            </div>
+            <div className="pg-picked-domains">
+              {pickedByDomain.map((d) => (
+                <span key={d.domain}>{t(`playground.domain.${d.domain}`)} {d.picked}/{d.total}</span>
+              ))}
+            </div>
+            <button onClick={() => setPickerOpen(true)}>{t('playground.live.chooseQuestions')}</button>
+          </div>
+
+          <div className="pg-composer-step pg-composer-run">
+            <div className="pg-step-head">
+              <span className="pg-step-number">3</span>
+              <div>
+                <b>{t('playground.live.stepRun')}</b>
+                <p className="faint">{t('playground.live.stepRunHint')}</p>
+              </div>
+            </div>
+            {usable.length === 0 && <div className="warn">{t('playground.live.noProvider')}</div>}
+            {usable.length > 0 && targets?.kb && !targets.kb.ready && <div className="warn">{t('playground.live.kbNotReady')}</div>}
+            <button className="primary pg-run-button" disabled={!canRun} onClick={() => void start()}>
+              {busy ? t('playground.live.running') : t('playground.live.run', { count: picked.size })}
+            </button>
+            {notice && <span className="faint">{t('playground.live.started', { count: Number(notice) })}</span>}
+            {err && <span className="pg-error-text">{err}</span>}
+            {batchTotal > 0 && (
+              <div className="pg-batch-progress">
+                <span className="faint">
+                  {batchDone >= batchTotal
+                    ? t('playground.live.batchDone', { total: batchTotal, failed: batchFailed })
+                    : t('playground.live.batchProgress', { done: batchDone, total: batchTotal, failed: batchFailed })}
+                </span>
+                <div className="pg-progress-track">
+                  <div
+                    className={batchDone >= batchTotal ? 'done' : ''}
+                    style={{ width: `${Math.round((batchDone / batchTotal) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {batchTotal === 0 && inflight > 0 && (
+              <span className="faint">{t('playground.live.inflight', { count: inflight })}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="panel pg-results">
+        <div className="pg-results-head">
+          <div>
+            <span className="pg-kicker">{t('playground.live.kickerResults')}</span>
+            <h3>{t('playground.live.results')}</h3>
+            <p className="faint">{t('playground.live.resultsDesc', { runs: runs?.length ?? 0, configs: presets.length })}</p>
+          </div>
+          <button className={filtersOpen ? 'active-btn' : ''} onClick={() => setFiltersOpen(!filtersOpen)}>
+            {t('playground.live.filters')}
+            {activeFilterCount > 0 && <span className="pg-filter-count">{activeFilterCount}</span>}
           </button>
-          {notice && <span className="faint" style={{ fontSize: 12 }}>#{notice}</span>}
-          {err && <span style={{ color: 'var(--red)', fontSize: 12 }}>{err}</span>}
         </div>
 
-        {batchTotal > 0 && (
-          <div style={{ display: 'grid', gap: 4 }}>
-            <span className="faint" style={{ fontSize: 12 }}>
-              {batchDone >= batchTotal
-                ? t('playground.live.batchDone', { total: batchTotal, failed: batchFailed })
-                : t('playground.live.batchProgress', { done: batchDone, total: batchTotal, failed: batchFailed })}
-            </span>
-            <div style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
-              <div
-                style={{
-                  height: '100%',
-                  width: `${Math.round((batchDone / batchTotal) * 100)}%`,
-                  background: batchDone >= batchTotal ? 'var(--green)' : 'var(--accent)',
-                  transition: 'width 200ms linear',
-                }}
-              />
+        {filtersOpen && (
+          <div className="pg-filters-panel">
+            <SearchBar filters={filters} setFilters={setFilters} resultCount={(runs ?? []).length} />
+            <div className="pg-filter-foot">
+              <span className="faint">{t('playground.live.matches', { count: runs?.length ?? 0 })}</span>
+              <button onClick={() => setFilters({ limit: 1000 })}>{t('playground.live.resetFilters')}</button>
             </div>
           </div>
         )}
-        {batchTotal === 0 && inflight > 0 && (
-          <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.inflight', { count: inflight })}</span>
+
+        <div className="pg-result-tabs" role="tablist">
+          {([
+            ['matrix', t('playground.live.resultMatrix'), runs?.length ?? 0],
+            ['metrics', t('playground.live.resultMetrics'), null],
+            ['compare', t('playground.live.resultCompare'), null],
+            ['detail', t('playground.live.resultDetail'), null],
+          ] as const).map(([id, label, count]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={view === id}
+              className={`pg-result-tab ${view === id ? 'active' : ''}`}
+              onClick={() => setView(id)}
+              disabled={id === 'detail' && !activeId}
+            >
+              {label}
+              {count != null && <span className="pg-tab-count">{count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {view === 'matrix' && (
+          <div className="pg-result-body">
+            <BulkToolbar
+              selected={[...selected]}
+              onClear={() => setSelected(new Set())}
+              onChanged={refresh}
+            />
+            <ResultMatrix
+              runs={runs ?? []}
+              activeId={activeId}
+              onPick={(id) => {
+                setActiveId(id)
+                setView('detail')
+              }}
+              presets={presets}
+              filterFingerprint={filters.fingerprint ?? ''}
+              onFilter={(fp) => setFilters((cur) => ({ ...cur, fingerprint: fp || undefined }))}
+              selected={selected}
+              onToggle={(id) =>
+                setSelected((cur) => {
+                  const next = new Set(cur)
+                  if (next.has(id)) next.delete(id)
+                  else next.add(id)
+                  return next
+                })
+              }
+            />
+          </div>
         )}
-        </div>
+
+        {view === 'metrics' && (
+          <div className="pg-result-body">
+            <MetricsPanel runs={runs ?? []} metrics={metrics} />
+          </div>
         )}
 
-        {/* 检索 / 复盘表单 */}
-        <div className="pg-section-head" onClick={() => toggleSection('search')}>
-          <span>{sections.search ? '▾' : '▸'} Search / review</span>
-          <span className="faint" style={{ fontSize: 11 }}>
-            Domain / source / status / failure tag / model / time
-          </span>
-        </div>
-        {sections.search && (
-          <SearchBar filters={filters} setFilters={setFilters} resultCount={(runs ?? []).length} />
+        {view === 'compare' && (
+          <div className="pg-result-body">
+            <ComparePanel runs={runs ?? []} />
+          </div>
         )}
 
-        {/* 指标区：聚合表 + 失败×配置 + Pareto + 模型×Harness */}
-        <div className="pg-section-head" onClick={() => toggleSection('metrics')}>
-          <span>{sections.metrics ? '▾' : '▸'} Metrics / matrices</span>
-          <span className="faint" style={{ fontSize: 11 }}>Success rate · lift · failure mode × config · Pareto · model × harness</span>
-        </div>
-        {sections.metrics && <MetricsPanel runs={runs ?? []} metrics={metrics} />}
-
-        {/* 轨迹分叉对比：同任务双配置逐步对齐 + 失败模式转移 */}
-        <div className="pg-section-head" onClick={() => toggleSection('compare')}>
-          <span>{sections.compare ? '▾' : '▸'} Trajectory divergence</span>
-          <span className="faint" style={{ fontSize: 11 }}>Same task, two configs, step-aligned · failure-mode transfer</span>
-        </div>
-        {sections.compare && <ComparePanel runs={runs ?? []} />}
-
+        {view === 'detail' && (
+          <div className="pg-result-body">
+            {activeId ? (
+              <>
+                {activeTaskId && (
+                  <div className="pg-detail-scorecard">
+                    <Scorecard runs={(runs ?? []).filter((r) => r.taskId === activeTaskId)} presets={presets} />
+                  </div>
+                )}
+                <RunDetailView
+                  runId={activeId}
+                  tasks={tasks}
+                  onDeleted={() => { setActiveId(null); setView('matrix'); refresh() }}
+                  onChanged={refresh}
+                />
+              </>
+            ) : (
+              <div className="pg-empty">
+                <b>{t('playground.live.noRunSelected')}</b>
+                <p>{t('playground.live.noRunSelectedHint')}</p>
+                <button onClick={() => setView('matrix')}>{t('playground.live.backToMatrix')}</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <BulkToolbar
-        selected={[...selected]}
-        onClear={() => setSelected(new Set())}
-        onChanged={refresh}
-      />
-      <ResultMatrix
-        runs={runs ?? []}
-        activeId={activeId}
-        onPick={setActiveId}
-        presets={presets}
-        filterFingerprint={filters.fingerprint ?? ''}
-        onFilter={(fp) => setFilters((cur) => ({ ...cur, fingerprint: fp || undefined }))}
-        selected={selected}
-        onToggle={(id) =>
-          setSelected((cur) => {
-            const next = new Set(cur)
-            if (next.has(id)) next.delete(id)
-            else next.add(id)
-            return next
-          })
-        }
-      />
-      {/* One question, all configs side by side. Sits above the detail because the
-          detail is the drill-down and this is the comparison. */}
-      {activeTaskId && (
-        <Scorecard runs={(runs ?? []).filter((r) => r.taskId === activeTaskId)} presets={presets} />
-      )}
-
-      {activeId && (
-        <RunDetailView
-          runId={activeId}
-          tasks={tasks}
-          onDeleted={() => { setActiveId(null); refresh() }}
-          onChanged={refresh}
-        />
+      {pickerOpen && (
+        <div className="pg-drawer-backdrop" onClick={() => setPickerOpen(false)}>
+          <div className="pg-drawer" role="dialog" aria-modal="true" aria-label={t('playground.live.pickerTitle')} onClick={(e) => e.stopPropagation()}>
+            <div className="pg-drawer-head">
+              <div>
+                <h3>{t('playground.live.pickerTitle')}</h3>
+                <p className="faint">{t('playground.live.pickerHint', { picked: picked.size, total: tasks.length })}</p>
+              </div>
+              <button className="pg-drawer-close" onClick={() => setPickerOpen(false)} aria-label={t('playground.live.close')}>×</button>
+            </div>
+            <div className="pg-drawer-tools">
+              <button onClick={() => setPicked(new Set(tasks.map((x) => x.id)))}>{t('playground.live.pickAllTasks', { count: tasks.length })}</button>
+              <button onClick={() => setPicked(new Set())}>{t('playground.live.clearAll')}</button>
+              <span className="pg-drawer-spacer" />
+              <button onClick={() => setOpenDomains(allDomainsOpen ? new Set() : new Set(DOMAINS))}>
+                {allDomainsOpen ? t('playground.live.collapseAll') : t('playground.live.expandAll')}
+              </button>
+            </div>
+            <div className="pg-drawer-body">
+              {DOMAINS.map((d) => {
+                const list = byDomain.get(d) ?? []
+                const open = openDomains.has(d)
+                const count = list.filter((x) => picked.has(x.id)).length
+                return (
+                  <div key={d} className="pg-picker-group">
+                    <div className="pg-picker-group-head">
+                      <button className="pg-picker-toggle" onClick={() => toggleDomain(d)} aria-expanded={open}>
+                        <span className="pg-caret">{open ? '▾' : '▸'}</span>
+                        {t(`playground.live.domain.${d}`)}
+                      </button>
+                      <span className="pg-chip-count">{count}/{list.length}</span>
+                      <span className="pg-drawer-spacer" />
+                      <div className="pg-picker-group-actions">
+                        <button
+                          className="pg-chip"
+                          onClick={() => {
+                            setPicked(new Set([...picked, ...list.map((x) => x.id)]))
+                            setOpenDomains((cur) => new Set(cur).add(d))
+                          }}
+                        >
+                          {t('playground.live.pickAll')}
+                        </button>
+                        <button
+                          className="pg-chip"
+                          onClick={() => {
+                            const next = new Set(picked)
+                            for (const x of list) next.delete(x.id)
+                            setPicked(next)
+                          }}
+                        >
+                          {t('playground.live.pickNone')}
+                        </button>
+                      </div>
+                    </div>
+                    {open && (
+                      <div className="pg-picker-list">
+                        {list.map((x) => {
+                          const on = picked.has(x.id)
+                          return (
+                            <label key={x.id} className={`pg-picker-row ${on ? 'on' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() => {
+                                  const next = new Set(picked)
+                                  if (on) next.delete(x.id)
+                                  else next.add(x.id)
+                                  setPicked(next)
+                                }}
+                              />
+                              <code>{x.id}</code>
+                              <span>{x.title}</span>
+                              {x.signature && <span className="pg-star">★</span>}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="pg-drawer-foot">
+              <span className="faint">{t('playground.live.pickerSelected', { count: picked.size })}</span>
+              <button className="primary" onClick={() => setPickerOpen(false)}>{t('playground.live.done')}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

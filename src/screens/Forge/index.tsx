@@ -5,7 +5,6 @@ import type { ForgeGen } from '../../api'
 import { SourceBadge } from '../MRI'
 import { useT, useFixture } from '../../i18n'
 import { downloadJson } from '../../lib/pack'
-import { ScreenNav } from '../../components/ScreenNav'
 
 export default function Forge() {
   const { forge, metas } = useApp()
@@ -58,7 +57,6 @@ export default function Forge() {
           )}
         </div>
       </div>
-      <ScreenNav current="/evolution" />
 
       <div className="grid-forge">
         {/* Left: Failure clusters + generation timeline */}

@@ -21,3 +21,6 @@ TODO.local.md
 # Python 缓存
 __pycache__/
 *.pyc
+
+# 本地验收截图与 CDP 脚本
+_shots/

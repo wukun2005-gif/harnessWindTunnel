@@ -15,7 +15,6 @@ import { alignSteps, deriveRun, fmtMs, fmtTokens, transferModes, TRANSFER_CLEAR 
 import { useApp, useTunnel, type VariantMetrics } from '../../stores'
 import { useT, useFixture, useVariantLabel } from '../../i18n'
 import { SourceBadge } from '../MRI'
-import { ScreenNav } from '../../components/ScreenNav'
 
 const dpp = (a: number, b: number) => {
   const d = a - b
@@ -72,7 +71,6 @@ export default function WindTunnel() {
           </select>
         </div>
       </div>
-      <ScreenNav current="/tunnel" />
 
       <div className="grid-tunnel">
         <div>

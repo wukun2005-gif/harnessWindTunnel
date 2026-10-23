@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { useI18n, useT, useFixture } from '../../i18n'
-import { ScreenNav } from '../../components/ScreenNav'
 import { SourceBadge } from '../MRI'
 import {
   ABA_DUTIES,
@@ -36,7 +35,6 @@ export default function Legal() {
     return (
       <div className="page">
         <div className="screen-head"><span className="no">{t('legal.eyebrow')}</span><h1>{t('legal.title')}</h1></div>
-        <ScreenNav current="/legal" />
         <div className="panel loading">{failed ? t('legal.error') : t('legal.loading')}</div>
       </div>
     )
@@ -52,7 +50,6 @@ export default function Legal() {
         <h1>{t('legal.title')}</h1>
         <span className="q">{t('legal.subtitle')}</span>
       </div>
-      <ScreenNav current="/legal" />
 
       <div className="grid-tunnel">
         <div>

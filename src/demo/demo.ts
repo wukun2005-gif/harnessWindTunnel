@@ -251,14 +251,14 @@ async function clickStep(index: number | 'critical', msg: string | null, waitAft
 }
 
 function highlightNav(route: string): void {
-  document.querySelectorAll('.screen-nav-item').forEach((n) => {
+  document.querySelectorAll('.module-nav-item').forEach((n) => {
     const href = (n as HTMLAnchorElement).getAttribute('href') ?? ''
     n.classList.toggle('demo-active-page', href === `#${route}`)
   })
 }
 
 function clearNavHighlight(): void {
-  document.querySelectorAll('.screen-nav-item').forEach((n) => n.classList.remove('demo-active-page'))
+  document.querySelectorAll('.module-nav-item').forEach((n) => n.classList.remove('demo-active-page'))
 }
 
 // ---- deterministic demo drivers (fixture replay only) ----
