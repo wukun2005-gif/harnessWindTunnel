@@ -84,12 +84,12 @@ export const PRESET_PROVIDERS: PresetProvider[] = [
   // ── 判定模型（非 chat）：TypeSafe Jev / OpenCode Jev / OpenRouter 判定 ──
   // 端点 POST {baseUrl}/systemone（Bearer），不是 OpenAI 兼容端点；输出是结构化判定
   // （Choice / Score / Noul + 概率），不生成自由文本。可与上面任一 chat provider 同时启用，
-  // 用途见 shared/jev.ts 与 docs/playground-live-design-v0.1.md §17。
+  // 用途见 shared/jev.ts 与 PRD v1.1.3 第 13 章。
   // 位置固定在最后三张：server/playground 里「第一个启用的可用 provider」这类挑选逻辑按数组
   // 顺序取，判定模型排在末尾就不会被误当成主 chat 目标。
-  { id: JEV_PROVIDER_ID, name: "TypeSafe Jev (判定模型)", nameEn: "TypeSafe Jev (decision model)", defaultBaseUrl: JEV_DEFAULT_BASE_URL, keyPlaceholder: "TypeSafe API key", desc: "判定模型（非 chat）：判分复核 / 闸门预筛，与主模型并行启用", descEn: "Decision model (not chat): judging cross-check, runs alongside the main model", kind: "decision" },
-  { id: JEV_PROVIDER_ID_OPENCODE, name: "OpenCode Jev (判定模型)", nameEn: "OpenCode Jev (decision model)", defaultBaseUrl: JEV_OPENCODE_DEFAULT_BASE_URL, keyPlaceholder: "OpenCode Console API key", desc: "判定模型（非 chat）：OpenCode Console 托管的 Jev，判分复核 / 闸门预筛", descEn: "Decision model (not chat): Jev hosted by OpenCode Console, judging cross-check", kind: "decision" },
-  { id: JEV_PROVIDER_ID_OPENROUTER, name: "OpenRouter 判定模型", nameEn: "OpenRouter decision models", defaultBaseUrl: JEV_OPENROUTER_DEFAULT_BASE_URL, keyPlaceholder: "sk-or-...", desc: "判定模型（非 chat）：OpenRouter 上的判定型号（Jev / Clef / Mercury Decide 等），只列判定型号", descEn: "Decision model (not chat): decision models on OpenRouter (Jev / Clef / Mercury Decide), listed separately from chat models", kind: "decision" },
+  { id: JEV_PROVIDER_ID, name: "TypeSafe Jev (判定模型)", nameEn: "TypeSafe Jev (decision model)", defaultBaseUrl: JEV_DEFAULT_BASE_URL, keyPlaceholder: "TypeSafe API key", desc: "判定模型（非 chat）：Playground 实况运行的唯一判分器，与主模型分开启用", descEn: "Decision model (not chat): the sole scorer for live Playground runs, enabled independently of chat models", kind: "decision" },
+  { id: JEV_PROVIDER_ID_OPENCODE, name: "OpenCode Jev (判定模型)", nameEn: "OpenCode Jev (decision model)", defaultBaseUrl: JEV_OPENCODE_DEFAULT_BASE_URL, keyPlaceholder: "OpenCode Console API key", desc: "判定模型（非 chat）：OpenCode Console 托管的 Jev，Playground live 的唯一判分器", descEn: "Decision model (not chat): Jev hosted by OpenCode Console, the sole scorer for live Playground runs", kind: "decision" },
+  { id: JEV_PROVIDER_ID_OPENROUTER, name: "OpenRouter 判定模型", nameEn: "OpenRouter decision models", defaultBaseUrl: JEV_OPENROUTER_DEFAULT_BASE_URL, keyPlaceholder: "sk-or-...", desc: "判定模型（非 chat）：OpenRouter 上的判定型号（Jev / Clef / Mercury Decide 等），可作为 Playground live 的唯一判分器", descEn: "Decision model (not chat): decision models on OpenRouter (Jev / Clef / Mercury Decide), usable as the sole scorer for live Playground runs", kind: "decision" },
 ];
 
 export const CUSTOM_PRESET_ID = "custom";

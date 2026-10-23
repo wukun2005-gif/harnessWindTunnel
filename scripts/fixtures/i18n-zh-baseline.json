@@ -1,7 +1,7 @@
 // Frozen snapshot of the Chinese dictionaries (zh + fixtureZh).
 // Used by scripts/i18n.test.ts: any intentional Chinese copy change must
 // regenerate this file; unintentional drift fails the test.
-// zh: 1074 keys, sha256 4b1a266b1985bf2d895c2581eb91a064a2708ff7e95f4000ee53475b5fb2c006
+// zh: 1074 keys, sha256 80861fd5a8b35c6aa73f8656706f7fc1464194af8cb39a142b261ac715b4df69
 // fixtureZh: 218 keys, sha256 ae0f87d86ac29ab2fa7defd82632d615813adbc1aec6a4cdf1a482e887f725da
 {
   "zh": {
@@ -97,7 +97,7 @@
     "settings.subtitle": "Provider / 知识库 / 搜索等——密钥与配置落服务端设置存储",
     "settings.llm.title": "LLM Provider 配置",
     "settings.decision.title": "判定模型 Provider 配置",
-    "settings.decision.desc": "Jev 判定模型与主 chat 模型并行启用，用于判分复核与闸门预筛，永远不会被选为主 chat 目标。",
+    "settings.decision.desc": "判定模型是 Playground 实况运行的唯一判分器；与 chat 模型分开配置，永不被选为主 chat 目标，也不会由 chat 模型兜底判分。",
     "settings.decision.jevGlobalTitle": "判定模型全局开关",
     "settings.decision.jevGlobalOn": "已启用",
     "settings.decision.jevGlobalOff": "未启用",
@@ -347,10 +347,10 @@
     "playground.analysis.costLine": "平均 {avg} 词元 · p50 {p50}ms · p95 {p95}ms",
     "playground.analysis.sourceLine": "{source}：{agree}/{judged} 一致（共 {total}）",
     "playground.analysis.confLine": "实际置信：平均 {avg}，最高 {max}，最低 {min}；达门限 {pct}",
-    "playground.eyebrow": "实况风洞 · M1",
+    "playground.eyebrow": "实况风洞",
     "playground.title": "实况风洞",
-    "playground.subtitle": "中国法院 · 专利司法卷宗审理（LED 相变散热模组案）· 确定性判分，无 LLM 黑盒",
-    "playground.scenario.sub": "45 道题 · 三段互斥集 · 确定性判分，无 LLM 黑盒",
+    "playground.subtitle": "中国法院 · 专利司法卷宗审理（LED 相变散热模组案）· 判定模型判分，确定性检查留作证据",
+    "playground.scenario.sub": "45 道题 · 三段互斥集 · 判定模型判分，确定性检查作证据",
     "playground.scenario.tasks": "道题",
     "playground.scenario.domains": "通用 / 法律 / 安全",
     "playground.scenario.splits": "修复 / 门禁 / 记分卡",
@@ -541,7 +541,7 @@
     "playground.evo.runContinuous": "连续自演化",
     "playground.evo.continuousActive": "连续演化进行中…",
     "playground.evo.profileOption.demo": "演示 — 筛检 {failed}+{guards} 题，门禁 {gate}×{reps}（约 2 分钟）",
-    "playground.evo.profileOption.full": "完整 — 筛检 {failed}+{guards} 题，门禁 14×N（约 30 分钟）",
+    "playground.evo.profileOption.full": "完整 — 筛检 {failed}+{guards} 题，门禁 13×N（约 30 分钟）",
     "playground.evo.profileHint": "每次比较都是真实执行。演示档筛检的题更少，它的提升只是烟雾信号，不是测量结论。",
     "playground.evo.autonomyOption.0": "0 — 全手动",
     "playground.evo.autonomyOption.1": "1 — 条件自动",

@@ -267,7 +267,7 @@ export default function EvolutionPanel({ onOpenEvaluate }: { onOpenEvaluate?: ()
     // Cost must be quoted from the profile that will actually run, not from the
     // full measured set — the demo profile uses 3 gate tasks at ×1 and one
     // repetition per screened slot.
-    const gateN = gateTasksFor(profile)?.length ?? 14
+    const gateN = gateTasksFor(profile)?.length ?? 13
     const gateRep = profile === 'demo' ? (EVO_PROFILES.demo.gateRepeats ?? 1) : repeats
     const screenRep = EVO_PROFILES[profile].screenRepeats ?? SCREEN_REPEATS
     const screenRuns = (EVO_PROFILES[profile].screenFailed + EVO_PROFILES[profile].screenGuards) * RUNS_PER_SLOT * screenRep

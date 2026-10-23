@@ -11,8 +11,7 @@
     "check:paper": "tsx scripts/check-paper-numbers.ts",
     "test": "tsx --test scripts/i18n.test.ts scripts/reliability.test.ts scripts/adaptation.test.ts scripts/transfer.test.ts scripts/critical-step.test.ts scripts/minimal-rich.test.ts scripts/forge-surface.test.ts scripts/export.test.ts scripts/importers.test.ts scripts/providers.test.ts scripts/model-filter.test.ts scripts/legal.test.ts scripts/redteam.test.ts scripts/i18n-render.test.ts scripts/i18n-zh-coverage.test.ts scripts/playground-scorer.test.ts scripts/jev.test.ts scripts/jev-reviews.test.ts scripts/playground-analysis.test.ts scripts/batch-units.test.ts scripts/playground-tokens.test.ts scripts/p0a-assertions.test.ts scripts/p1c-tags.test.ts scripts/p1e-pairs.test.ts scripts/p1e-rag.test.ts scripts/knowledge-spacing.test.ts scripts/llm-fallback.test.ts scripts/decision-fallback.test.ts scripts/playground-live.test.ts scripts/playground-e2e.test.ts scripts/playground-result-order.test.ts scripts/playground-compare-order.test.ts scripts/playground-fork-diff.test.ts scripts/playground-rouge.test.ts scripts/playground-harness-effects.test.ts scripts/playground-harness-modules.test.ts scripts/knowledge-search.test.ts scripts/playground-import.test.ts scripts/playground-evolve.test.ts scripts/playground-cost.test.ts",
     "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "doc:html": "tsx scripts/md2html.ts docs/playground-live-design-v0.1.md docs/playground-live-design.html"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "echarts": "^5.5.1",
