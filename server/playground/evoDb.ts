@@ -9,6 +9,7 @@
 // current generation at a parent, never editing a committed config.
 import type { DatabaseSync } from 'node:sqlite'
 import { getPlaygroundDb } from './liveDb'
+import type { HarnessConfig } from '../../shared/config'
 import type {
   ChangeCard,
   EvoCluster,
@@ -195,6 +196,34 @@ export function updateCardFalsification(
 ): void {
   db().prepare('UPDATE pg_evo_cards SET status = ?, verdict = ?, falsification_json = ? WHERE card_id = ?')
     .run(status, verdict, JSON.stringify(falsification), cardId)
+}
+
+/**
+ * Rewrite a proposal's values before it has been verified. Changing what a card
+ * proposes invalidates any earlier screening, so the stored falsification is
+ * dropped and the card returns to "proposed" — a stale verdict must never be
+ * shown next to values that have never run.
+ */
+export function updateCardProposal(
+  cardId: string,
+  middlewareDiff: Partial<HarnessConfig> | null,
+  promptDiff: ChangeCard['promptDiff'],
+): boolean {
+  const r = db()
+    .prepare(
+      `UPDATE pg_evo_cards
+          SET middleware_diff_json = ?, prompt_diff_json = ?,
+              falsification_json = NULL,
+              status = CASE WHEN status = 'applied' THEN status ELSE 'proposed' END,
+              verdict = CASE WHEN verdict = 'needs-human' THEN verdict ELSE 'pending' END
+        WHERE card_id = ?`,
+    )
+    .run(
+      middlewareDiff ? JSON.stringify(middlewareDiff) : null,
+      promptDiff ? JSON.stringify(promptDiff) : null,
+      cardId,
+    )
+  return r.changes > 0
 }
 
 function rowToCard(row: Record<string, unknown>): ChangeCard {

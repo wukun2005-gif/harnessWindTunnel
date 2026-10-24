@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/playground'
 import LivePanel from './LivePanel'
 import EvolutionPanel from './EvolutionPanel'
+import { ReadGuide } from '../../components/ReadGuide'
 
 type Workspace = 'live' | 'evolve' | 'evalset'
 
@@ -46,6 +47,8 @@ export default function Playground() {
         <h1>{t('playground.title')}</h1>
         <span className="q">{t('playground.subtitle')}</span>
       </div>
+
+      <ReadGuide keys={['guide.playground.1', 'guide.playground.2', 'guide.playground.3']} />
 
       {data && (
         <div className="pg-scenario">
@@ -100,6 +103,16 @@ function countOf<T extends 'domain' | 'split'>(tasks: EvalTask[], field: T, valu
   return tasks.filter((task) => String(task[field]) === value).length
 }
 
+/** A task is a trap when it carries any adversarial payload, not just an injection. */
+function hasTrap(task: EvalTask): boolean {
+  return Boolean(
+    task.injectionTrap
+    || task.overreach
+    || task.antiHallucination
+    || (task.sensitiveFields?.length ?? 0) > 0,
+  )
+}
+
 // ── Panel A: the eval set ──────────────────────────────────────────────────
 
 function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
@@ -108,12 +121,14 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
   const domains: PgDomain[] = ['general', 'legal', 'security']
   const [split, setSplit] = useState<PgSplit | 'all'>('all')
   const [domain, setDomain] = useState<PgDomain | 'all'>('all')
+  const [trapOnly, setTrapOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const splitCount = (sp: PgSplit) => data.tasks.filter((x) => x.split === sp).length
   const domainCount = (dm: PgDomain) => data.tasks.filter((x) => x.domain === dm).length
   const signatureCount = data.tasks.filter((x) => x.signature).length
+  const trapCount = data.tasks.filter(hasTrap).length
 
   const rows = useMemo(() => {
     const splitRank = new Map(splits.map((s, i) => [s, i]))
@@ -121,6 +136,7 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
     const q = search.trim().toLowerCase()
     return data.tasks
       .filter((task) => (split === 'all' || task.split === split) && (domain === 'all' || task.domain === domain))
+      .filter((task) => !trapOnly || hasTrap(task))
       .filter((task) => !q || task.id.toLowerCase().includes(q) || task.title.toLowerCase().includes(q) || task.query.toLowerCase().includes(q))
       .sort((a, b) => {
         const sa = splitRank.get(a.split) ?? 9
@@ -131,7 +147,7 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
         if (da !== db) return da - db
         return a.id.localeCompare(b.id, 'en', { numeric: true })
       })
-  }, [data, split, domain, search])
+  }, [data, split, domain, trapOnly, search])
 
   return (
     <div className="pg-eval">
@@ -146,6 +162,7 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
             key={sp}
             className={`pg-stat-card ${split === sp ? 'active' : ''}`}
             onClick={() => setSplit(split === sp ? 'all' : sp)}
+            title={t(`playground.split.${sp}.hint`)}
           >
             <span className="pg-stat-label">{t(`playground.split.${sp}`)}</span>
             <b>{splitCount(sp)}</b>
@@ -174,7 +191,12 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
             <span className="pg-filter-label">{t('playground.eval.split')}</span>
             <button className={`pg-chip ${split === 'all' ? 'active' : ''}`} onClick={() => setSplit('all')}>{t('playground.eval.all')}</button>
             {splits.map((sp) => (
-              <button key={sp} className={`pg-chip ${split === sp ? 'active' : ''}`} onClick={() => setSplit(sp)}>
+              <button
+                key={sp}
+                className={`pg-chip ${split === sp ? 'active' : ''}`}
+                onClick={() => setSplit(sp)}
+                title={t(`playground.split.${sp}.hint`)}
+              >
                 {t(`playground.split.${sp}`)} <span className="pg-chip-count">{splitCount(sp)}</span>
               </button>
             ))}
@@ -183,10 +205,26 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
             <span className="pg-filter-label">{t('playground.eval.domain')}</span>
             <button className={`pg-chip ${domain === 'all' ? 'active' : ''}`} onClick={() => setDomain('all')}>{t('playground.eval.all')}</button>
             {domains.map((dm) => (
-              <button key={dm} className={`pg-chip ${domain === dm ? 'active' : ''}`} onClick={() => setDomain(dm)}>
+              <button
+                key={dm}
+                className={`pg-chip ${domain === dm ? 'active' : ''}`}
+                onClick={() => setDomain(dm)}
+                title={t(`playground.domain.${dm}.hint`)}
+              >
                 {t(`playground.domain.${dm}`)} <span className="pg-chip-count">{domainCount(dm)}</span>
               </button>
             ))}
+          </div>
+          <div className="pg-filter-group">
+            <span className="pg-filter-label">{t('playground.eval.traps')}</span>
+            <button
+              className={`pg-chip ${trapOnly ? 'active' : ''}`}
+              onClick={() => setTrapOnly((v) => !v)}
+              title={t('playground.eval.trapHint')}
+              aria-pressed={trapOnly}
+            >
+              {t('playground.eval.trapOnly')} <span className="pg-chip-count">{trapCount}</span>
+            </button>
           </div>
           <input
             type="search"
@@ -198,24 +236,43 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
           />
         </div>
 
+        <div className="pg-eval-legend">
+          <span><span className="pg-star">★</span> {t('playground.eval.legend.signature')}</span>
+          <span><span className="pg-trap-tag">{t('playground.eval.trapTag')}</span> {t('playground.eval.legend.trap')}</span>
+          <span className="faint">{t('playground.eval.legend.click')}</span>
+        </div>
+
         <div className="pg-table-wrap">
           <table className="pg-task-table">
             <thead>
               <tr>
                 <th>{t('playground.eval.colId')}</th>
                 <th>{t('playground.eval.colTask')}</th>
-                <th>{t('playground.eval.colDomain')}</th>
-                <th>{t('playground.eval.colScorer')}</th>
-                <th>{t('playground.eval.colSplit')}</th>
+                <th title={t('playground.eval.colDomainHint')}>{t('playground.eval.colDomain')}</th>
+                <th title={t('playground.eval.colScorerHint')}>{t('playground.eval.colScorer')}</th>
+                <th title={t('playground.eval.colSplitHint')}>{t('playground.eval.colSplit')}</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((task) => {
+              {rows.map((task, index) => {
                 const open = expanded === task.id
+                const trap = hasTrap(task)
+                const groupStart = index === 0 || rows[index - 1]?.split !== task.split
                 return (
                   <Fragment key={task.id}>
+                    {groupStart && (
+                      <tr className="pg-group-row">
+                        <td colSpan={5}>
+                          <span className="pg-group-name">{t(`playground.split.${task.split}`)}</span>
+                          <span className="pg-group-count">
+                            {rows.filter((r) => r.split === task.split).length}
+                          </span>
+                          <span className="pg-group-hint">{t(`playground.split.${task.split}.hint`)}</span>
+                        </td>
+                      </tr>
+                    )}
                     <tr
-                      className={`pg-task-row ${open ? 'open' : ''}`}
+                      className={`pg-task-row ${open ? 'open' : ''} ${trap ? 'is-trap' : ''}`}
                       onClick={() => setExpanded(open ? null : task.id)}
                       tabIndex={0}
                       onKeyDown={(e) => {
@@ -230,11 +287,27 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
                         <span className="pg-task-title">
                           {task.signature && <span className="pg-star" title={t('playground.task.signature')}>★</span>}
                           {task.title}
+                          {trap && (
+                            <span className="pg-trap-tag" title={t('playground.eval.trapHint')}>
+                              {t('playground.eval.trapTag')}
+                            </span>
+                          )}
                         </span>
                       </td>
-                      <td><span className={`pg-domain-tag pg-domain-${task.domain}`}>{t(`playground.domain.${task.domain}`)}</span></td>
-                      <td className="faint">{t(`playground.scorer.${task.scorerType}`)}</td>
-                      <td className="faint">{t(`playground.split.${task.split}`)}</td>
+                      <td>
+                        <span
+                          className={`pg-domain-tag pg-domain-${task.domain}`}
+                          title={t(`playground.domain.${task.domain}.hint`)}
+                        >
+                          {t(`playground.domain.${task.domain}`)}
+                        </span>
+                      </td>
+                      <td className="faint" title={t(`playground.scorer.${task.scorerType}.hint`)}>
+                        {t(`playground.scorer.${task.scorerType}`)}
+                      </td>
+                      <td className="faint" title={t(`playground.split.${task.split}.hint`)}>
+                        {t(`playground.split.${task.split}`)}
+                      </td>
                     </tr>
                     {open && (
                       <tr className="pg-task-detail-row">
@@ -287,7 +360,11 @@ function EvalSetPanel({ data }: { data: PlaygroundTaskList }) {
             </tbody>
           </table>
         </div>
-        {rows.length === 0 && <div className="pg-empty">{t('playground.eval.empty')}</div>}
+        {rows.length === 0 && (
+          <div className="pg-empty">
+            {trapOnly ? t('playground.eval.emptyTrap') : t('playground.eval.empty')}
+          </div>
+        )}
       </div>
     </div>
   )

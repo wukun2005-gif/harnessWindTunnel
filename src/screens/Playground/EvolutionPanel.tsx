@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api'
+import { COMPONENT_META, type ConfigField } from '../../../shared/config'
 import type {
   ApplyResult,
   ChangeCard,
@@ -622,35 +623,66 @@ export default function EvolutionPanel({ onOpenEvaluate }: { onOpenEvaluate?: ()
       ) : (
         <>
           <div className="pg-evo-steps">
-            <div className="pg-evo-step">
+            <button
+              type="button"
+              className="pg-evo-step pg-step-click"
+              onClick={() => {
+                setFilter('all')
+                const first = groups[0]?.latestCards[0]
+                if (first) setSelectedId(first.cardId)
+              }}
+            >
               <span className="pg-step-index">1</span>
               <div>
                 <b>{E.t('playground.evo.step.diagnose')}</b>
                 <span>{E.t('playground.evo.step.groups', { n: groups.length })}</span>
               </div>
-            </div>
-            <div className="pg-evo-step">
+            </button>
+            <button
+              type="button"
+              className="pg-evo-step pg-step-click"
+              onClick={() => {
+                setFilter('all')
+                const first = latestCards[0]
+                if (first) setSelectedId(first.cardId)
+              }}
+            >
               <span className="pg-step-index">2</span>
               <div>
                 <b>{E.t('playground.evo.step.propose')}</b>
                 <span>{E.t('playground.evo.step.cards', { n: latestCards.length })}</span>
               </div>
-            </div>
-            <div className="pg-evo-step">
+            </button>
+            <button
+              type="button"
+              className="pg-evo-step pg-step-click"
+              onClick={() => {
+                setFilter('needs')
+                const first = needsCards[0] ?? humanCards[0] ?? readyCards[0]
+                if (first) setSelectedId(first.cardId)
+              }}
+            >
               <span className="pg-step-index">3</span>
               <div>
                 <b>{E.t('playground.evo.step.falsify')}</b>
                 <span>{E.t('playground.evo.step.verified', { n: verifiedCards })}</span>
               </div>
-            </div>
-            <div className="pg-evo-step">
+            </button>
+            <button
+              type="button"
+              className="pg-evo-step pg-step-click"
+              onClick={() => {
+                document.querySelector('.pg-versions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+            >
               <span className="pg-step-index">4</span>
               <div>
                 <b>{E.t('playground.evo.step.approve')}</b>
                 <span>{E.t('playground.evo.step.versions', { n: evolveGens.length })}</span>
               </div>
-            </div>
+            </button>
           </div>
+          <div className="faint" style={{ margin: '-2px 0 8px', fontSize: 11 }}>{E.t('playground.evo.step.clickHint')}</div>
 
           {next && (
             <div className={`pg-evo-next pg-next-${next.tone}`}>
@@ -698,7 +730,18 @@ export default function EvolutionPanel({ onOpenEvaluate }: { onOpenEvaluate?: ()
                     const route = group.latest.routeHistory[group.latest.routeHistory.length - 1]
                     return (
                       <div className="pg-inbox-group" key={group.key}>
-                        <div className="pg-inbox-group-head">
+                        <div
+                          className="pg-inbox-group-head"
+                          role="button"
+                          tabIndex={0}
+                          title={E.t('playground.evo.inbox.openGroup')}
+                          onClick={() => {
+                            if (cards[0]) setSelectedId(cards[0].cardId)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && cards[0]) setSelectedId(cards[0].cardId)
+                          }}
+                        >
                           <span className="pg-inbox-tag">{E.mast(group.latest.tag)}</span>
                           <span className="pg-inbox-count">
                             {E.t('playground.evo.inbox.failed', { n: group.latest.count })}
@@ -754,6 +797,7 @@ export default function EvolutionPanel({ onOpenEvaluate }: { onOpenEvaluate?: ()
             <section className="pg-evo-detail" id="pg-evo-detail">
               {activeCard ? (
                 <CardDetail
+                  key={activeCard.cardId}
                   card={activeCard}
                   cluster={activeCluster}
                   mutation={activeMutation}
@@ -761,6 +805,7 @@ export default function EvolutionPanel({ onOpenEvaluate }: { onOpenEvaluate?: ()
                   level={level}
                   onApply={apply}
                   onGate={gateVerify}
+                  onChanged={() => void refresh()}
                 />
               ) : (
                 <div className="pg-detail-placeholder">
@@ -786,6 +831,7 @@ function CardDetail({
   level,
   onApply,
   onGate,
+  onChanged,
 }: {
   card: ChangeCard
   cluster: EvoCluster | null
@@ -794,6 +840,7 @@ function CardDetail({
   level: number
   onApply: (card: ChangeCard, mode: 'manual' | 'auto') => void
   onGate: (commitId: string) => void
+  onChanged: () => void
 }) {
   const E = useEvoI18n()
   const phase = phaseOf(card, mutation ?? undefined)
@@ -801,9 +848,51 @@ function CardDetail({
   const gate = mutation?.gate ?? null
   const gateStatus = mutation?.gateStatus ?? 'idle'
   const hardHuman = card.hardGate || !card.inTable || card.verdict === 'needs-human'
-  const canApply = card.status !== 'applied' && card.status !== 'screening' && card.verdict !== 'needs-human'
+  // A human may always run verification themselves; only the AUTO path is
+  // closed for out-of-table and hard-gate cards. Hiding the button entirely left
+  // "human review required" cards with no way for a human to act.
+  const canApply = card.status !== 'applied' && card.status !== 'screening'
   const hasChanges = !!(card.promptDiff || card.middlewareDiff || card.mountDiff)
+  const canEdit = hasChanges && card.status !== 'applied' && card.status !== 'screening'
   const route = cluster?.routeHistory[cluster.routeHistory.length - 1]
+  const [editing, setEditing] = useState(false)
+  const [draftMw, setDraftMw] = useState<Record<string, string>>({})
+  const [draftPrompt, setDraftPrompt] = useState<{ guides?: string; guideStyle?: string }>({})
+  const [saving, setSaving] = useState(false)
+  const [editErr, setEditErr] = useState<string | null>(null)
+
+  const startEdit = () => {
+    setDraftMw(Object.fromEntries(Object.entries(card.middlewareDiff ?? {}).map(([k, v]) => [k, String(v)])))
+    setDraftPrompt({ guides: card.promptDiff?.guides, guideStyle: card.promptDiff?.guideStyle })
+    setEditErr(null)
+    setEditing(true)
+  }
+  const saveEdit = async () => {
+    setSaving(true)
+    setEditErr(null)
+    try {
+      const r = await api.pgUpdateCardDraft(card.cardId, {
+        ...(card.middlewareDiff ? { middlewareDiff: draftMw } : {}),
+        ...(card.promptDiff ? { promptDiff: draftPrompt } : {}),
+      })
+      if (!r.ok) {
+        // Server errors are English/technical; the UI only needs to say the
+        // proposal was not saved and why in one localised line.
+        setEditErr(r.error?.includes('cannot be edited')
+          ? E.t('playground.evo.detail.editLocked')
+          : E.t('playground.evo.detail.editFailed'))
+        return
+      }
+      setEditing(false)
+      // The server dropped the old screening, so pull the state again: the next
+      // screen must run on the values the human actually chose.
+      onChanged()
+    } catch (e) {
+      setEditErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="pg-detail-body">
@@ -832,7 +921,7 @@ function CardDetail({
       </div>
 
       <div className="pg-detail-section">
-        <div className="pg-detail-label">{E.t('playground.evo.detail.why')}</div>
+        <div className="pg-detail-label">{E.t('playground.evo.detail.evidenceTitle')}</div>
         <p className="pg-detail-why">
           {cluster ? E.clusterSummary(cluster) : E.t('playground.evo.detail.clusterGone')}
         </p>
@@ -868,8 +957,66 @@ function CardDetail({
       </div>
 
       <div className="pg-detail-section">
-        <div className="pg-detail-label">{E.t('playground.evo.detail.whatChanges')}</div>
-        {hasChanges ? <ChangePreview card={card} /> : (
+        <div className="pg-detail-label">{E.t('playground.evo.detail.changeTitle')}</div>
+        {editing ? (
+          <div className="pg-edit">
+            {card.middlewareDiff && Object.keys(card.middlewareDiff).map((field) => {
+              const meta = COMPONENT_META[field as ConfigField]
+              return (
+                <label key={field} className="pg-edit-field">
+                  <span>{meta?.label ?? field}</span>
+                  <select
+                    value={draftMw[field] ?? ''}
+                    onChange={(e) => setDraftMw({ ...draftMw, [field]: e.target.value })}
+                  >
+                    {(meta?.options ?? []).map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+              )
+            })}
+            {card.promptDiff?.guides !== undefined && (
+              <label className="pg-edit-field pg-edit-wide">
+                <span>{E.t('playground.evo.diff.guidance')}</span>
+                <textarea
+                  rows={3}
+                  value={draftPrompt.guides ?? ''}
+                  onChange={(e) => setDraftPrompt({ ...draftPrompt, guides: e.target.value })}
+                />
+              </label>
+            )}
+            {card.promptDiff?.guideStyle !== undefined && (
+              <label className="pg-edit-field pg-edit-wide">
+                <span>{E.t('playground.evo.diff.guideStyle')}</span>
+                <input
+                  value={draftPrompt.guideStyle ?? ''}
+                  onChange={(e) => setDraftPrompt({ ...draftPrompt, guideStyle: e.target.value })}
+                />
+              </label>
+            )}
+            <div className="pg-edit-actions">
+              <button className="primary" disabled={saving} onClick={() => void saveEdit()}>
+                {saving ? E.t('playground.evo.detail.running') : E.t('playground.evo.detail.editSave')}
+              </button>
+              <button disabled={saving} onClick={() => setEditing(false)}>
+                {E.t('playground.evo.detail.editCancel')}
+              </button>
+              <span className="faint">{E.t('playground.evo.detail.editHint')}</span>
+            </div>
+            {editErr && <div className="pg-err">{editErr}</div>}
+          </div>
+        ) : hasChanges ? (
+          <>
+            <ChangePreview card={card} />
+            {canEdit && (
+              <button className="chip" style={{ marginTop: 6 }} onClick={startEdit}>
+                {E.t('playground.evo.detail.edit')}
+              </button>
+            )}
+            {!canEdit && <div className="faint" style={{ marginTop: 4 }}>{E.t('playground.evo.detail.editLocked')}</div>}
+          </>
+        ) : (
           <p className="pg-diff-empty">{E.t('playground.evo.detail.noPatch')}</p>
         )}
         <div className="pg-detail-flags">
@@ -882,16 +1029,23 @@ function CardDetail({
           <span className="pg-badge pg-badge-src">
             {E.t(card.proposalSource === 'llm' ? 'playground.evo.detail.llm' : 'playground.evo.detail.template')}
           </span>
-          {card.predictedGainPp != null && (
-            <span className="pg-badge pg-badge-pred">
-              {E.t('playground.evo.detail.predicted', { n: card.predictedGainPp })}
-            </span>
-          )}
         </div>
       </div>
 
       <div className="pg-detail-section">
-        <div className="pg-detail-label">{E.t('playground.evo.detail.evidence')}</div>
+        <div className="pg-detail-label">{E.t('playground.evo.detail.expectTitle')}</div>
+        <div className="pg-expect">
+          <div className="pg-expect-pred">
+            <span>{E.t('playground.evo.detail.predictedLabel')}</span>
+            <b>{card.predictedGainPp != null ? `≈ +${card.predictedGainPp}pp` : E.t('playground.evo.detail.noPrediction')}</b>
+            <small>{E.t('playground.evo.detail.predictedNote')}</small>
+          </div>
+          <div className="pg-expect-rule">
+            <b>{E.t('playground.evo.detail.ruleTitle')}</b>
+            <span>{E.t('playground.evo.detail.ruleBody')}</span>
+            {hardHuman && <span className="pg-expect-warn">{E.t('playground.evo.detail.ruleOutTable')}</span>}
+          </div>
+        </div>
         {phase === 'screening' && (
           <div className="pg-evidence-empty pg-evidence-run">{E.t('playground.evo.detail.screening')}</div>
         )}
@@ -924,16 +1078,16 @@ function CardDetail({
 
       <div className="pg-detail-actions">
         {canApply ? (
-          <button className="primary" onClick={() => void onApply(card, 'manual')} disabled={busy}>
+          <button className="primary" onClick={() => void onApply(card, 'manual')} disabled={busy || editing}>
             {busy
               ? E.t('playground.evo.detail.running')
-              : E.t(f ? 'playground.evo.detail.reverify' : 'playground.evo.detail.runApply')}
+              : E.t(f ? 'playground.evo.detail.verifyAgain' : 'playground.evo.detail.verifyFirst')}
           </button>
         ) : card.status === 'applied' ? (
           <span className="pg-action-note">{E.t('playground.evo.detail.appliedNote')}</span>
         ) : null}
         {!hardHuman && canApply && (
-          <button onClick={() => void onApply(card, 'auto')} disabled={busy}>
+          <button onClick={() => void onApply(card, 'auto')} disabled={busy || editing}>
             {E.t('playground.evo.detail.letAuto', { n: level })}
           </button>
         )}

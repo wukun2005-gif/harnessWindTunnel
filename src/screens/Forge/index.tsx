@@ -5,6 +5,7 @@ import type { ForgeGen } from '../../api'
 import { SourceBadge } from '../MRI'
 import { useT, useFixture } from '../../i18n'
 import { downloadJson } from '../../lib/pack'
+import { ReadGuide } from '../../components/ReadGuide'
 
 export default function Forge() {
   const { forge, metas } = useApp()
@@ -26,18 +27,31 @@ export default function Forge() {
   const decision = F.decisions[gen.gen]
 
   const tree = useMemo(() => {
-    const nodes: { gen: number; msg: string; kind: 'commit' | 'rejected' | 'rollback' }[] = []
+    const nodes: { gen: number; msg: string; kind: 'commit' | 'rejected' | 'rollback' | 'pending' }[] = []
     for (const g of forge.gens) {
       const v = F.decisions[g.gen] ?? (g.gen < F.currentGen ? g.verdict : 'pending')
       if (v === 'approved') nodes.push({ gen: g.gen, msg: f(g.card.title), kind: 'commit' })
       else if (v === 'rejected') nodes.push({ gen: g.gen, msg: t('forge.rollback.point', { gen: g.gen, title: f(g.card.title) }), kind: 'rollback' })
-      else nodes.push({ gen: g.gen, msg: t('forge.tree.pendingTitle', { title: f(g.card.title), state: t('forge.pending.approval') }), kind: 'rejected' })
+      // Pending is its own state: nothing has happened yet, so it must not wear
+      // the red "rejected" costume. Amber hollow dot = waiting for a signature.
+      else nodes.push({ gen: g.gen, msg: t('forge.tree.pendingTitle', { title: f(g.card.title), state: t('forge.pending.approval') }), kind: 'pending' })
     }
     return nodes
   }, [forge, F.decisions, F.currentGen, t])
 
   const scoreAt = (upTo: number) =>
     forge.startScore + forge.gens.filter((g) => g.gen <= upTo && (F.decisions[g.gen] ?? (g.gen < F.currentGen ? g.verdict : 'pending')) === 'approved').reduce((n, g) => n + g.gain, 0)
+
+  // Full-sign-off score: every non-rejected generation approved. A rejected
+  // card never enters the tree, so its negative gain must not silently drag the
+  // upper bound down (that made the badge read 70.8% while the curve ended at
+  // 77.0%). The counter-example still shows its own −6.2pp in the falsification
+  // card; it just never becomes a signed-off gain.
+  const allApprovedScore = forge.gens.reduce(
+    (n, g) => n + (g.verdict === 'rejected' ? 0 : g.gain),
+    forge.startScore,
+  )
+  const pendingCount = forge.gens.filter((g) => g.gen >= F.currentGen && verdictOf(g) === 'pending').length
 
   const scenario = metas[forge.scenarioId]
 
@@ -49,13 +63,22 @@ export default function Forge() {
         <span className="q">{t('forge.subtitle')}</span>
         <div style={{ marginLeft: 'auto' }}>
           <button className={F.autoplay ? '' : 'primary'} onClick={() => (F.autoplay ? F.setGen(F.currentGen) : F.autoplayTo(forge.gens.length))}>
-            {F.autoplay ? t('forge.pause') : t('forge.autoplay')}
+            {F.autoplay ? t('forge.pause') : t('forge.autoplayRemaining', { count: pendingCount })}
           </button>{' '}
           <button onClick={() => F.reset()}>{t('forge.reset')}</button>
           {haltedGen && (
             <span className="faint" style={{ marginLeft: 8 }}>⏸ {t('forge.halt.paused', { gen: haltedGen.gen })} · {haltedGen.falsification.regressed > 0 ? t('forge.halt.regressed') : t('forge.halt.blast', { seam: haltedGen.card.seam })}</span>
           )}
         </div>
+      </div>
+
+      <ReadGuide keys={['guide.evolution.1', 'guide.evolution.2', 'guide.evolution.3']} />
+
+      {/* What is being evolved, fixed and visible before any card is read. */}
+      <div className="locked-context">
+        <span className="lc-label">{t('forge.context.label')}</span>
+        <span className="lc-item"><b>{t('forge.context.scenario')}</b> {t(`scenario.${forge.scenarioId}.family`) !== `scenario.${forge.scenarioId}.family` ? t(`scenario.${forge.scenarioId}.family`) : scenario?.familyLabel ?? forge.scenarioId}</span>
+        <span className="lc-item"><b>{t('forge.context.gens')}</b> <span className="mono">{F.currentGen}/{forge.gens.length}</span></span>
       </div>
 
       <div className="grid-forge">
@@ -80,16 +103,29 @@ export default function Forge() {
             <div className="gen-list">
               {forge.gens.map((g) => {
                 const v = verdictOf(g)
-                // Pill shows the EFFECTIVE mainline contribution, not the raw datum:
-                // rejected / pending gens contribute 0 no matter what gain is recorded.
-                const eff = v === 'approved' ? g.gain : 0
+                // Approved shows the real gain; rejected shows a dash (it never
+                // entered the mainline); pending shows the predicted interval so
+                // the row is not mistaken for a +0.0 no-op.
+                const gainText = v === 'approved'
+                  ? `${g.gain >= 0 ? '+' : ''}${g.gain.toFixed(1)}`
+                  : v === 'pending'
+                    ? t('forge.pending.range', {
+                        low: g.card.prediction.gainPp[0].toFixed(1),
+                        high: g.card.prediction.gainPp[1].toFixed(1),
+                      })
+                    : '—'
                 return (
                   <div key={g.gen} className={`gen-item ${g.gen === F.currentGen ? 'cur' : ''}`} onClick={() => F.setGen(g.gen)}>
-                    <span className="g">{t('forge.gen', { gen: g.gen })}</span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-dim)' }}>{f(g.card.title)}</span>
-                    <span className={`verdict-chip vc-${v}`}>{v === 'pending' ? t('forge.verdict.pending') : v === 'approved' ? t('forge.verdict.approved') : t('forge.verdict.rejected')}</span>
-                    {F.autoDecided[g.gen] && <span className="faint" style={{ fontSize: 10 }} title={t('forge.auto.applied')}>· {t('forge.auto.badge')}</span>}
-                    <span className={`gain ${eff > 0 ? 'delta-pos' : eff < 0 ? 'delta-neg' : 'delta-zero'}`}>{eff >= 0 ? '+' : ''}{eff.toFixed(1)}</span>
+                    <div className="gi-top">
+                      <span className="g">{t('forge.gen', { gen: g.gen })}</span>
+                      <span className={`verdict-chip vc-${v}`}>{v === 'pending' ? t('forge.verdict.pending') : v === 'approved' ? t('forge.verdict.approved') : t('forge.verdict.rejected')}</span>
+                      {F.autoDecided[g.gen] && <span className="faint" style={{ fontSize: 10 }} title={t('forge.auto.applied')}>· {t('forge.auto.badge')}</span>}
+                      <span
+                        className={`gain ${v === 'pending' ? 'delta-pending' : v === 'approved' ? (g.gain > 0 ? 'delta-pos' : g.gain < 0 ? 'delta-neg' : 'delta-zero') : 'delta-zero'}`}
+                        title={v === 'pending' ? t('forge.pending.note') : undefined}
+                      >{gainText}</span>
+                    </div>
+                    <div className="gi-title" title={f(g.card.title)}>{f(g.card.title)}</div>
                   </div>
                 )
               })}
@@ -148,7 +184,7 @@ export default function Forge() {
             )}
           </div>
 
-          <ScoreCurve forge={forge} currentGen={F.currentGen} scoreAt={scoreAt} />
+          <ScoreCurve forge={forge} currentGen={F.currentGen} scoreAt={scoreAt} verdictOf={verdictOf} allApproved={allApprovedScore} />
         </div>
 
         {/* Right: Version tree + Evidence Pack */}
@@ -160,11 +196,11 @@ export default function Forge() {
               {tree.map((n) => (
                 <div key={n.gen}>
                   <div className={n.kind === 'commit' ? '' : 'vline stub'} style={n.kind === 'commit' ? { width: 0, height: 0 } : undefined} />
-                  <div className={`vnode ${n.kind === 'commit' ? '' : n.kind === 'rollback' ? 'rollback' : 'rejected'}`} onClick={() => setPackOf(forge.gens.find((g) => g.gen === n.gen) ?? null)}>
+                  <div className={`vnode ${n.kind === 'commit' ? '' : n.kind === 'rollback' ? 'rollback' : n.kind}`} onClick={() => setPackOf(forge.gens.find((g) => g.gen === n.gen) ?? null)}>
                     <span className="g">{t('forge.gen', { gen: n.gen })}</span>
                     <span className="dot2" />
                     <span className="msg">{n.kind === 'commit' ? t('forge.tree.commit', { id: `${n.gen < 10 ? 'c0' : 'c'}${n.gen}` }) : n.msg}</span>
-                    <span className="g">{n.kind === 'commit' ? `${((forge.gens.find((g) => g.gen === n.gen)?.gain ?? 0) >= 0 ? '+' : '')}${(forge.gens.find((g) => g.gen === n.gen)?.gain ?? 0).toFixed(1)}pp` : ''}</span>
+                    <span className="g">{n.kind === 'commit' ? `${((forge.gens.find((g) => g.gen === n.gen)?.gain ?? 0) >= 0 ? '+' : '')}${(forge.gens.find((g) => g.gen === n.gen)?.gain ?? 0).toFixed(1)}pp` : n.kind === 'pending' ? t('forge.verdict.pendingShort') : ''}</span>
                   </div>
                 </div>
               ))}
@@ -197,35 +233,83 @@ export default function Forge() {
   )
 }
 
-function ScoreCurve({ forge, currentGen, scoreAt }: { forge: NonNullable<ReturnType<typeof useApp.getState>['forge']>, currentGen: number, scoreAt: (n: number) => number }) {
+function ScoreCurve({ forge, currentGen, scoreAt, verdictOf, allApproved }: {
+  forge: NonNullable<ReturnType<typeof useApp.getState>['forge']>
+  currentGen: number
+  scoreAt: (n: number) => number
+  verdictOf: (g: ForgeGen) => 'approved' | 'rejected' | 'pending'
+  allApproved: number
+}) {
   const t = useT()
-  const W = 620, H = 200, P = 40
+  const W = 620, H = 210, P = 40
   const gens = [0, ...forge.gens.map((g) => g.gen)]
-  const pts = gens.map((g) => ({ g, s: scoreAt(g) }))
-  const yMin = forge.startScore - 2, yMax = forge.endScore + 2
+  const currentScore = scoreAt(currentGen)
+
+  // Confirmed path: only generations that already carry a human/policy
+  // signature. Everything after the playhead is a dashed projection using each
+  // pending card's predicted midpoint — never a flat "approved" fiction.
+  const confirmed = gens.filter((g) => g <= currentGen).map((g) => ({ g, s: scoreAt(g) }))
+  const projection: { g: number; s: number }[] = [{ g: currentGen, s: currentScore }]
+  let projected = currentScore
+  for (const g of forge.gens) {
+    if (g.gen <= currentGen) continue
+    const v = verdictOf(g)
+    const gain = v === 'approved' ? g.gain : v === 'rejected' ? 0 : (g.card.prediction.gainPp[0] + g.card.prediction.gainPp[1]) / 2
+    projected += gain
+    projection.push({ g: g.gen, s: projected })
+  }
+
+  const yMin = Math.min(forge.startScore, currentScore, allApproved) - 2
+  const yMax = Math.max(forge.endScore, allApproved, projected) + 2
   const px = (g: number) => P + (g / Math.max(1, forge.gens.length)) * (W - P - 16)
   const py = (s: number) => H - P - ((s - yMin) / (yMax - yMin)) * (H - P - 20)
+  const ticks = [yMin, (yMin + yMax) / 2, yMax].map((v) => Math.round(v * 2) / 2)
+  const last = projection[projection.length - 1]
+
   return (
     <div className="panel" data-demo="curve">
-      <h3>{t('forge.score.curve')} <span className="tag">{t('forge.score.curve.tag')}</span></h3>
+      <h3>
+        {t('forge.score.curve')}
+        <span className="tag mono">{t('forge.score.now', { score: currentScore.toFixed(1) })}</span>
+        <span className="tag mono" style={{ color: 'var(--text-faint)' }}>{t('forge.score.allApproved', { score: allApproved.toFixed(1) })}</span>
+      </h3>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }}>
         <line x1={P} y1={H - P} x2={W - 10} y2={H - P} stroke="var(--border-hi)" />
         <line x1={P} y1={14} x2={P} y2={H - P} stroke="var(--border-hi)" />
-        {[70, 72, 74, 76].map((v) => (
+        {ticks.map((v) => (
           <g key={v}>
             <line x1={P} y1={py(v)} x2={W - 10} y2={py(v)} stroke="var(--border)" strokeDasharray="3 4" />
-            <text x={P - 6} y={py(v) + 3} textAnchor="end" fill="var(--text-faint)" fontSize="10">{v}</text>
+            <text x={P - 6} y={py(v) + 3} textAnchor="end" fill="var(--text-faint)" fontSize="10">{v.toFixed(1)}</text>
           </g>
         ))}
-        <polyline fill="none" stroke="var(--accent)" strokeWidth="2" points={pts.map((p) => `${px(p.g)},${py(p.s)}`).join(' ')} />
-        {pts.map((p) => (
+        {projection.length > 1 && (
+          <polyline
+            fill="none" stroke="var(--amber)" strokeWidth="1.8" strokeDasharray="5 5"
+            points={projection.map((p) => `${px(p.g)},${py(p.s)}`).join(' ')}
+          />
+        )}
+        <polyline fill="none" stroke="var(--accent)" strokeWidth="2" points={confirmed.map((p) => `${px(p.g)},${py(p.s)}`).join(' ')} />
+        {confirmed.map((p) => (
           <g key={p.g}>
-            <circle cx={px(p.g)} cy={py(p.s)} r={p.g <= currentGen ? 4.5 : 3} fill={p.g <= currentGen ? 'var(--accent)' : 'var(--border-hi)'} />
-            <text x={px(p.g)} y={py(p.s) - 9} textAnchor="middle" fill={p.g <= currentGen ? 'var(--text-dim)' : 'var(--text-faint)'} fontSize="10">{p.s.toFixed(1)}</text>
+            <circle cx={px(p.g)} cy={py(p.s)} r={4.5} fill="var(--accent)" />
+            <text x={px(p.g)} y={py(p.s) - 9} textAnchor="middle" fill="var(--text-dim)" fontSize="10">{p.s.toFixed(1)}</text>
             <text x={px(p.g)} y={H - P + 14} textAnchor="middle" fill="var(--text-faint)" fontSize="10">G{p.g}</text>
           </g>
         ))}
+        {projection.filter((p) => p.g > currentGen).map((p) => (
+          <g key={p.g}>
+            <circle cx={px(p.g)} cy={py(p.s)} r={3} fill="var(--bg-panel)" stroke="var(--amber)" strokeWidth="1.5" />
+            <text x={px(p.g)} y={H - P + 14} textAnchor="middle" fill="var(--text-faint)" fontSize="10">G{p.g}</text>
+          </g>
+        ))}
+        {last.g > currentGen && (
+          <text x={px(last.g)} y={py(last.s) - 9} textAnchor="middle" fill="var(--amber)" fontSize="10">{last.s.toFixed(1)}</text>
+        )}
       </svg>
+      <div className="pg-legend">
+        <span className="pg-legend-line solid" /> {t('forge.score.legend.current')}
+        <span className="pg-legend-line dashed" /> {t('forge.score.legend.projection')}
+      </div>
       <div className="faint">{t('forge.score.curve.hint')}</div>
     </div>
   )

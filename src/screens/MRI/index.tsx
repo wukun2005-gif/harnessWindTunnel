@@ -6,6 +6,7 @@ import { useApp, useRun, useTunnel } from '../../stores'
 import { api } from '../../api'
 import { useT, useFixture } from '../../i18n'
 import { fmtTokens } from '../../lib/derive'
+import { ReadGuide } from '../../components/ReadGuide'
 
 export function SourceBadge({ source }: { source: SourceRef }) {
   const t = useT()
@@ -25,6 +26,19 @@ export default function MRI() {
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const t = useT()
+
+  // Failure-tag census for THIS run. The left panel used to list all five tags
+  // in red regardless of what happened, so a clean run still looked broken.
+  const mastHits = useMemo(() => {
+    const m = new Map<MastTag, { count: number; step: number }>()
+    run?.events.forEach((e) => {
+      if (e.type !== 'failure.tag') return
+      const prev = m.get(e.mast)
+      if (prev) prev.count += 1
+      else m.set(e.mast, { count: 1, step: e.step })
+    })
+    return m
+  }, [run])
 
   useEffect(() => {
     if (!meta) return
@@ -53,6 +67,8 @@ export default function MRI() {
         <h1>{t('mri.title')}</h1>
         <span className="q">{t('mri.subtitle')}</span>
       </div>
+      <ReadGuide keys={['guide.insight.1', 'guide.insight.2', 'guide.insight.3']} />
+      <RunConclusion />
       <div className="mri-layout">
         {/* Left toggle button — always visible */}
         <button
@@ -109,11 +125,17 @@ export default function MRI() {
           })()}
           <div className="panel">
             <h3>{t('mri.mast.tags')}</h3>
-            {(Object.keys(MAST_LABEL) as MastTag[]).filter((k) => k !== 'other').map((k) => (
-              <div key={k} style={{ fontSize: 12, marginBottom: 3 }} title={f(MAST_HINT[k])}>
-                <span className="mono" style={{ color: 'var(--red)' }}>{f(MAST_LABEL[k])}</span>
-              </div>
-            ))}
+            {(Object.keys(MAST_LABEL) as MastTag[]).filter((k) => k !== 'other').map((k) => {
+              const hit = mastHits.get(k)
+              return (
+                <div key={k} className={`mast-tag ${hit ? 'hit' : 'idle'}`} title={f(MAST_HINT[k])}>
+                  <span className="mono">{f(MAST_LABEL[k])}</span>
+                  <span className="mast-tag-state">
+                    {hit ? t('mri.mast.hits', { count: hit.count, step: hit.step }) : t('mri.mast.clean')}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -138,10 +160,71 @@ export default function MRI() {
   )
 }
 
+/** One-line verdict for the replayed run, above the fold. */
+function RunConclusion() {
+  const { run, setPlayhead, setPlaying } = useRun()
+  const t = useT()
+  const f = useFixture()
+  if (!run || run.steps.length === 0) {
+    return (
+      <div className="panel conclusion-card">
+        <h3>{t('mri.conclusion.title')}</h3>
+        <div className="faint">{t('mri.conclusion.empty')}</div>
+      </div>
+    )
+  }
+  const finish = run.finish
+  const steps = run.steps
+  const totalTokens = finish?.tokens ?? steps.reduce((n, s) => n + s.estTokens, 0)
+  const peak = steps.reduce((a, b) => (b.estTokens > a.estTokens ? b : a), steps[0])
+  const fires = run.events.filter((e): e is Extract<HarnessEvent, { type: 'shaper.fire' }> => e.type === 'shaper.fire')
+  const freed = fires.reduce((n, e) => n + e.freedTokens, 0)
+  const failureEntries = Object.entries(finish?.failureModes ?? {}) as [MastTag, number][]
+  const top = [...failureEntries].sort((a, b) => b[1] - a[1])[0]
+  const crit = run.criticalStep != null ? steps.find((s) => s.step === run.criticalStep) : undefined
+  const success = finish?.success ?? (crit === undefined && failureEntries.length === 0)
+  const jump = () => {
+    if (!crit) return
+    setPlaying(false)
+    setPlayhead(crit.reqIdx + 1)
+  }
+
+  return (
+    <div className={`panel conclusion-card ${success ? 'ok' : 'fail'}`}>
+      <h3>{t('mri.conclusion.title')}</h3>
+      <div className="conclusion-grid">
+        <div className="conclusion-verdict">
+          <span className={`verdict-pill ${success ? 'ok' : 'fail'}`}>{success ? t('mri.conclusion.ok') : t('mri.conclusion.fail')}</span>
+          <p>
+            {success
+              ? t('mri.conclusion.okLine')
+              : crit
+                ? t('mri.conclusion.failLine', { step: crit.step, mode: top ? f(MAST_LABEL[top[0]]) : '—' })
+                : t('mri.conclusion.failNoStep')}
+          </p>
+          {crit && (
+            <button className="chip" onClick={jump}>◆ {t('mri.conclusion.jump', { step: crit.step })}</button>
+          )}
+        </div>
+        <div className="conclusion-facts">
+          <div><span>{t('mri.conclusion.steps')}</span><b>{steps.length}</b></div>
+          <div><span>{t('mri.conclusion.tokens')}</span><b>{fmtTokens(totalTokens)}</b></div>
+          <div><span>{t('mri.conclusion.latency')}</span><b>{finish ? `${(finish.latencyP50 / 1000).toFixed(1)}s` : '—'}</b></div>
+          <div className="wide">{t('mri.conclusion.pressure', { tokens: fmtTokens(peak.estTokens), step: peak.step })}</div>
+          <div className="wide">{fires.length ? t('mri.conclusion.shaper', { count: fires.length, tokens: fmtTokens(freed) }) : t('mri.conclusion.noShaper')}</div>
+          <div className="wide">{top ? t('mri.conclusion.dominant', { mode: f(MAST_LABEL[top[0]]), count: top[1] }) : t('mri.conclusion.noFailure')}</div>
+        </div>
+      </div>
+      <div className="faint" style={{ marginTop: 6 }}>{t('mri.conclusion.measured')}</div>
+    </div>
+  )
+}
+
 /** F4-5 transcript import: file or built-in sample → normalized events → MRI replay. */
 function ImportPanel() {
   const t = useT()
   const { loadImported } = useRun()
+  const [open, setOpen] = useState(false)
   const [format, setFormat] = useState<'claude' | 'dsh' | 'hwt'>('claude')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -184,7 +267,21 @@ function ImportPanel() {
 
   return (
     <div className="panel" data-demo="import">
-      <h3>{t('mri.import.title')} <span className="tag">{t('mri.import.tag')}</span></h3>
+      <h3
+        style={{ cursor: 'pointer', marginBottom: open ? undefined : 0 }}
+        onClick={() => setOpen(!open)}
+      >
+        {t('mri.import.title')} <span className="tag">{t('mri.import.tag')}</span>
+        <button
+          className="chip"
+          style={{ float: 'right' }}
+          onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
+        >{open ? '−' : t('mri.import.expand')}</button>
+      </h3>
+      {!open ? (
+        <div className="faint" style={{ marginTop: 4 }}>{t('mri.import.collapseHint')}</div>
+      ) : (
+      <>
       <div className="faint" style={{ marginBottom: 8 }}>{t('mri.import.desc')}</div>
       <label className="faint" style={{ display: 'grid', gap: 4, fontSize: 12, marginBottom: 8 }}>
         <select value={format} onChange={(e) => setFormat(e.target.value as 'claude' | 'dsh' | 'hwt')} style={{ width: '100%' }}>
@@ -206,6 +303,8 @@ function ImportPanel() {
       {busy && <div className="faint" style={{ marginTop: 6 }}>{t('common.loading')}</div>}
       {info && <div style={{ color: 'var(--green)', fontSize: 12, marginTop: 6 }}>{info}</div>}
       {error && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>{error}</div>}
+      </>
+      )}
     </div>
   )
 }
@@ -254,15 +353,39 @@ function TimelinePlayer() {
           <button className={playing ? '' : 'primary'} onClick={() => setPlaying(!playing)}>{playing ? t('mri.pause') : t('mri.play')}</button>
           <button onClick={() => setPlayhead(playhead + 1)}>▶|</button>
           <span className="faint">{t('mri.speed')}</span>
-          {[1, 2, 4].map((s) => (
-            <button key={s} className={speed === s ? 'active-btn' : ''} onClick={() => setSpeed(s)}>{s}×</button>
-          ))}
+          <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} style={{ width: 68, padding: '2px 4px' }}>
+            {[0.5, 1, 2, 4, 8].map((s) => <option key={s} value={s}>{s}×</option>)}
+          </select>
           <input
             type="range" min={0} max={total} value={playhead}
             onChange={(e) => { setPlaying(false); setPlayhead(Number(e.target.value)) }}
             style={{ flex: 1, accentColor: 'var(--accent)' }}
           />
           <span className="faint">{t('mri.step.hint')}</span>
+        </div>
+        <div className="tl-rail-head">
+          <span>{t('mri.rail.title', { count: run.steps.length })}</span>
+          <span className="faint">{t('mri.rail.hint')}</span>
+        </div>
+        <div className="tl-rail">
+          {run.steps.map((s) => {
+            const vis = s.reqIdx < playhead
+            const critical = run.criticalStep === s.step
+            const failed = s.tags.length > 0
+            return (
+              <button
+                key={s.step}
+                className={`tl-cell ${vis ? 'vis' : 'unseen'}${critical ? ' critical' : ''}${failed ? ' failed' : ''}${cur?.step === s.step ? ' cur' : ''}`}
+                title={f(s.thought)}
+                onClick={() => { setPlaying(false); setPlayhead(s.reqIdx + 1); setSelected(s.step) }}
+              >
+                <span className="n">{s.step}</span>
+                <span className="tk">{fmtTokens(s.estTokens)}</span>
+                {critical && <span className="dia">◆</span>}
+                {failed && !critical && <span className="dia">●</span>}
+              </button>
+            )
+          })}
         </div>
         <div className="tl-wrap">
           <div className="tl-track">
@@ -350,8 +473,11 @@ function ContextInspector() {
   const cur = useMemo(() => {
     if (!run) return null
     const vis = run.steps.filter((s) => s.reqIdx < playhead)
-    return vis[vis.length - 1] ?? null
+    // Before playback starts there is still a real stack to show: the one the
+    // model saw on its first call. An empty right rail reads as "no data".
+    return vis[vis.length - 1] ?? run.steps[0] ?? null
   }, [run, playhead])
+  const initial = !!run && playhead === 0
 
   // 5-stage shaper cascade before current playhead
   const shapers = useMemo(() => {
@@ -371,6 +497,8 @@ function ContextInspector() {
   const n = cur.blocks.length
   const total = cur.estTokens
   const scenarioTraps = meta?.traps ?? []
+  const shaperFreed = shapers.reduce((sum, e) => sum + (e.type === 'shaper.fire' ? e.freedTokens : 0), 0)
+  const shaperFired = new Set(shapers.flatMap((e) => (e.type === 'shaper.fire' ? [e.shaper] : [])))
 
   return (
     <div className="panel scrollable">
@@ -379,6 +507,7 @@ function ContextInspector() {
           {t('mri.stack.title2')} <span className="tag">{t('mri.step.what', { step: cur.step })}</span>
           <span style={{ float: 'right' }} className="mono" title={t('mri.stack.totalTokens')}>{fmtTokens(total)} tk</span>
         </h3>
+        {initial && <div className="faint" style={{ marginBottom: 6 }}>{t('mri.stack.initial')}</div>}
         <div className="stack-bar">
           {cur.blocks.map((b, i) => (
             <div
@@ -404,21 +533,27 @@ function ContextInspector() {
 
       <div style={{ marginTop: 14 }}>
         <h3>{t('mri.shaper.title')} <span className="tag">{t('mri.shaper.tag')}</span></h3>
+        <div className="faint" style={{ marginBottom: 6 }}>{t('mri.shaper.cascade')}</div>
         <div className="shaper-stage">
           {(['budget', 'snip', 'microcompact', 'contextCollapse', 'autoCompact'] as const).map((name, i) => {
             const fire = shapers.find((f) => f.type === 'shaper.fire' && f.shaper === name)
-            const lit = !!fire
+            const lit = shaperFired.has(name)
             return (
               <div key={name} className={`shaper-row ${lit ? 'lit' : ''}`}>
                 <span className="ord">{i + 1}</span>
                 <span className="nm">{t(`mri.shaper.${name}`) !== `mri.shaper.${name}` ? t(`mri.shaper.${name}`) : SHAPER_LABEL[name]}</span>
+                <span className={`st ${lit ? 'on' : 'off'}`}>{lit ? t('mri.shaper.fired') : t('mri.shaper.skipped')}</span>
                 <span className="ds">{[t('mri.shaper.desc0'), t('mri.shaper.desc1'), t('mri.shaper.desc2'), t('mri.shaper.desc3'), t('mri.shaper.desc4')][i]}</span>
-                <span className="fr">{lit && fire!.type === 'shaper.fire' ? fire!.freedTokens : '—'}</span>
+                <span className={`fr${lit && fire?.type === 'shaper.fire' ? '' : ' off'}`}>
+                  {lit && fire?.type === 'shaper.fire' ? t('mri.shaper.freed', { tokens: fire.freedTokens }) : '—'}
+                </span>
               </div>
             )
           })}
         </div>
-        {shapers.length === 0 && <div className="faint" style={{ marginTop: 6 }}>{t('mri.shaper.empty')}</div>}
+        {shapers.length === 0
+          ? <div className="faint" style={{ marginTop: 6 }}>{t('mri.shaper.empty')}</div>
+          : <div className="faint" style={{ marginTop: 6 }}>{t('mri.shaper.freedTotal', { tokens: shaperFreed, count: shapers.length })}</div>}
       </div>
     </div>
   )

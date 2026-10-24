@@ -1,7 +1,7 @@
 // M2 HTTP routes for live playground runs, mounted under /api/playground.
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { event as eventSchema } from '../../shared/events'
-import type { HarnessConfig } from '../../shared/config'
+import { COMPONENT_META, type ConfigField, type HarnessConfig } from '../../shared/config'
 import type {
   ChatTarget,
   CreateRunsRequest,
@@ -26,6 +26,7 @@ import { createRun, dossierTexts, enqueueRun } from './runner'
 import { scoreAnswer } from './scorer'
 import { rougeAgainstReference } from './rouge'
 import { analyze, applyCard, rollbackTo, getEvoState, startGateVerify, startAutoEvolve, startTopRace } from './evolve'
+import { getCard, updateCardProposal } from './evoDb'
 
 type RunDetailShape = NonNullable<ReturnType<typeof getRunDetail>>
 
@@ -491,6 +492,60 @@ export async function handleLiveRoute(
     }
     const analysis = await analyze(Array.isArray(body.runIds) ? body.runIds : undefined)
     send(res, 200, { ok: true, ...analysis, state: getEvoState() })
+    return true
+  }
+
+  // PATCH /api/playground/cards/:id/draft — edit a proposal's values before
+  // it is verified. Only values, never the routed set of fields: the surface
+  // decision belongs to the router, and letting a UI edit widen it would turn
+  // an in-table change into an untracked off-table one.
+  const draftMatch = p.match(/^\/api\/playground\/cards\/([^/]+)\/draft$/)
+  if (draftMatch && (method === 'PATCH' || method === 'PUT')) {
+    const cardId = decodeURIComponent(draftMatch[1]!)
+    let body: { middlewareDiff?: Record<string, string>; promptDiff?: { guides?: string; guideStyle?: string } }
+    try {
+      body = JSON.parse(await readBody(req)) as typeof body
+    } catch {
+      send(res, 400, { ok: false, error: 'request body is not valid JSON' })
+      return true
+    }
+    const card = getCard(cardId)
+    if (!card) {
+      send(res, 404, { ok: false, error: 'Change card not found' })
+      return true
+    }
+    if (card.status === 'applied' || card.status === 'screening') {
+      send(res, 409, { ok: false, error: 'Applied or currently running cards cannot be edited.' })
+      return true
+    }
+    const middleware: Partial<HarnessConfig> | null = card.middlewareDiff
+      ? { ...card.middlewareDiff }
+      : null
+    if (middleware && body.middlewareDiff) {
+      for (const [field, value] of Object.entries(body.middlewareDiff)) {
+        if (!(field in middleware)) {
+          send(res, 400, { ok: false, error: `${field} is not part of this proposal.` })
+          return true
+        }
+        const meta = COMPONENT_META[field as ConfigField]
+        if (!meta || !meta.options.some((o) => o.value === value)) {
+          send(res, 400, { ok: false, error: `${field}=${String(value)} is not a legal value.` })
+          return true
+        }
+        ;(middleware as Record<string, string>)[field] = value
+      }
+    }
+    const prompt = card.promptDiff ? { ...card.promptDiff } : null
+    if (prompt && body.promptDiff) {
+      if (typeof body.promptDiff.guides === 'string') prompt.guides = body.promptDiff.guides.slice(0, 4000)
+      if (typeof body.promptDiff.guideStyle === 'string') prompt.guideStyle = body.promptDiff.guideStyle.slice(0, 400)
+    }
+    if (!middleware && !prompt) {
+      send(res, 400, { ok: false, error: 'This card carries no editable patch.' })
+      return true
+    }
+    updateCardProposal(cardId, middleware, prompt)
+    send(res, 200, { ok: true, card: getCard(cardId), state: getEvoState() })
     return true
   }
 

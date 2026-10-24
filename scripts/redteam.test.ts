@@ -23,6 +23,12 @@ test('attack library covers the full kill chain with valid stages', () => {
     for (const s of c.stages) {
       assert.ok(s.status === 'blocked' || s.status === 'breached')
       assert.ok(s.note)
+      if (s.blockedBy) {
+        assert.ok(
+          (SECURITY_CONTROLS as readonly string[]).includes(s.blockedBy),
+          `${c.id}/${s.stage}: unknown control ${s.blockedBy}`,
+        )
+      }
     }
     assert.ok(c.blastRadius.length > 0, c.id)
   }

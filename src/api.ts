@@ -319,6 +319,17 @@ export const api = {
     })
     return (await r.json()) as ApplyResult & { ok: boolean; state: EvoState; error?: string }
   },
+  pgUpdateCardDraft: async (
+    cardId: string,
+    body: { middlewareDiff?: Record<string, string>; promptDiff?: { guides?: string; guideStyle?: string } },
+  ) => {
+    const r = await fetch(`/api/playground/cards/${encodeURIComponent(cardId)}/draft`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return (await r.json()) as { ok: boolean; state: EvoState; card?: unknown; error?: string }
+  },
   pgRollback: (generationId: string) =>
     jpost<{ ok: boolean; state: EvoState; error?: string }>(
       `/api/playground/generations/${encodeURIComponent(generationId)}/rollback`,

@@ -68,8 +68,16 @@ export type KillStatus = 'blocked' | 'breached'
 
 export interface KillStage {
   stage: KillChainStage
+  /** Reference status captured in the sample mix (kept as evidence). */
   status: KillStatus
   note: string
+  /**
+   * Security control that gates this stage. Absent = no control in the seven
+   * can stop it. The UI derives the live status from the selected switches.
+   */
+  blockedBy?: SecurityControl
+  /** The sample case demonstrates this control being bypassed. */
+  bypass?: boolean
 }
 
 export interface AttackCase {

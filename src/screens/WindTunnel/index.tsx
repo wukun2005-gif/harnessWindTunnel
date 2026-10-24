@@ -8,13 +8,14 @@ const fmtPp = (v: number) => {
 }
 import type { HarnessEvent, ScenarioMeta } from '../../../shared/events'
 import { MAST_LABEL } from '../../../shared/mast'
-import { PRESETS } from '../../../shared/presets'
+import { PRESETS, type Preset } from '../../../shared/presets'
 import { api } from '../../api'
 import { buildTunnelExport, downloadJson, parseTunnelImport } from '../../lib/pack'
 import { alignSteps, deriveRun, fmtMs, fmtTokens, transferModes, TRANSFER_CLEAR } from '../../lib/derive'
 import { useApp, useTunnel, type VariantMetrics } from '../../stores'
 import { useT, useFixture, useVariantLabel } from '../../i18n'
 import { SourceBadge } from '../MRI'
+import { ReadGuide } from '../../components/ReadGuide'
 
 const dpp = (a: number, b: number) => {
   const d = a - b
@@ -72,10 +73,33 @@ export default function WindTunnel() {
         </div>
       </div>
 
-      <div className="grid-tunnel">
+      <ReadGuide keys={['guide.tunnel.1', 'guide.tunnel.2', 'guide.tunnel.3']} />
+
+      {/* The experiment has three fixed things; state them before any switch. */}
+      {meta && (
+        <div className="locked-context">
+          <span className="lc-label">{t('tunnel.context.locked')}</span>
+          <span className="lc-item"><b>{t('tunnel.context.task')}</b> {t(`scenario.${current}.task`) !== `scenario.${current}.task` ? t(`scenario.${current}.task`) : meta.task}</span>
+          <span className="lc-item"><b>{t('tunnel.context.variants')}</b> <span className="mono">{T.variants.length}</span></span>
+        </div>
+      )}
+
+      <div className="grid-tunnel tunnel-grid">
         <div>
           <div className="panel" data-demo="board">
             <h3>{t('tunnel.board.title')} <span className="tag">{t('tunnel.board.tag')}</span></h3>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+              <button
+                className="chip"
+                title={t('tunnel.board.defaultPreset')}
+                onClick={() => {
+                  const p = PRESETS.find((x) => x.id === 'nlah-ablation')
+                  if (!p) return
+                  select(p.scenarioId)
+                  T.loadPresetVariants(p.scenarioId, p.variants)
+                }}
+              >▶ {t('tunnel.board.defaultPreset')}</button>
+            </div>
             {COMPONENT_GROUPS.map((g) => {
               const groupKey: Record<string, string> = {
                 'Runtime Core': 'tunnel.group.runtime',
@@ -83,16 +107,27 @@ export default function WindTunnel() {
                 'Constraints & Safety': 'tunnel.group.safety',
                 'Evolution & Resilience': 'tunnel.group.evolution',
               }
+              const changedCount = g.fields.filter((field) => T.config[field] !== BASE_CONFIG[field]).length
               return (
               <div className="cgroup" key={g.group}>
-                <div className="cgroup-title">{t(groupKey[g.group] ?? '', {}) !== groupKey[g.group] ? t(groupKey[g.group]) : g.group}</div>
+                <div className="cgroup-title">
+                  {t(groupKey[g.group] ?? '', {}) !== groupKey[g.group] ? t(groupKey[g.group]) : g.group}
+                  <span className="faint" style={{ marginLeft: 6, fontWeight: 400 }}>
+                    {t('tunnel.group.changed', { changed: changedCount, total: g.fields.length })}
+                  </span>
+                </div>
                 {g.fields.map((field) => {
                   const m = COMPONENT_META[field]
                   const changed = T.config[field] !== BASE_CONFIG[field]
                   return (
                     <div className={`comp-row ${changed ? 'changed' : ''}`} key={field}>
                       <span className="dot" />
-                      <span className="clabel" title={field}>{m.label}</span>
+                      <span className="clabel" title={`${m.label}${m.evidence ? ` — ${f(m.evidence)}` : ''}`}>
+                        {m.label}
+                        <span className={`board-badge ${m.enforced ? 'hard' : 'soft'}`}>
+                          {m.enforced ? t('tunnel.board.hardBadge') : t('tunnel.board.softBadge')}
+                        </span>
+                      </span>
                       <select value={T.config[field]} onChange={(e) => T.setField(field as ConfigField, e.target.value)}>
                         {m.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
@@ -165,6 +200,34 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
     }
   }
   const rows = T.variants.map((v) => ({ v, m: T.metrics[v.key] }))
+  // Presets replace the whole reading set. That is a destructive action on
+  // hand-built rows, so confirm it and keep one snapshot for an explicit undo.
+  const [undo, setUndo] = useState<{ scenarioId: string; variants: { label: string; config: typeof T.config; note?: string }[]; lockedIndex: number | null } | null>(null)
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const show = (k: string) => !hidden.has(k)
+  const toggleCol = (k: string) => setHidden((prev) => {
+    const next = new Set(prev)
+    if (next.has(k)) next.delete(k)
+    else next.add(k)
+    return next
+  })
+  const applyPreset = (p: Preset) => {
+    if (rows.length > 0 && !window.confirm(t('tunnel.preset.confirm', { count: rows.length }))) return
+    const lockedIndex = T.variants.findIndex((v) => v.key === T.lockedKey)
+    setUndo({
+      scenarioId: T.scenarioId,
+      variants: T.variants.map((v) => ({ label: v.label, config: v.config, note: v.note })),
+      lockedIndex: lockedIndex >= 0 ? lockedIndex : null,
+    })
+    if (p.scenarioId !== T.scenarioId) select(p.scenarioId)
+    T.loadPresetVariants(p.scenarioId, p.variants)
+  }
+  const undoPreset = () => {
+    if (!undo) return
+    select(undo.scenarioId)
+    T.restoreAll(undo.scenarioId, undo.variants, undo.lockedIndex)
+    setUndo(null)
+  }
   // F2-2 locked baseline (falls back to the first row when nothing is locked).
   const lockedKey = T.lockedKey ?? rows[0]?.v.key
   const base = rows.find((r) => r.v.key === lockedKey)?.m ?? rows.find((r) => r.m)?.m
@@ -209,21 +272,53 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
       <div style={{ display: 'flex', gap: 8, margin: '6px 0 10px', alignItems: 'center', flexWrap: 'wrap' }} data-demo="presets">
         <span className="faint">{t('tunnel.readings.quickload')}</span>
         {PRESETS.filter((p) => p.id === 'nlah-ablation' || p.id === 'harness-r1-regress' || p.id === 'minimal-rich-pairs').map((p) => (
-          <button key={p.id} className="primary" style={{ padding: '2px 10px', fontSize: 12 }} title={f(p.tagline)} onClick={() => { select(p.scenarioId); T.loadPresetVariants(p.scenarioId, p.variants) }}>▶ {f(p.title)}</button>
+          <button key={p.id} className="primary" style={{ padding: '2px 10px', fontSize: 12 }} title={f(p.tagline)} onClick={() => applyPreset(p)}>▶ {f(p.title)}</button>
         ))}
+        {undo && (
+          <button className="chip" style={{ padding: '2px 10px', fontSize: 12 }} onClick={undoPreset} title={t('tunnel.preset.undo')}>
+            {t('tunnel.preset.undo')}
+          </button>
+        )}
         <span style={{ flex: 1 }} />
         <button style={{ padding: '2px 10px', fontSize: 12 }} onClick={onExport} disabled={rows.length === 0}>{t('tunnel.export')}</button>
         <button style={{ padding: '2px 10px', fontSize: 12 }} onClick={() => fileRef.current?.click()}>{t('tunnel.import')}</button>
         <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onImportFile(f); e.target.value = '' }} />
       </div>
+      <div className="tunnel-col-toggle">
+        <span className="faint">{t('tunnel.readings.cols')}</span>
+        {([
+          ['diff', 'tunnel.readings.colDiff'],
+          ['delta', 'tunnel.readings.colDelta'],
+          ['tokens', 'tunnel.readings.colTokens'],
+          ['latency', 'tunnel.readings.colLatency'],
+          ['failures', 'tunnel.readings.colFailures'],
+          ['source', 'tunnel.readings.colSource'],
+        ] as const).map(([k, label]) => (
+          <button key={k} className={`chip ${show(k) ? 'on' : ''}`} onClick={() => toggleCol(k)}>{t(label)}</button>
+        ))}
+      </div>
       {importError && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 6 }}>{importError}</div>}
       {rows.length === 0 ? (
-        <div className="faint">{t('tunnel.readings.empty.hint')}</div>
+        <div className="tunnel-empty">
+          <div className="te-title">{t('tunnel.readings.empty.title')}</div>
+          <div className="faint">{t('tunnel.readings.empty.hint')}</div>
+        </div>
       ) : (
       <>
-      <table className="t" style={{ width: 'max-content' }}>
+      <div className="faint" style={{ marginBottom: 4 }}>{t('tunnel.readings.scrollHint')}</div>
+      <table className="t tunnel-table" style={{ width: 'max-content' }}>
         <thead>
-          <tr><th>{t('tunnel.readings.config')}</th><th>{t('tunnel.readings.diff') || 'Diff'}</th><th className="num">{t('tunnel.readings.success')}</th><th className="num">{t('tunnel.readings.delta')}</th><th className="num">{t('tunnel.readings.tokens')}</th><th className="num">{t('tunnel.readings.latency')}</th><th>{t('tunnel.readings.failures')}</th><th>{t('tunnel.readings.source')}</th><th /></tr>
+          <tr>
+            <th>{t('tunnel.readings.config')}</th>
+            {show('diff') && <th>{t('tunnel.readings.colDiff')}</th>}
+            <th className="num">{t('tunnel.readings.success')}</th>
+            {show('delta') && <th className="num">{t('tunnel.readings.colDelta')}</th>}
+            {show('tokens') && <th className="num">{t('tunnel.readings.colTokens')}</th>}
+            {show('latency') && <th className="num">{t('tunnel.readings.colLatency')}</th>}
+            {show('failures') && <th>{t('tunnel.readings.colFailures')}</th>}
+            {show('source') && <th>{t('tunnel.readings.colSource')}</th>}
+            <th />
+          </tr>
         </thead>
         <tbody>
           {rows.map(({ v, m }) => {
@@ -231,12 +326,12 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
             const changedFields = CONFIG_FIELDS.filter((k) => v.config[k] !== BASE_CONFIG[k])
             return (
             <tr key={v.key}>
-              <td style={{ minWidth: 140 }}>
+              <td className="tl-sticky" style={{ minWidth: 140 }}>
                 <span style={{ color: v.color }}>■</span> {f(label(v.label))}
                 {v.note && <div className="faint">{f(v.note)}</div>}
                 {!m?.exact && m && <div className="faint" style={{ color: 'var(--amber)' }}>{t('tunnel.readings.approximate', { distance: m.distance ?? '?' })}</div>}
               </td>
-              <td style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'normal', minWidth: 220 }}>
+              {show('diff') && <td style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'normal', minWidth: 220 }}>
                 {changedFields.length === 0 ? <span className="faint">—</span> : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {changedFields.map((k) => {
@@ -246,17 +341,17 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
                     })}
                   </div>
                 )}
-              </td>
+              </td>}
               <td className="num" style={{ fontWeight: 600, color: m ? colorFor(m.successRate, best.success, worst.success, true) : undefined }}>{m ? `${m.successRate.toFixed(1)}%` : '…'}</td>
-              <td className="num">{m && base ? dpp(m.successRate, base.successRate) : ''}</td>
-              <td className="num" style={{ fontWeight: 600, color: m ? colorFor(m.tokens, best.tokens, worst.tokens, false) : undefined }}>{m ? fmtTokens(m.tokens) : ''}</td>
-              <td className="num" style={{ fontWeight: 600, color: m ? colorFor(m.latencyP50, best.latency, worst.latency, false) : undefined }}>{m ? fmtMs(m.latencyP50) : ''}</td>
-              <td style={{ fontWeight: 600, color: m ? colorFor(fc, best.failures, worst.failures, false) : undefined }}>
+              {show('delta') && <td className="num">{m && base ? dpp(m.successRate, base.successRate) : ''}</td>}
+              {show('tokens') && <td className="num" style={{ fontWeight: 600, color: m ? colorFor(m.tokens, best.tokens, worst.tokens, false) : undefined }}>{m ? fmtTokens(m.tokens) : ''}</td>}
+              {show('latency') && <td className="num" style={{ fontWeight: 600, color: m ? colorFor(m.latencyP50, best.latency, worst.latency, false) : undefined }}>{m ? fmtMs(m.latencyP50) : ''}</td>}
+              {show('failures') && <td style={{ fontWeight: 600, color: m ? colorFor(fc, best.failures, worst.failures, false) : undefined }}>
                 {m && Object.entries(m.failureModes).map(([k, c]) => (
                   <span key={k} className="tl-mark mk-fail" style={{ position: 'static', display: 'inline-block', transform: 'none', marginRight: 4 }} title={f(MAST_LABEL[k as keyof typeof MAST_LABEL])}>{f(MAST_LABEL[k as keyof typeof MAST_LABEL])}×{c}</span>
                 ))}
-              </td>
-              <td>{m && <SourceBadge source={m.source as never} />}</td>
+              </td>}
+              {show('source') && <td>{m && <SourceBadge source={m.source as never} />}</td>}
               <td style={{ whiteSpace: 'nowrap' }}>
                 {v.key === lockedKey
                   ? <b style={{ color: 'var(--accent)', fontSize: 12 }} title={t('tunnel.baseline.locked')}>◉ {t('tunnel.baseline.locked')}</b>
@@ -320,7 +415,7 @@ function LowerTail({ scenarioId }: { scenarioId: string }) {
     <>
       <div className="faint" style={{ margin: '12px 0 6px' }} data-demo="lowertail">{t('tunnel.lowertail.title')} <span className="tag">{t('tunnel.lowertail.tag')}</span></div>
       <table className="t" style={{ width: 'max-content' }}>
-        <thead><tr><th>{t('tunnel.readings.config')}</th><th className="num">MeanLift</th><th className="num">WorstLift</th><th className="num">RR₀</th><th className="num">RelLift₉₅</th><th>{t('tunnel.lowertail.verdict')}</th></tr></thead>
+        <thead><tr><th>{t('tunnel.readings.config')}</th><th className="num">{t('tunnel.lowertail.mean')}</th><th className="num">{t('tunnel.lowertail.worst')}</th><th className="num">{t('tunnel.lowertail.winrate')}</th><th className="num">{t('tunnel.lowertail.rel95')}</th><th>{t('tunnel.lowertail.verdict')}</th></tr></thead>
         <tbody>
           {rows.map(({ v, m }) => {
             if (v.key === lockedKey) {

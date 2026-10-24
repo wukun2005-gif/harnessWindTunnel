@@ -88,7 +88,7 @@ test('Chinese component output: translated chrome and case prose', () => {
     'Unaware of Stopping', 'Task Derailment', 'Fail to Clarify', 'Context Loss',
     'Hook Intercept', 'Shaper Fired', 'Verifier Rejected', 'Verifier Passed',
     'Lint Rejected', 'Lint Passed', 'Agent Fork', 'Agent Join', 'Compaction Boundary',
-    'MAST Failure Tag', 'SCREEN 01', 'SCREEN 02', 'SCREEN 03', 'STEP ']
+    'MAST Failure Tag', 'OBSERVE', 'MEASURE', 'IMPROVE', 'DEFEND', 'COMPLY', 'EVALUATE', 'STEP ']
   try {
     Object.assign(useI18n.getInitialState(), { lang: 'zh' })
     const forge: ForgeData = json('data/forge/generations.json')
@@ -107,7 +107,7 @@ test('Chinese component output: translated chrome and case prose', () => {
         })
         const html = renderToStaticMarkup(createElement(MRI))
         assert.ok(!unresolved.test(html), `MRI ${branch.branchId}: unresolved translation key`)
-        assert.ok(html.includes('屏 01'), 'MRI: screen eyebrow missing')
+        assert.ok(html.includes('观察'), 'MRI: screen eyebrow missing')
         assert.ok(html.includes('过早胜利'), 'MRI: MAST legend not translated')
         for (const raw of rawEnglish) assert.ok(!html.includes(raw), `MRI ${branch.branchId}: raw English "${raw}"`)
       }
@@ -119,6 +119,7 @@ test('Chinese component output: translated chrome and case prose', () => {
     Object.assign(useTunnel.getInitialState(), { variants })
     const tunnelHtml = renderToStaticMarkup(createElement(WindTunnel))
     assert.ok(!unresolved.test(tunnelHtml), 'WindTunnel: unresolved translation key')
+    assert.ok(tunnelHtml.includes('度量'), 'WindTunnel: screen eyebrow missing')
     assert.ok(tunnelHtml.includes('运行内核'), 'WindTunnel: module group not translated')
     assert.ok(tunnelHtml.includes('NLAH 受控消融'), 'WindTunnel: preset title not translated')
     assert.ok(tunnelHtml.includes('Basic（裸基准）'), 'WindTunnel: preset variant label not translated')
@@ -143,7 +144,7 @@ test('Chinese component output: translated chrome and case prose', () => {
       assert.ok(html.includes(esc(fixture(gen.card.title, 'zh'))), `Forge gen ${gen.gen}: card title not translated`)
       assert.ok(html.includes(esc(fixture(gen.cluster.summary, 'zh'))), `Forge gen ${gen.gen}: cluster summary not translated`)
       assert.ok(!html.includes(esc(gen.card.title)), `Forge gen ${gen.gen}: raw English card title`)
-      assert.ok(html.includes('屏 03'), 'Forge: screen eyebrow missing')
+      assert.ok(html.includes('改进'), 'Forge: screen eyebrow missing')
     }
     console.log('Checked Chinese component renders for all branches and generations')
   } finally {

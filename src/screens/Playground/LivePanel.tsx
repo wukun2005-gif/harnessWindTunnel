@@ -90,6 +90,48 @@ function runTime(iso: string): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+/** Localize generated configuration names; stored names stay untouched. */
+function configLabelText(label: string, t: (key: string, params?: Record<string, string | number>) => string): string {
+  const evolved = /^Evolved #(\d+)$/.exec(label)
+  return evolved ? t('playground.live.colEvolved', { n: evolved[1]! }) : label
+}
+
+/**
+ * Preset name/summary are constants written in Chinese on the server. Resolve
+ * them through the UI dictionary so the English screen does not mix languages;
+ * unknown presets (imported in the future) fall back to what the server sent.
+ */
+function presetName(p: PgPreset, t: (key: string, params?: Record<string, string | number>) => string): string {
+  const key = `playground.preset.${p.id}.name`
+  const name = t(key)
+  return name === key ? p.name : name
+}
+function presetSummary(p: PgPreset, t: (key: string, params?: Record<string, string | number>) => string): string {
+  const key = `playground.preset.${p.id}.summary`
+  const summary = t(key)
+  return summary === key ? p.summary : summary
+}
+
+/** Compact batch-estimate formatting. None of these invent a number. */
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return String(Math.round(n))
+}
+function fmtDuration(ms: number): string {
+  const s = ms / 1000
+  if (s >= 3600) return `${(s / 3600).toFixed(1)}h`
+  if (s >= 60) return `${Math.round(s / 60)}m`
+  return `${Math.round(s)}s`
+}
+function fmtCost(usd: number): string {
+  return usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(3)}`
+}
+function meanOf(values: Array<number | null>): number | null {
+  const ok = values.filter((v): v is number => v != null && Number.isFinite(v))
+  return ok.length > 0 ? ok.reduce((a, b) => a + b, 0) / ok.length : null
+}
+
 /**
  * Targets and presets are module-level singletons, fetched at most once per
  * page session. They change only when the Settings screen is edited, so the
@@ -133,6 +175,7 @@ function loadPresets(): Promise<PgPreset[]> {
 
 export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   const t = useT()
+  const composerRef = useRef<HTMLDivElement | null>(null)
   const [targets, setTargets] = useState<RunTargets | null>(null)
   const [presets, setPresets] = useState<PgPreset[]>([])
   const [presetId, setPresetId] = useState<string>(() => loadString(PRESET_KEY, 'C0'))
@@ -325,9 +368,43 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   }))
   const activeFilterCount = Object.entries(filters).filter(([k, v]) => k !== 'limit' && v != null && v !== '').length
 
+  // Quick picks are the three ready-made slices a reader actually wants before
+  // hand-ticking 45 rows: the fixed yardstick, the untouched gate split, and
+  // everything that attacks the harness.
+  const signatureIds = useMemo(() => tasks.filter((x) => x.signature).map((x) => x.id), [tasks])
+  const gateIds = useMemo(() => tasks.filter((x) => x.split === 'gate').map((x) => x.id), [tasks])
+  const securityIds = useMemo(() => tasks.filter((x) => x.domain === 'security').map((x) => x.id), [tasks])
+
+  const pickSignatureAndScroll = (): void => {
+    setPicked(new Set(signatureIds))
+    // The CTA sits below the composer; scrolling back makes the change visible
+    // instead of leaving the reader staring at an empty result table.
+    requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  // Batch estimate from what this config actually used. Never a price-table
+  // guess: no recorded run means no estimate. Runs of other configs are only a
+  // fallback, and the line under the numbers says so.
+  const settled = (runs ?? []).filter(
+    (r) => (r.status === 'scored' || r.status === 'error') && r.latencyMs != null,
+  )
+  const sameConfig = settled.filter((r) => r.presetId === presetId)
+  const basis = sameConfig.length > 0 ? sameConfig : settled
+  const avgTokens = meanOf(basis.map((r) => r.tokens))
+  const avgLatency = meanOf(basis.map((r) => r.latencyMs))
+  // Quote a price only when every run in the basis was priced; averaging a
+  // priced subset would quietly understate the batch.
+  const avgCost =
+    basis.length > 0 && basis.every((r) => r.costUsd != null) ? meanOf(basis.map((r) => r.costUsd)) : null
+  // The runner executes two runs at a time, so wall clock is latency per slot,
+  // not the sum of every question.
+  const estTokens = avgTokens != null ? Math.round(avgTokens * picked.size) : null
+  const estMs = avgLatency != null ? Math.round(avgLatency * Math.ceil(picked.size / 2)) : null
+  const estCost = avgCost != null ? avgCost * picked.size : null
+
   return (
     <div className="pg-live">
-      <div className="panel pg-composer">
+      <div className="panel pg-composer" ref={composerRef}>
         <div className="pg-composer-head">
           <div>
             <span className="pg-kicker">{t('playground.live.kickerSetup')}</span>
@@ -349,11 +426,27 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
             <select value={presetId} onChange={(e) => setPresetId(e.target.value)} className="pg-config-select">
               {presets.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name.startsWith(p.id) ? p.name : `${p.id} · ${p.name}`} — {p.summary}
+                  {presetName(p, t)} — {presetSummary(p, t)}
                 </option>
               ))}
             </select>
-            {selectedPreset && <span className="pg-step-note">{selectedPreset.summary}</span>}
+            <div className="pg-config-chips" role="group" aria-label={t('playground.live.configPresets')}>
+              {presets.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`pg-config-chip ${presetId === p.id ? 'on' : ''} ${p.id === 'C0' ? 'baseline' : ''}`}
+                  aria-pressed={presetId === p.id}
+                  title={presetSummary(p, t)}
+                  onClick={() => setPresetId(p.id)}
+                >
+                  <b>{p.id}</b>
+                  <span>{presetName(p, t).replace(/^C\d+\s*/, '')}</span>
+                  {p.id === 'C0' && <em>{t('playground.live.baselineTag')}</em>}
+                </button>
+              ))}
+            </div>
+            {selectedPreset && <span className="pg-step-note">{presetSummary(selectedPreset, t)}</span>}
           </div>
 
           <div className="pg-composer-step">
@@ -373,6 +466,41 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
               ))}
             </div>
             <button onClick={() => setPickerOpen(true)}>{t('playground.live.chooseQuestions')}</button>
+            <div className="pg-quick-picks">
+              <span className="pg-filter-label">{t('playground.live.quickPick')}</span>
+              <button
+                className="pg-chip"
+                onClick={pickSignatureAndScroll}
+                disabled={signatureIds.length === 0}
+                title={t('playground.live.pickSignatureHint')}
+              >
+                {t('playground.live.pickSignature', { count: signatureIds.length })}
+              </button>
+              <button
+                className="pg-chip"
+                onClick={() => setPicked(new Set(gateIds))}
+                disabled={gateIds.length === 0}
+                title={t('playground.live.pickGateHint')}
+              >
+                {t('playground.live.pickGate', { count: gateIds.length })}
+              </button>
+              <button
+                className="pg-chip"
+                onClick={() => setPicked(new Set(securityIds))}
+                disabled={securityIds.length === 0}
+                title={t('playground.live.pickSecurityHint')}
+              >
+                {t('playground.live.pickSecurity', { count: securityIds.length })}
+              </button>
+              <button
+                className="pg-chip"
+                onClick={() => setPicked(new Set())}
+                disabled={picked.size === 0}
+                title={t('playground.live.pickClearHint')}
+              >
+                {t('playground.live.clearAll')}
+              </button>
+            </div>
           </div>
 
           <div className="pg-composer-step pg-composer-run">
@@ -385,6 +513,36 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
             </div>
             {usable.length === 0 && <div className="warn">{t('playground.live.noProvider')}</div>}
             {usable.length > 0 && targets?.kb && !targets.kb.ready && <div className="warn">{t('playground.live.kbNotReady')}</div>}
+            <div className="pg-estimate">
+              {picked.size === 0 ? (
+                <span className="faint">{t('playground.live.estimatePickFirst')}</span>
+              ) : (
+                <>
+                  <div className="pg-estimate-head">
+                    <b>{t('playground.live.estimateTitle', { count: picked.size })}</b>
+                  </div>
+                  {basis.length === 0 ? (
+                    <span className="faint">{t('playground.live.estimateNone')}</span>
+                  ) : (
+                    <>
+                      <div className="pg-estimate-grid">
+                        <span>{t('playground.live.estimateTokens')}</span>
+                        <b>{estTokens != null ? `≈ ${fmtTokens(estTokens)}` : '—'}</b>
+                        <span>{t('playground.live.estimateTime')}</span>
+                        <b>{estMs != null ? `≈ ${fmtDuration(estMs)}` : '—'}</b>
+                        <span>{t('playground.live.estimateCost')}</span>
+                        <b>{estCost != null ? `≈ ${fmtCost(estCost)}` : t('playground.live.estimateUnpriced')}</b>
+                      </div>
+                      <span className="faint pg-estimate-basis">
+                        {sameConfig.length > 0
+                          ? t('playground.live.estimateBasis', { count: sameConfig.length })
+                          : t('playground.live.estimateBasisAll', { count: settled.length })}
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
             <button className="primary pg-run-button" disabled={!canRun} onClick={() => void start()}>
               {busy ? t('playground.live.running') : t('playground.live.run', { count: picked.size })}
             </button>
@@ -419,10 +577,6 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
             <h3>{t('playground.live.results')}</h3>
             <p className="faint">{t('playground.live.resultsDesc', { runs: runs?.length ?? 0, configs: presets.length })}</p>
           </div>
-          <button className={filtersOpen ? 'active-btn' : ''} onClick={() => setFiltersOpen(!filtersOpen)}>
-            {t('playground.live.filters')}
-            {activeFilterCount > 0 && <span className="pg-filter-count">{activeFilterCount}</span>}
-          </button>
         </div>
 
         {filtersOpen && (
@@ -435,25 +589,35 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
           </div>
         )}
 
-        <div className="pg-result-tabs" role="tablist">
-          {([
-            ['matrix', t('playground.live.resultMatrix'), runs?.length ?? 0],
-            ['metrics', t('playground.live.resultMetrics'), null],
-            ['compare', t('playground.live.resultCompare'), null],
-            ['detail', t('playground.live.resultDetail'), null],
-          ] as const).map(([id, label, count]) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={view === id}
-              className={`pg-result-tab ${view === id ? 'active' : ''}`}
-              onClick={() => setView(id)}
-              disabled={id === 'detail' && !activeId}
-            >
-              {label}
-              {count != null && <span className="pg-tab-count">{count}</span>}
-            </button>
-          ))}
+        <div className="pg-result-bar">
+          <div className="pg-result-tabs" role="tablist">
+            {([
+              ['matrix', t('playground.live.resultMatrix'), runs?.length ?? 0],
+              ['metrics', t('playground.live.resultMetrics'), null],
+              ['compare', t('playground.live.resultCompare'), null],
+              ['detail', t('playground.live.resultDetail'), null],
+            ] as const).map(([id, label, count]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={view === id}
+                className={`pg-result-tab ${view === id ? 'active' : ''}`}
+                onClick={() => setView(id)}
+                disabled={id === 'detail' && !activeId}
+              >
+                {label}
+                {count != null && <span className="pg-tab-count">{count}</span>}
+              </button>
+            ))}
+          </div>
+          <button
+            className={`pg-result-filter-btn ${filtersOpen ? 'on' : ''}`}
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            aria-expanded={filtersOpen}
+          >
+            {t('playground.live.filters')}
+            {activeFilterCount > 0 && <span className="pg-filter-count">{activeFilterCount}</span>}
+          </button>
         </div>
 
         {view === 'matrix' && (
@@ -465,6 +629,7 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
             />
             <ResultMatrix
               runs={runs ?? []}
+              loading={runs === null}
               activeId={activeId}
               onPick={(id) => {
                 setActiveId(id)
@@ -474,6 +639,10 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
               filterFingerprint={filters.fingerprint ?? ''}
               onFilter={(fp) => setFilters((cur) => ({ ...cur, fingerprint: fp || undefined }))}
               selected={selected}
+              signatureCount={signatureIds.length}
+              hasFilters={activeFilterCount > 0}
+              onStartSignature={pickSignatureAndScroll}
+              onResetFilters={() => setFilters({ limit: 1000 })}
               onToggle={(id) =>
                 setSelected((cur) => {
                   const next = new Set(cur)
@@ -630,15 +799,22 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
 
 function ResultMatrix({
   runs,
+  loading,
   activeId,
   onPick,
   presets,
   filterFingerprint,
   onFilter,
   selected,
+  signatureCount,
+  hasFilters,
+  onStartSignature,
+  onResetFilters,
   onToggle,
 }: {
   runs: RunSummary[]
+  /** First load: `runs` is empty for a moment, which is not "no runs yet". */
+  loading: boolean
   activeId: string | null
   onPick: (id: string) => void
   presets: PgPreset[]
@@ -646,6 +822,10 @@ function ResultMatrix({
   filterFingerprint: string
   onFilter: (fingerprint: string) => void
   selected: Set<string>
+  signatureCount: number
+  hasFilters: boolean
+  onStartSignature: () => void
+  onResetFilters: () => void
   onToggle: (id: string) => void
 }) {
   const t = useT()
@@ -692,12 +872,32 @@ function ResultMatrix({
     counts.set(r.fingerprint, cur)
   }
 
-  // Only configs that actually produced a run get a column, in preset order;
-  // anything else (an evolved configuration) follows, ordered by its name.
-  const colMap = new Map<string, { key: string; label: string; title: string | null }>()
+  // Only configs that actually produced a run get a column by default, in preset
+  // order; evolved / imported configurations follow, ordered by their name.
+  // `showZero` also pins every preset to a column, so a missing C2 is visible as
+  // "not run" instead of silently disappearing from the table.
+  const [showZero, setShowZero] = useState(false)
+  const [onlyRunRows, setOnlyRunRows] = useState(false)
+  type Family = 'core' | 'evolved' | 'imported' | 'other'
+  const colMap = new Map<string, { key: string; label: string; title: string | null; family: Family }>()
   for (const r of runs) {
     if (!colMap.has(r.fingerprint)) {
-      colMap.set(r.fingerprint, { key: r.fingerprint, label: r.configLabel, title: r.configTitle })
+      const family: Family = r.source === 'imported'
+        ? 'imported'
+        : /^Evolved #\d+$/.test(r.configLabel)
+          ? 'evolved'
+          : presetFp.size > 0 && [...presetFp.values()].includes(r.fingerprint)
+            ? 'core'
+            : 'other'
+      colMap.set(r.fingerprint, { key: r.fingerprint, label: r.configLabel, title: r.configTitle, family })
+    }
+  }
+  if (showZero) {
+    for (const p of presets) {
+      const fp = presetFp.get(p.id) ?? ''
+      if (fp && !colMap.has(fp)) {
+        colMap.set(fp, { key: fp, label: p.id, title: p.summary, family: 'core' })
+      }
     }
   }
   const presetRank = new Map(presets.map((p, i) => [fingerprint(p.config), i]))
@@ -707,60 +907,107 @@ function ResultMatrix({
     return ra !== rb ? ra - rb : a.label.localeCompare(b.label)
   })
   const tmpl = `minmax(190px, 1fr) repeat(${Math.max(cols.length, 1)}, 96px)`
+  const familyCount = (family: Family) => cols.filter((c) => c.family === family).length
+  const visibleGroups = groups
+    .map((g) => ({ ...g, rows: onlyRunRows ? g.rows.filter((r) => r.cells.size > 0) : g.rows }))
+    .filter((g) => g.rows.length > 0)
 
   return (
     <div className="panel" style={{ display: 'grid', gap: 8 }}>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.runList')}</span>
-        <button className={`chip ${filterFingerprint === '' ? 'on' : ''}`} onClick={() => onFilter('')}>
-          {t('playground.live.filterAll')} ({runs.length})
-        </button>
-        {presets.map((pr) => {
-          const fp = presetFp.get(pr.id) ?? ''
-          const c = counts.get(fp)
-          return (
-            <button
-              key={pr.id}
-              className={`chip ${filterFingerprint === fp ? 'on' : ''}`}
-              onClick={() => onFilter(filterFingerprint === fp ? '' : fp)}
-              title={pr.summary}
-            >
-              {pr.id}
-              {c ? ` ${c.passed}/${c.total}` : ' 0'}
+      {runs.length > 0 && (
+        <>
+          <div className="pg-matrix-summary">
+            <b>{t('playground.live.matrixComposition', {
+              runs: runs.length,
+              tasks: new Set(runs.map((r) => r.taskId)).size,
+              cols: cols.length,
+              core: familyCount('core'),
+              evolved: familyCount('evolved'),
+              imported: familyCount('imported'),
+            })}</b>
+            <span className="faint">{t('playground.live.matrixScope')}</span>
+            <button className={`chip ${showZero ? 'on' : ''}`} onClick={() => setShowZero((v) => !v)}>
+              {t('playground.live.showZeroCols')}
             </button>
-          )
-        })}
-        {groups.length > 0 && (
-          <button
-            className="chip"
-            onClick={() => setExpanded(allOpen ? new Set() : new Set(groups.map((g) => g.domain)))}
-            title={t('playground.live.collapseHint')}
-          >
-            {allOpen ? t('playground.live.collapseAll') : t('playground.live.expandAll')}
-          </button>
-        )}
-      </div>
+            <button className={`chip ${onlyRunRows ? 'on' : ''}`} onClick={() => setOnlyRunRows((v) => !v)}>
+              {t('playground.live.onlyRunRows')}
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="faint" style={{ fontSize: 12 }}>{t('playground.live.runList')}</span>
+            <button className={`chip ${filterFingerprint === '' ? 'on' : ''}`} onClick={() => onFilter('')}>
+              {t('playground.live.filterAll')} ({runs.length})
+            </button>
+            {presets.map((pr) => {
+              const fp = presetFp.get(pr.id) ?? ''
+              const c = counts.get(fp)
+              return (
+                <button
+                  key={pr.id}
+                  className={`chip ${filterFingerprint === fp ? 'on' : ''}`}
+                  onClick={() => onFilter(filterFingerprint === fp ? '' : fp)}
+                  title={presetSummary(pr, t)}
+                >
+                  {pr.id}
+                  {c ? ` ${c.passed}/${c.total}` : ' 0'}
+                </button>
+              )
+            })}
+            {groups.length > 0 && (
+              <button
+                className="chip"
+                onClick={() => setExpanded(allOpen ? new Set() : new Set(groups.map((g) => g.domain)))}
+                title={t('playground.live.collapseHint')}
+              >
+                {allOpen ? t('playground.live.collapseAll') : t('playground.live.expandAll')}
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {runs.length === 0 ? (
-        <div className="loading">{t('playground.live.empty')}</div>
+        loading ? (
+          <div className="loading">{t('playground.loading')}</div>
+        ) : hasFilters ? (
+          <div className="pg-empty pg-results-empty">
+            <b>{t('playground.live.emptyFiltered')}</b>
+            <p>{t('playground.live.emptyFilteredHint')}</p>
+            <button className="primary" onClick={onResetFilters}>{t('playground.live.resetFilters')}</button>
+          </div>
+        ) : (
+          <div className="pg-empty pg-results-empty">
+            <b>{t('playground.live.emptyResults')}</b>
+            <p>{t('playground.live.emptyResultsHint')}</p>
+            <button className="primary" onClick={onStartSignature} disabled={signatureCount === 0}>
+              {t('playground.live.emptyResultsCta', { count: signatureCount })}
+            </button>
+          </div>
+        )
       ) : (
         <>
           <div className="faint" style={{ fontSize: 11 }}>{t('playground.live.matrixHint')}</div>
           <div style={{ display: 'grid', gridTemplateColumns: tmpl, gap: 6, alignItems: 'stretch' }}>
             <span className="faint" style={{ fontSize: 11 }}>{t('playground.live.pickTasks')}</span>
-            {cols.map((c) => (
-              <span
-                key={c.key}
-                className="faint"
-                style={{ fontSize: 11, textAlign: 'center' }}
-                title={c.title ?? undefined}
-              >
-                {c.label}
-              </span>
-            ))}
+            {cols.map((c) => {
+              const cc = counts.get(c.key)
+              return (
+                <span
+                  key={c.key}
+                  className="cfg-col-head"
+                  title={c.title ?? (c.family === 'other' ? t('playground.live.familyOtherHint') : undefined)}
+                >
+                  <span className={`cfg-family fam-${c.family}`}>{t(`playground.live.family${c.family === 'core' ? 'Core' : c.family === 'evolved' ? 'Evolved' : c.family === 'imported' ? 'Imported' : 'Other'}`)}</span>
+                  <span className="cfg-col-name">{configLabelText(c.label, t)}</span>
+                  <span className="faint" style={{ fontSize: 9.5 }}>{cc ? `${cc.passed}/${cc.total}` : t('playground.live.zeroRuns')}</span>
+                </span>
+              )
+            })}
 
-            {groups.flatMap((g) => {
+            {visibleGroups.flatMap((g) => {
               const open = expanded.has(g.domain)
+              const cellsFilled = g.rows.reduce((n, r) => n + r.cells.size, 0)
+              const withRun = g.rows.filter((r) => r.cells.size > 0).length
               const head = (
                 <button
                   key={`dom-${g.domain}`}
@@ -789,6 +1036,8 @@ function ResultMatrix({
                   {t(`playground.live.domain.${g.domain}`)}
                   <span className="faint" style={{ fontWeight: 400 }}>
                     {t('playground.live.questionCount', { count: g.rows.length })}
+                    {' · '}
+                    {t('playground.live.groupCoverage', { withRun, total: g.rows.length, cells: cellsFilled })}
                   </span>
                 </button>
               )
@@ -883,7 +1132,7 @@ function ResultCell({
   const fg = errored || failed ? 'var(--red)' : passed ? 'var(--green)' : 'var(--text-dim)'
   const mark = errored ? '!' : run.success == null ? '·' : passed ? '✓' : '✗'
   const title = [
-    run.configLabel,
+    configLabelText(run.configLabel, t),
     t(`playground.live.status.${run.status}`),
     runTime(run.createdAt),
     run.score != null ? `score ${run.score.toFixed(2)}` : null,
@@ -975,7 +1224,7 @@ function RunDetailView({
     if (!detail || deleting) return
     if (!window.confirm(t('playground.live.deleteConfirm', {
       task: detail.taskId,
-      preset: detail.configLabel,
+      preset: configLabelText(detail.configLabel, t),
       n: detail.events.length,
     }))) return
     setDeleting(true)
@@ -1030,7 +1279,7 @@ function RunDetailView({
         <code>{detail.taskId}</code>
         <b style={{ color: 'var(--text)', fontSize: 13 }}>{detail.taskTitle}</b>
         <span className="faint" style={{ fontSize: 11 }}>
-          {detail.configLabel} · {detail.fingerprint.slice(0, 10)} · ladder {detail.configVersion.ladderRung}
+          {configLabelText(detail.configLabel, t)} · {detail.fingerprint.slice(0, 10)} · ladder {detail.configVersion.ladderRung}
         </span>
         {/* When this run happened. Without it there is no way to tell a result from
             ten minutes ago from one from last week. */}

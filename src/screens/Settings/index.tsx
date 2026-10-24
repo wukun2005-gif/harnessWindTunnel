@@ -18,6 +18,7 @@ import {
 import { PRESET_KNOWLEDGE_PROVIDERS, ACCEPTED_KNOWLEDGE_FORMATS } from '../../../shared/knowledge'
 import { PRESET_SEARCH_PROVIDERS, type RetrievalSettingsView, type SearchProviderId } from '../../../shared/search'
 import { type JevSettingsPatch, type JevSettingsView } from '../../../shared/jev'
+import { ReadGuide } from '../../components/ReadGuide'
 
 interface FormProvider {
   providerId: string
@@ -367,6 +368,7 @@ export default function Settings() {
         <h1>{t('settings.title')}</h1>
         <span className="q">{t('settings.subtitle')}</span>
       </div>
+      <ReadGuide keys={['guide.settings.1', 'guide.settings.2']} />
       {toast && (
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 50, padding: '10px 20px', borderRadius: 6,
@@ -470,8 +472,8 @@ export default function Settings() {
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.enabled ? 'var(--green)' : 'var(--text-faint)', display: 'inline-block' }} />
                     <b>{lang === 'en' ? (preset.nameEn ?? preset.name) : preset.name}</b>
                     {preset.kind === 'decision' && tab !== 'decision' && (
-                      <span className="src-badge src-fixture" title="判定模型：与主 chat 模型可同时启用，不走 /chat/completions">
-                        判定模型
+                      <span className="src-badge src-fixture" title={t('settings.decision.badgeTitle')}>
+                        {t('settings.decision.badge')}
                       </span>
                     )}
                     <span className="faint" style={{ fontSize: 12 }}>{lang === 'en' ? (preset.descEn ?? preset.desc) : preset.desc}</span>
@@ -802,10 +804,10 @@ function KnowledgeTab() {
       if (r.ok && r.results && r.results.length > 0) {
         setTestResults(r.results.map((hit, i) => `[${i + 1} · ${hit.score.toFixed(2)}]\n${hit.text.slice(0, 300)}`).join('\n\n---\n\n'))
       } else {
-        setTestResults(r.ok ? '(no results)' : `Error: ${r.error}`)
+        setTestResults(r.ok ? t('settings.kb.noResults') : t('settings.kb.searchError', { error: r.error ?? '' }))
       }
     } catch (e) {
-      setTestResults(`Error: ${e instanceof Error ? e.message : String(e)}`)
+      setTestResults(t('settings.kb.searchError', { error: e instanceof Error ? e.message : String(e) }))
     } finally {
       setSearching(false)
     }
@@ -824,7 +826,7 @@ function KnowledgeTab() {
     } catch { setPreviewChunks([]) }
   }
 
-  if (!view) return <div className="panel"><span className="faint">Loading…</span></div>
+  if (!view) return <div className="panel"><span className="faint">{t('status.loadingShort')}</span></div>
   const enabled = view.knowledge.enabled
 
   return (
@@ -837,7 +839,7 @@ function KnowledgeTab() {
           <input type="checkbox" checked={enabled} onChange={(e) => void saveKnowledge({ enabled: e.target.checked })} />
           <b style={{ color: 'var(--text)' }}>{t('settings.kb.enable')}</b>
         </label>
-        <span className="faint" style={{ fontSize: 12 }}>sources {stats.sourceCount} · chunks {stats.chunkCount} · embedded {stats.embeddedCount}</span>
+        <span className="faint" style={{ fontSize: 12 }}>{t('settings.kb.stats', { sources: stats.sourceCount, chunks: stats.chunkCount, embedded: stats.embeddedCount })}</span>
       </div>
 
       <div style={{ opacity: enabled ? undefined : 0.55 }}>
@@ -895,7 +897,7 @@ function KnowledgeTab() {
                 )}
               </div>
             ))}
-            <button type="button" style={{ fontSize: 12 }} onClick={() => { if (window.confirm('clear all?')) void api.clearKnowledge().then(() => void load()) }} disabled={!enabled}>
+            <button type="button" style={{ fontSize: 12 }} onClick={() => { if (window.confirm(t('settings.kb.clearConfirm'))) void api.clearKnowledge().then(() => void load()) }} disabled={!enabled}>
               {t('settings.kb.clearAll')}
             </button>
           </div>
@@ -963,11 +965,11 @@ function KnowledgeProviderCard({ preset, view, onSaved, disabled }: {
       {expanded && (
         <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
           <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-            <span className="faint">Base URL</span>
+            <span className="faint">{t('settings.kb.baseUrl')}</span>
             <input type="text" value={preset.baseUrl} readOnly disabled style={{ background: 'var(--bg, #f5f5f5)' }} />
           </label>
           <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-            <span className="faint">API Key {hasKey && !apiKey ? '(stored — leave blank to keep)' : ''}</span>
+            <span className="faint">{t('settings.kb.apiKeyLabel')} {hasKey && !apiKey ? `(${t('settings.kb.keyStoredHint')})` : ''}</span>
             <div style={{ display: 'flex', gap: 8 }}>
               <input type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={preset.keyPlaceholder} style={{ flex: 1 }} />
               <button type="button" style={{ fontSize: 12 }} disabled={!apiKey.trim()} onClick={() => void save({ apiKey: apiKey.trim(), modelId, enabled: true }).then(() => setResult(t('settings.kb.saved'))).catch((e: unknown) => setResult(String(e instanceof Error ? e.message : e)))}>
@@ -1039,7 +1041,7 @@ function SearchTab() {
 
   useEffect(() => { void load() }, [load])
 
-  if (!view) return <div className="panel"><span className="faint">Loading…</span></div>
+  if (!view) return <div className="panel"><span className="faint">{t('status.loadingShort')}</span></div>
 
   const getProvider = (id: SearchProviderId) => view.searchProviders.find((p) => p.providerId === id)
   const save = async (providerId: SearchProviderId, patch: { enabled?: boolean; apiKey?: string; clearKey?: boolean; baseUrl?: string }) => {
@@ -1085,7 +1087,7 @@ function SearchTab() {
               </div>
               <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
                 <div style={{ fontSize: 12 }}>
-                  <span className="faint">Endpoint: </span>
+                  <span className="faint">{t('settings.search.endpoint')}: </span>
                   {preset.id === 'serper' ? (
                     editingUrl === preset.id ? (
                       <span style={{ display: 'inline-flex', gap: 6 }}>
@@ -1104,12 +1106,12 @@ function SearchTab() {
                   )}
                 </div>
                 <div style={{ fontSize: 12 }}>
-                  <span className="faint">API Key: </span>
+                  <span className="faint">{t('settings.search.apiKey')}: </span>
                   {editingKey === preset.id ? (
                     preset.id === 'epo' ? (
                       <span style={{ display: 'inline-flex', gap: 6 }}>
-                        <input type="password" autoComplete="off" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder="Consumer Key" />
-                        <input type="password" autoComplete="off" value={secretInput} onChange={(e) => setSecretInput(e.target.value)} placeholder="Consumer Secret" />
+                        <input type="password" autoComplete="off" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder={t('settings.kb.consumerKey')} />
+                        <input type="password" autoComplete="off" value={secretInput} onChange={(e) => setSecretInput(e.target.value)} placeholder={t('settings.kb.consumerSecret')} />
                         <button type="button" style={{ fontSize: 12 }} onClick={() => { void save(preset.id, { apiKey: `${keyInput}:${secretInput}` }).then(() => { setEditingKey(null); setKeyInput(''); setSecretInput('') }) }}>{t('settings.search.save')}</button>
                         <button type="button" style={{ fontSize: 12 }} onClick={() => { setEditingKey(null); setKeyInput(''); setSecretInput('') }}>{t('settings.search.cancel')}</button>
                       </span>
@@ -1129,7 +1131,7 @@ function SearchTab() {
                           <button type="button" style={{ fontSize: 12 }} disabled={verifying === preset.id} onClick={() => void handleVerify(preset.id, true, '', provider?.baseUrl)}>
                             {verifying === preset.id ? t('settings.search.verifying') : t('settings.search.verify')}
                           </button>
-                          <button type="button" style={{ fontSize: 12 }} onClick={() => void save(preset.id, { clearKey: true, enabled: false })}>clear</button>
+                          <button type="button" style={{ fontSize: 12 }} onClick={() => void save(preset.id, { clearKey: true, enabled: false })}>{t('settings.search.clear')}</button>
                         </>
                       )}
                     </span>
