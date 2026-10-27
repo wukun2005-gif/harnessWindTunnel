@@ -6,11 +6,14 @@ import { SourceBadge } from '../MRI'
 import { useT, useFixture } from '../../i18n'
 import { downloadJson } from '../../lib/pack'
 import { ReadGuide } from '../../components/ReadGuide'
+import { useTrajectoryVerdict } from '../../components/TrajectoryVerdict'
 
 export default function Forge() {
   const { forge, metas } = useApp()
   const F = useForge()
   const [packOf, setPackOf] = useState<ForgeGen | null>(null)
+  // F7 trajectory guardrail: an unexplained hard violation blocks approval.
+  const [explained, setExplained] = useState<Record<number, boolean>>({})
   const t = useT()
   const f = useFixture()
 
@@ -54,6 +57,11 @@ export default function Forge() {
   const pendingCount = forge.gens.filter((g) => g.gen >= F.currentGen && verdictOf(g) === 'pending').length
 
   const scenario = metas[forge.scenarioId]
+  const guardSample = gen.cluster.sampleBranches[0]
+  const guardRunId = `${forge.scenarioId}#${guardSample}`
+  const { data: guardData, failed: guardFailed } = useTrajectoryVerdict(guardRunId)
+  const guardHard = !!guardData?.verdict.hardViolation
+  const guardBlockApprove = guardHard && !explained[gen.gen]
 
   return (
     <div className="page">
@@ -169,9 +177,35 @@ export default function Forge() {
             </div>
             <div className="faint" style={{ marginTop: 6 }}>{f(gen.falsification.detail)}</div>
 
+            {/* F7-4 trajectory guardrail (D10): rescue reads next to the card. */}
+            <div className="traj-guard">
+              <span className="lbl">{t('forge.traj.guard')}</span>
+              {guardFailed && <span className="faint">{t('forge.traj.noTrace', { branch: guardSample })}</span>}
+              {guardData && (
+                <>
+                  <span className={guardData.verdict.hardViolation ? 'traj-hard-yes' : ''} style={{ fontSize: 12.5 }}>
+                    {guardData.verdict.hardViolation ? '✕ ' + t('forge.traj.hardWithRescue', { branch: guardSample, rescued: gen.falsification.rescued }) : '✓ ' + t('forge.traj.noHard')}
+                  </span>
+                  <span className="faint" style={{ fontSize: 12 }}>{t('forge.traj.pathState', { cell: t(`traj.cell.${guardData.verdict.cell ?? 'unknown'}`), paths: guardData.contract.pathCount })}</span>
+                  <span className="faint mono" style={{ fontSize: 11 }}>{guardData.contract.contractId} · v{guardData.contract.version}</span>
+                </>
+              )}
+              {guardHard && (
+                <label style={{ fontSize: 12, display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                  <input type="checkbox" checked={!!explained[gen.gen]} onChange={(e) => setExplained((s) => ({ ...s, [gen.gen]: e.target.checked }))} />
+                  {t('forge.traj.explain')}
+                </label>
+              )}
+            </div>
+
             <div className="gate">
               <span className="lbl">{t('forge.approval.gate')}</span>
-              <button className={decision === 'approved' ? 'active-btn' : ''} onClick={() => { F.decide(gen.gen, 'approved'); if (gen.gen < forge.gens.length) F.setGen(gen.gen + 1) }}>{t('forge.approve')}</button>
+              <button
+                className={decision === 'approved' ? 'active-btn' : ''}
+                disabled={guardBlockApprove}
+                title={guardBlockApprove ? t('forge.traj.blockHint') : undefined}
+                onClick={() => { F.decide(gen.gen, 'approved'); if (gen.gen < forge.gens.length) F.setGen(gen.gen + 1) }}
+              >{t('forge.approve')}</button>
               <button className={decision === 'rejected' ? 'danger active-btn' : 'danger'} onClick={() => F.decide(gen.gen, 'rejected')}>{t('forge.reject')}</button>
               <div className="slider-row" style={{ marginLeft: 'auto' }}>
                 <span>{t('forge.autonomy.level')}</span>
@@ -179,6 +213,7 @@ export default function Forge() {
                 <span>{t('forge.autonomy.options')}</span>
               </div>
             </div>
+            {guardBlockApprove && <div className="faint" style={{ marginTop: 6, color: 'var(--red)' }}>{t('forge.traj.blockNote', { branch: guardSample })}</div>}
             {gen.verdict === 'rejected' && !decision && (
               <div className="faint" style={{ marginTop: 6, color: 'var(--red)' }}>{t('forge.script.hint')}</div>
             )}

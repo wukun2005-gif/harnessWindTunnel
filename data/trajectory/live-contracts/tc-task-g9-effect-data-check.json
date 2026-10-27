@@ -1,0 +1,107 @@
+{
+  "contractId": "tc-task-g9-effect-data-check",
+  "target": {
+    "kind": "task",
+    "id": "G9"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "P2 full-coverage review · 683-run replay audit",
+  "checkpoints": [
+    {
+      "id": "cp-context",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.request",
+          "tool.call"
+        ],
+        "anyOf": [
+          {
+            "eventTypes": [
+              "model.request"
+            ],
+            "match": {
+              "estTokens>=": "8000"
+            }
+          },
+          {
+            "eventTypes": [
+              "tool.call"
+            ],
+            "match": {
+              "tool": "fs_read",
+              "argsSummary~=": "复审请求书"
+            }
+          }
+        ]
+      },
+      "description": "The source material for “technical-effect figures against the specification” reached the run before the answer: read from the dossier with fs_read, or already carried in the request context. Both are legitimate walks; neither is required in particular."
+    },
+    {
+      "id": "cp-read",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs_read",
+          "argsSummary~=": "复审请求书"
+        }
+      },
+      "description": "Open the dossier document matching “复审请求书”"
+    },
+    {
+      "id": "cp-answer",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.response"
+        ],
+        "match": {
+          "stopReason!=": "tool_calls"
+        }
+      },
+      "description": "Deliver “technical-effect figures against the specification” as a final answer rather than another tool turn"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-preloaded-context",
+      "nodes": [
+        "cp-context",
+        "cp-answer"
+      ],
+      "edges": []
+    },
+    {
+      "id": "p-read-dossier",
+      "nodes": [
+        "cp-context",
+        "cp-read",
+        "cp-answer"
+      ],
+      "edges": [
+        [
+          "cp-read",
+          "cp-answer"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [],
+  "completion": [
+    {
+      "id": "answer-delivered",
+      "terminal": {
+        "success": true
+      },
+      "requiredCheckpointsComplete": true,
+      "description": "“technical-effect figures against the specification” delivered on top of evidence that was either read or preloaded"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "live"
+}

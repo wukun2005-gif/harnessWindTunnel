@@ -570,6 +570,58 @@ input[type='range'] { accent-color: var(--accent); width: 130px; }
 .pg-cfgdiff-b { font-family: var(--mono); color: var(--accent); }
 .pg-empty { font-size: 12px; color: var(--text-faint); padding: 12px; text-align: center; }
 
+/* 对比记分卡 — Harness 开关差异：彩色只表示与基准列不同，灰色表示相同 */
+.pg-scdiff-head {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  margin-top: 6px; padding-top: 9px; border-top: 1px dashed var(--border);
+}
+.pg-scdiff-title { font-size: 11.5px; color: var(--text-dim); letter-spacing: .3px; }
+.pg-scdiff-ref {
+  font-family: var(--mono); font-size: 10px; color: var(--accent);
+  background: rgba(2, 132, 199, .08); border: 1px solid rgba(2, 132, 199, .25);
+  border-radius: 10px; padding: 0 7px; white-space: nowrap;
+}
+.pg-scdiff-count { font-size: 10.5px; color: var(--text-faint); }
+.pg-scdiff-toggle {
+  background: none; border: none; padding: 0; margin-left: auto; font: inherit;
+  font-size: 10.5px; color: var(--accent); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.pg-scdiff-hint {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  font-size: 10px; color: var(--text-faint); line-height: 1.5;
+}
+.pg-scdiff-swatch {
+  width: 8px; height: 8px; border-radius: 2px; display: inline-block;
+  background: var(--bg-panel2); border: 1px solid var(--border-hi);
+}
+.pg-scdiff-swatch.diff { background: rgba(124, 58, 237, .12); border-color: rgba(124, 58, 237, .42); }
+.pg-scdiff-group {
+  margin-top: 7px; padding-top: 3px; font-size: 10px; font-weight: 600;
+  letter-spacing: .5px; color: var(--text-faint); text-transform: uppercase;
+}
+.pg-scdiff-gcount { margin-left: 6px; font-weight: 400; font-family: var(--mono); }
+.pg-scdiff-label { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+.pg-scdiff-label.changed { color: var(--text-dim); }
+.pg-scdiff-val {
+  font-family: var(--mono); font-size: 10.5px; line-height: 1.35; text-align: right;
+  color: var(--text-faint); justify-self: stretch; padding: 0 4px;
+  white-space: normal; overflow-wrap: break-word; word-break: normal;
+  border: 1px solid transparent; border-radius: 4px;
+}
+.pg-scdiff-val.ref { color: var(--text-dim); }
+.pg-scdiff-val.diff {
+  color: var(--violet); font-weight: 600;
+  background: rgba(124, 58, 237, .09); border-color: rgba(124, 58, 237, .30);
+}
+/* A guidance paragraph is longer than a token; two lines is enough to tell
+   two texts apart, and the full value stays in the hover title. */
+.pg-scdiff-val.guide {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; text-align: left;
+}
+.pg-scdiff-loading { font-size: 11px; color: var(--text-faint); padding: 4px 0; }
+
 /* 演化 */
 .pg-evo { display: grid; gap: 12px; }
 .pg-evo-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -1701,3 +1753,192 @@ input[type='range'] { accent-color: var(--accent); width: 130px; }
   .read-guide { gap: 4px 12px; }
   .glossary-drawer { width: 100vw; }
 }
+
+/* ---------- F7 Trajectory Evaluation ---------- */
+.traj-meta { font-family: var(--mono); font-size: 10.5px; margin-left: 8px; color: var(--text-faint); font-weight: 400; }
+.traj-duo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.traj-pill {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 8px;
+  border-radius: 999px; border: 1px solid var(--border-hi); background: var(--bg-panel2); white-space: nowrap;
+}
+.term-ok { color: var(--green); border-color: rgba(5, 150, 105, .35); background: rgba(5, 150, 105, .08); }
+.term-fail { color: var(--red); border-color: rgba(220, 38, 38, .4); background: rgba(220, 38, 38, .08); }
+.term-unknown { color: var(--text-faint); }
+.cell-trusted { color: var(--green); border-color: rgba(5, 150, 105, .35); background: rgba(5, 150, 105, .08); }
+.cell-fluke { color: var(--red); border-color: rgba(220, 38, 38, .55); background: rgba(220, 38, 38, .12); font-weight: 600; }
+.cell-short { color: var(--amber); border-color: rgba(180, 83, 9, .35); background: rgba(180, 83, 9, .08); }
+.cell-clear { color: var(--red); border-color: rgba(220, 38, 38, .35); background: rgba(220, 38, 38, .07); }
+.cell-unknown { color: var(--text-faint); border-style: dashed; }
+.cell-incomplete { color: var(--amber); border-color: rgba(180, 83, 9, .45); border-style: dashed; background: rgba(180, 83, 9, .06); }
+.traj-note { font-size: 11.5px; color: var(--red); }
+.traj-note-incomplete { color: var(--amber); }
+.traj-live-note {
+  font-size: 11.5px; color: var(--text-dim); background: var(--bg-panel2);
+  border-left: 2px solid var(--green); padding: 5px 8px; margin: 6px 0; border-radius: 0 6px 6px 0;
+}
+.pg-traj-nocon { display: grid; gap: 3px; font-size: 12px; }
+.pg-traj-nocon b { color: var(--text); }
+.pg-traj-nocon p { margin: 0; }
+.traj-facts { display: flex; flex-wrap: wrap; gap: 5px 18px; font-size: 12.5px; margin: 7px 0; align-items: baseline; }
+.traj-facts > div { display: flex; gap: 5px; align-items: baseline; }
+.traj-facts span { color: var(--text-faint); }
+.traj-hard-yes { color: var(--red); font-weight: 600; }
+.traj-div-reason {
+  font-size: 12px; color: var(--text-dim); background: var(--bg-panel2);
+  border-left: 2px solid var(--red); padding: 5px 8px; margin: 6px 0; border-radius: 0 6px 6px 0;
+}
+.traj-violations { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.traj-violation { font-size: 11.5px; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--border-hi); }
+.traj-violation.hard { color: var(--red); border-color: rgba(220, 38, 38, .4); background: rgba(220, 38, 38, .08); }
+.traj-violation.soft { color: var(--amber); border-color: rgba(180, 83, 9, .4); background: rgba(180, 83, 9, .08); }
+.traj-steps { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 2px; }
+.traj-step-chip {
+  min-width: 24px; height: 22px; padding: 0 6px; font-size: 11px; border-radius: 6px;
+  border: 1px solid var(--border-hi); background: var(--bg-panel2); color: var(--text-dim); cursor: pointer;
+}
+.traj-step-chip:hover { border-color: var(--text-dim); }
+.sv-required { color: var(--green); border-color: rgba(5, 150, 105, .35); background: rgba(5, 150, 105, .08); }
+.sv-recovering { color: #0d9488; border-color: rgba(13, 148, 136, .4); background: rgba(13, 148, 136, .08); }
+.sv-redundant { color: var(--amber); border-style: dashed; border-color: rgba(180, 83, 9, .45); }
+.sv-violating { color: var(--red); border-color: rgba(220, 38, 38, .55); background: rgba(220, 38, 38, .1); }
+.sv-violating.hard { background: var(--red); border-color: var(--red); color: #fff; font-weight: 700; }
+.sv-neutral { color: var(--text-faint); }
+.traj-cp-list { margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.traj-cp-row {
+  display: grid; grid-template-columns: 68px minmax(160px, 1fr) auto minmax(90px, 150px);
+  gap: 8px; padding: 5px 8px; font-size: 12px; border-top: 1px solid var(--border); align-items: center;
+}
+.traj-cp-row:first-child { border-top: none; }
+.traj-cp-row.pass { background: rgba(5, 150, 105, .035); }
+.traj-cp-row.miss { background: rgba(220, 38, 38, .035); }
+.traj-cp-row.unknown { background: rgba(148, 163, 184, .06); }
+.traj-cp-kind { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); }
+.traj-cp-state { white-space: nowrap; color: var(--text-dim); }
+.traj-cp-ev { color: var(--text-faint); font-size: 10.5px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.traj-src-fixture { color: var(--text-dim); border-color: var(--border-hi); background: rgba(148, 163, 184, .07); }
+.traj-src-live { color: var(--green); border-color: rgba(5, 150, 105, .35); background: rgba(5, 150, 105, .08); }
+.traj-src-imported { color: var(--violet); border-color: rgba(167, 139, 250, .35); background: rgba(167, 139, 250, .07); }
+
+/* Inline hover explanations. The popover lives on <body> so panel overflow
+   cannot clip it; the dotted underline plus ⓘ marks every explainable label. */
+.hint {
+  cursor: help;
+  border-bottom: 1px dotted var(--border-hi);
+}
+.hint:hover { border-bottom-color: var(--accent-dim); }
+.hint:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; border-radius: 3px; }
+.hint.traj-pill, .hint.src-badge { border-bottom-style: solid; }
+.hint-mark {
+  display: inline-block; margin-left: 3px; font-size: 10px; line-height: 1;
+  color: var(--text-faint); opacity: .6; transform: translateY(-1px);
+}
+.hint:hover .hint-mark, .hint:focus-visible .hint-mark { color: var(--accent); opacity: 1; }
+.hint-pop {
+  position: fixed; z-index: 10000; display: block; pointer-events: none;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 8px 11px; border-radius: 8px;
+  background: #0f172a; color: #f8fafc;
+  font-size: 12px; line-height: 1.6; font-weight: 400; text-align: left;
+  white-space: normal; letter-spacing: 0;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .28);
+}
+.hint-pop::before { content: ''; position: absolute; left: var(--hint-arrow, 14px); border: 5px solid transparent; }
+.hint-pop:not(.above)::before { top: -10px; border-bottom-color: #0f172a; }
+.hint-pop.above { transform: translateY(-100%); }
+.hint-pop.above::before { bottom: -10px; border-top-color: #0f172a; }
+
+/* Tunnel: results / trajectory switch + pair view */
+.tunnel-view-toggle, .sec-view-toggle { display: inline-flex; gap: 4px; margin-bottom: 8px; padding: 3px; background: var(--bg-panel2); border: 1px solid var(--border); border-radius: 9px; }
+.tunnel-view-toggle button, .sec-view-toggle button { padding: 3px 12px; font-size: 12px; border: none; background: transparent; }
+.tunnel-view-toggle button.active-btn, .sec-view-toggle button.active-btn { background: var(--bg-panel); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+/* Card header row: title on the left, a card-scoped switch on the right. */
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.panel-head > h3 { margin-bottom: 0; }
+.panel-head-actions { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.panel-head-actions .tunnel-view-toggle { margin-bottom: 0; }
+.panel-head-actions .tunnel-view-toggle button { padding: 2px 10px; font-size: 11.5px; }
+.traj-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.traj-pair-card { border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; background: var(--bg-panel2); }
+.traj-pair-card header { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; margin-bottom: 5px; }
+.traj-pair-facts { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--text-dim); margin-bottom: 2px; }
+
+/* Run Insight: trajectory marks on the timeline */
+.tl-cell.tv-violating { border-color: rgba(220, 38, 38, .65); box-shadow: inset 0 0 0 1px rgba(220, 38, 38, .35); }
+.tl-cell.tv-recovering { border-color: rgba(13, 148, 136, .6); }
+.traj-step-line { font-size: 12px; padding: 4px 8px; border-radius: 6px; background: var(--bg-panel2); border-left: 2px solid var(--border-hi); }
+.traj-step-line.sv-violating.hard { border-left-color: var(--red); color: var(--red); }
+.traj-step-line.sv-violating { border-left-color: var(--amber); }
+.traj-step-line.sv-recovering { border-left-color: #0d9488; }
+.traj-step-line.sv-redundant { border-left-color: var(--amber); border-left-style: dashed; }
+
+/* Evolution: guardrail row */
+.traj-guard {
+  display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center;
+  margin: 8px 0; padding: 6px 9px; border: 1px dashed var(--border-hi);
+  border-radius: 7px; background: var(--bg-panel2); font-size: 12px;
+}
+.traj-guard .lbl { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); }
+
+/* Legal: per-assertion process line */
+.legal-traj-head { border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; margin: 0 0 8px; background: var(--bg-panel2); }
+.legal-traj-head .row { display: flex; flex-wrap: wrap; gap: 5px 14px; align-items: baseline; font-size: 12px; }
+.legal-traj-head .row span { color: var(--text-faint); }
+.legal-traj-line { font-size: 11.5px; margin-top: 3px; }
+.legal-traj-line.hard { color: var(--red); }
+.legal-traj-line.soft { color: var(--amber); }
+.legal-traj-line.clean { color: var(--green); }
+.legal-traj-line.none { color: var(--text-faint); }
+.legal-traj-clean { color: var(--green); font-size: 12px; margin-top: 6px; }
+
+/* Security: trajectory stage observations */
+.sec-traj-stages { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 7px; }
+.sec-traj-stage { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 12px; padding: 3px 0; border-top: 1px dashed var(--border); }
+.sec-traj-stage:first-of-type { border-top: none; }
+.sec-traj-stage .stage-name { font-weight: 600; min-width: 110px; }
+.sec-traj-stage .stage-state { font-size: 11.5px; color: var(--text-dim); }
+.sec-traj-stage.done .stage-state { color: var(--green); }
+.sec-traj-stage.miss .stage-state { color: var(--text-faint); }
+
+/* P2 pilot: same-task consistency + live stability, and model tags */
+.traj-judge {
+  display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline;
+  font-size: 12px; padding: 7px 10px;
+}
+.traj-judge.disagree { border-color: rgba(220, 38, 38, .35); }
+.traj-judge .traj-note { flex-basis: 100%; }
+.traj-pilot-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.traj-pilot-table th {
+  text-align: left; font-weight: 500; color: var(--text-faint);
+  font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 5px 6px; border-bottom: 1px solid var(--border);
+}
+.traj-pilot-table td { padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.traj-pilot-table tr.open td { background: var(--bg-panel2); }
+.traj-pilot-table tr.disagree td { background: rgba(220, 38, 38, .05); }
+.traj-pilot-table tr.reference td { background: rgba(148, 163, 184, .07); }
+.traj-pilot-table.compact td, .traj-pilot-table.compact th { padding: 4px 6px; }
+.traj-pilot-scroll { overflow-x: auto; }
+/* The per-run audit keeps its columns legible and scrolls sideways on narrow screens
+   instead of breaking run ids and readings into single characters. */
+.traj-pilot-table.traj-runs { min-width: 640px; }
+.traj-pilot-table.traj-runs th, .traj-pilot-table.traj-runs td { white-space: nowrap; }
+/* Cells whose symbol can be misread carry the full reading on hover. */
+.traj-pilot-table.traj-runs td[title] { cursor: help; }
+.traj-pilot-pill {
+  display: inline-block; padding: 1px 6px; border-radius: 5px; font-size: 10.5px;
+  border: 1px solid var(--border-hi); color: var(--text-dim);
+}
+.traj-pilot-pill.v-consistent { color: var(--green); border-color: rgba(5, 150, 105, .35); background: rgba(5, 150, 105, .08); }
+.traj-pilot-pill.v-mixed { color: var(--amber); border-color: rgba(180, 83, 9, .4); background: rgba(180, 83, 9, .08); }
+.traj-pilot-pill.v-insufficient { color: var(--text-faint); }
+.traj-pilot-detail { margin-top: 12px; border-top: 1px dashed var(--border-hi); padding-top: 10px; }
+.traj-pilot-detail h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; }
+.traj-pilot-suspects { margin: 6px 0 0; padding-left: 18px; font-size: 11.5px; color: var(--amber); }
+.traj-pilot-suspects li { margin: 2px 0; }
+.traj-tag-list { display: grid; gap: 4px; }
+.traj-tag-row { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 12px; }
+.traj-tag-name {
+  font-size: 11px; padding: 1px 6px; border-radius: 5px;
+  border: 1px solid rgba(180, 83, 9, .4); background: rgba(180, 83, 9, .08); color: var(--amber);
+}
+.traj-tag-why { flex-basis: 100%; color: var(--text-dim); font-size: 11.5px; }

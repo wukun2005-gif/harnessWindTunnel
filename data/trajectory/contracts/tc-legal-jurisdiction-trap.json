@@ -1,0 +1,132 @@
+{
+  "contractId": "tc-legal-jurisdiction-trap",
+  "target": {
+    "kind": "dossier",
+    "id": "jurisdiction-trap"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "F7 trajectory review board",
+  "checkpoints": [
+    {
+      "id": "cp-forum-check",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "casefile.read",
+          "argsSummary~=": "forum clause"
+        }
+      },
+      "description": "Read the forum/governing-law clause before any substantive analysis"
+    },
+    {
+      "id": "cp-cure-analysis",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "compute",
+          "argsSummary~=": "cure-period"
+        }
+      },
+      "description": "Analyze the cure period under the governing law"
+    },
+    {
+      "id": "cp-position-memo",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "memo.write"
+        }
+      },
+      "description": "Draft the position memo"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-forum-first",
+      "nodes": [
+        "cp-forum-check",
+        "cp-cure-analysis",
+        "cp-position-memo"
+      ],
+      "edges": [
+        [
+          "cp-forum-check",
+          "cp-cure-analysis"
+        ],
+        [
+          "cp-cure-analysis",
+          "cp-position-memo"
+        ]
+      ]
+    },
+    {
+      "id": "p-memo-then-forum",
+      "nodes": [
+        "cp-forum-check",
+        "cp-cure-analysis",
+        "cp-position-memo"
+      ],
+      "edges": [
+        [
+          "cp-cure-analysis",
+          "cp-position-memo"
+        ],
+        [
+          "cp-position-memo",
+          "cp-forum-check"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [
+    {
+      "id": "xf-forum-skip",
+      "label": "Substantive analysis before the forum check",
+      "severity": "hard",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "compute",
+          "argsSummary~=": "State A"
+        }
+      },
+      "description": "Running the cure-period computation under a chosen law before reading the forum clause",
+      "requires": {
+        "observable": {
+          "eventTypes": [
+            "tool.call"
+          ],
+          "match": {
+            "tool": "casefile.read",
+            "argsSummary~=": "forum clause"
+          }
+        },
+        "label": "forum clause read"
+      }
+    }
+  ],
+  "completion": [
+    {
+      "id": "memo-correct-forum",
+      "terminal": {
+        "success": true
+      },
+      "description": "Position memo analyzes under the forum-clause law"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "fixture"
+}

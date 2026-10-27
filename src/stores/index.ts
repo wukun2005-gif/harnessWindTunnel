@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { HarnessConfig } from '../../shared/config'
 import { BASE_CONFIG } from '../../shared/config'
 import type { HarnessEvent, ReplayMeta, ScenarioMeta } from '../../shared/events'
+import type { TrajectoryVerdictResponse } from '../../shared/trajectory'
 import { api, type ForgeData, type ForgeGen, type ScenarioSummary } from '../api'
 import { deriveRun, type DerivedRun } from '../lib/derive'
 import type { PresetVariant } from '../../shared/presets'
@@ -85,6 +86,23 @@ export const useRun = create<RunState>((set, get) => ({
     if (playhead >= run.events.length) { set({ playing: false }); return }
     set({ playhead: playhead + 1 })
   },
+}))
+
+// ---------- F7 Trajectory verdicts ----------
+// The band for the currently replayed run lives here so the conclusion card,
+// the timeline player and the step-detail panel all read the same verdict.
+interface TrajectoryState {
+  band: TrajectoryVerdictResponse | null
+  /** Step the band asked the timeline to jump to (consumed by TimelinePlayer). */
+  jumpTarget: number | null
+  setBand: (d: TrajectoryVerdictResponse | null) => void
+  jumpTo: (step: number) => void
+}
+export const useTrajectory = create<TrajectoryState>((set) => ({
+  band: null,
+  jumpTarget: null,
+  setBand: (band) => set({ band }),
+  jumpTo: (step) => set({ jumpTarget: step }),
 }))
 
 // ---------- Wind Tunnel: config & variants ----------

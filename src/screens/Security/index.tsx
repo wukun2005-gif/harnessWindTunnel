@@ -4,6 +4,7 @@ import { useT, useFixture } from '../../i18n'
 import { SourceBadge } from '../MRI'
 import { downloadJson } from '../../lib/pack'
 import { ReadGuide } from '../../components/ReadGuide'
+import TrajectoryVerdictBand, { CellBadge, TrajectorySourceBadge, useTrajectoryVerdict } from '../../components/TrajectoryVerdict'
 import { paretoFrontier } from '../../../shared/reliability'
 import {
   HONESTY_NOTE,
@@ -95,6 +96,9 @@ export default function Security() {
   )
   const [policyId, setPolicyId] = useState('leastpriv-dlp')
   const [approved, setApproved] = useState<Record<string, boolean>>({})
+  // F7-4: trajectory verdicts and switch derivation are two data sources and
+  // live on separate tabs — never mixed into one conclusion.
+  const [view, setView] = useState<'trace' | 'chain'>('trace')
 
   useEffect(() => {
     let live = true
@@ -133,7 +137,13 @@ export default function Security() {
       <ReadGuide keys={['guide.security.1', 'guide.security.2', 'guide.security.3']} />
 
       <ControlStrip sel={sel} setSel={setSel} matched={matched} exact={exact} setPolicyId={setPolicyId} />
-      <KillChain attack={attack} attacks={bundle.attacks} select={setCaseId} sel={sel} />
+      <div className="sec-view-toggle" data-demo="sectoggle">
+        <button className={view === 'trace' ? 'active-btn' : ''} onClick={() => setView('trace')}>{t('sec.traj.tab')}</button>
+        <button className={view === 'chain' ? 'active-btn' : ''} onClick={() => setView('chain')}>{t('sec.traj.chainTab')}</button>
+      </div>
+      {view === 'trace'
+        ? <SecurityTrajectory attack={attack} attacks={bundle.attacks} select={setCaseId} onShowChain={() => setView('chain')} />
+        : <KillChain attack={attack} attacks={bundle.attacks} select={setCaseId} sel={sel} />}
       <Honesty />
       <div className="sec-main">
         <Ablation bundle={bundle} matched={matched} frontier={frontier} selectedId={policyId} setPolicyId={setPolicyId} />
@@ -190,6 +200,76 @@ function ControlStrip({ sel, setSel, matched, exact, setPolicyId }: {
         <span className="faint">{t('sec.controls.hint')}</span>
       </div>
     </div>
+  )
+}
+
+/**
+ * F7-4 trajectory tab: replays a recorded attack trace against its contract.
+ * This is deliberately NOT the switch-derived chain — the caption and the
+ * separate tab keep the two data sources visually and verbally distinct.
+ */
+function SecurityTrajectory({ attack, attacks, select, onShowChain }: {
+  attack: AttackCase
+  attacks: AttackCase[]
+  select: (id: string) => void
+  onShowChain: () => void
+}) {
+  const t = useT()
+  const f = useFixture()
+  const { data, failed } = useTrajectoryVerdict(`redteam#${attack.id}`)
+  const stageRows = (data?.verdict.checkpoints ?? []).filter((c) => c.id.startsWith('cp-stage-'))
+  const stageDesc = (id: string) => data?.contract.checkpoints.find((c) => c.id === id)?.description ?? id
+  return (
+    <>
+      <div className="panel" data-demo="sectraj">
+        <h3>{t('sec.traj.title')} <span className="tag">{t('sec.traj.tag')}</span></h3>
+        <div className="kill-case-chips">
+          {attacks.map((c) => (
+            <button
+              key={c.id}
+              className={c.id === attack.id ? 'active-btn' : ''}
+              style={{ padding: '2px 10px', fontSize: 12 }}
+              onClick={() => select(c.id)}
+            >{f(c.title)}</button>
+          ))}
+        </div>
+        <div className="faint" style={{ marginBottom: 8 }}>{f(attack.tactic)}</div>
+        <div className="faint" style={{ marginBottom: 8 }}>{t('sec.traj.caption')}</div>
+        {!data && !failed && <div className="faint">{t('sec.traj.loading')}</div>}
+        {failed && (
+          <div>
+            <div className="faint" style={{ color: 'var(--red)' }}>{t('sec.traj.noTrace')}</div>
+            <button className="chip" style={{ marginTop: 6 }} onClick={onShowChain}>{t('sec.traj.switchChain')}</button>
+          </div>
+        )}
+        {data && (
+          <>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+              <CellBadge cell={data.verdict.cell} />
+              <TrajectorySourceBadge source={data.verdict.source} />
+              <span className="faint mono" style={{ fontSize: 10.5 }}>{t('sec.traj.contractNote', { id: data.contract.contractId, version: data.contract.version })}</span>
+            </div>
+            {stageRows.length > 0 && (
+              <div className="sec-traj-stages">
+                <div className="faint" style={{ marginBottom: 4 }}>{t('sec.traj.stageTitle')}</div>
+                {stageRows.map((c) => (
+                  <div key={c.id} className={`sec-traj-stage ${c.completed ? 'done' : 'miss'}`}>
+                    <span className="stage-name">{f(stageDesc(c.id))}</span>
+                    <span className="stage-state">
+                      {c.completed
+                        ? t('sec.traj.stageObserved', { step: c.completedAtStep ?? '—' })
+                        : c.unknown ? t('traj.cp.unknown') : t('sec.traj.stageNotReached')}
+                    </span>
+                    {c.evidenceEventId && <span className="faint mono" style={{ fontSize: 10.5 }}>{c.evidenceEventId}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      {data && <TrajectoryVerdictBand data={data} />}
+    </>
   )
 }
 

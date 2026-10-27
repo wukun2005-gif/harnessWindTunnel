@@ -16,6 +16,8 @@ import { useApp, useTunnel, type VariantMetrics } from '../../stores'
 import { useT, useFixture, useVariantLabel } from '../../i18n'
 import { SourceBadge } from '../MRI'
 import { ReadGuide } from '../../components/ReadGuide'
+import TrajectoryBoard from '../../components/TrajectoryBoard'
+import { TunnelViewToggle, type TunnelView } from '../../components/TunnelViewToggle'
 
 const dpp = (a: number, b: number) => {
   const d = a - b
@@ -29,6 +31,7 @@ export default function WindTunnel() {
   const meta = metas[current]
   const t = useT()
   const f = useFixture()
+  const [view, setView] = useState<TunnelView>('results')
   const nlahRef = useRef<HTMLInputElement>(null)
   const [nlahMsg, setNlahMsg] = useState<string | null>(null)
   const [nlahErr, setNlahErr] = useState(false)
@@ -162,7 +165,9 @@ export default function WindTunnel() {
         </div>
 
         <div>
-          <RunMatrix meta={meta} />
+          {/* The results / trajectory switch lives inside the reading card's own
+              header; the diff and adaptation cards below never change with it. */}
+          {view === 'results' ? <RunMatrix meta={meta} view={view} onView={setView} /> : <TrajectoryBoard meta={meta} view={view} onView={setView} />}
           <TrajDiff meta={meta} />
           <AdaptProfile scenarioId={current} />
         </div>
@@ -171,7 +176,7 @@ export default function WindTunnel() {
   )
 }
 
-function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
+function RunMatrix({ meta, view, onView }: { meta?: ScenarioMeta; view: TunnelView; onView: (view: TunnelView) => void }) {
   const label = useVariantLabel()
   const t = useT()
   const f = useFixture()
@@ -268,7 +273,13 @@ function RunMatrix({ meta }: { meta?: ScenarioMeta }) {
 
   return (
     <div className="panel" style={{ overflowX: 'auto' }} data-demo="readings">
-      <h3>{t('tunnel.readings.title')} <span className="tag">{t('tunnel.readings.tag')}</span>{T.fetching && <span className="faint">{t('tunnel.readings.fetching')}</span>}</h3>
+      <div className="panel-head">
+        <h3>{t('tunnel.readings.title')} <span className="tag">{t('tunnel.readings.tag')}</span>{T.fetching && <span className="faint">{t('tunnel.readings.fetching')}</span>}</h3>
+        <div className="panel-head-actions">
+          <span className="faint">{t('tunnel.view.scope')}</span>
+          <TunnelViewToggle view={view} onView={onView} />
+        </div>
+      </div>
       <div style={{ display: 'flex', gap: 8, margin: '6px 0 10px', alignItems: 'center', flexWrap: 'wrap' }} data-demo="presets">
         <span className="faint">{t('tunnel.readings.quickload')}</span>
         {PRESETS.filter((p) => p.id === 'nlah-ablation' || p.id === 'harness-r1-regress' || p.id === 'minimal-rich-pairs').map((p) => (

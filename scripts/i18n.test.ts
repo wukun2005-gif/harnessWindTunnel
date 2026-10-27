@@ -83,8 +83,12 @@ test('all scenario metadata, replay steps, markers, context previews, and Forge 
   const isImportSample = (path: string) => path.startsWith(resolve(root, 'imports'))
   // data/playground is the live Chinese judicial scenario (eval set + dossier), not English fixture data.
   const isPlayground = (path: string) => path.startsWith(resolve(root, 'playground'))
+  // data/trajectory/live-contracts binds to Chinese live-run text on purpose
+  // (thought/tool-argument matchers); the prose they carry is translated in i18n-extra.
+  const isLiveContract = (path: string) => path.startsWith(resolve(root, 'trajectory', 'live-contracts'))
   for (const path of files(root)) {
     if (isPlayground(path)) continue
+    if (isLiveContract(path)) continue
     if (isImportSample(path)) {
       const values: unknown = path.endsWith('.jsonl')
         ? readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
@@ -108,6 +112,11 @@ test('all scenario metadata, replay steps, markers, context previews, and Forge 
     if (!entry.isDirectory()) continue
     const meta = JSON.parse(readFileSync(resolve(root, 'scenarios', entry.name, 'meta.json'), 'utf8')) as { branches: { file: string }[] }
     for (const b of meta.branches) if (b.file) expected.add(`scenarios/${entry.name}/branches/${b.file}`)
+  }
+  // Domain traces (legal dossiers / red-team attacks) are recorded replays
+  // too, but they hang off their own folders rather than scenario metas.
+  for (const dir of ['domain/legal/traces', 'redteam/traces']) {
+    for (const f of readdirSync(resolve(root, dir)).filter((x) => x.endsWith('.jsonl'))) expected.add(`${dir}/${f}`)
   }
   assert.deepEqual([...seen].sort(), [...expected].sort())
 })

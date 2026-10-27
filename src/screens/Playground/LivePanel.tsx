@@ -32,6 +32,9 @@ import { BulkToolbar } from './BulkToolbar'
 import { MetricsPanel } from './MetricsPanel'
 import { ComparePanel } from './ComparePanel'
 import { RescoreImport } from './RescoreImport'
+import TrajectoryVerdictBand, { JudgeRow, useTrajectoryVerdict } from '../../components/TrajectoryVerdict'
+import TrajectoryTags from '../../components/TrajectoryTags'
+import TrajectoryPilot from './TrajectoryPilot'
 
 const DOMAINS: PgDomain[] = ['general', 'legal', 'security']
 const POLL_MS = 1500
@@ -188,7 +191,7 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
   const [filters, setFilters] = useState<RunsQuery>(() => loadFilters())
   const [metrics, setMetrics] = useState<LiveMetrics | null>(null)
   /** Which result view is open. The four used to be folded sections stacked on one page. */
-  const [view, setView] = useState<'matrix' | 'metrics' | 'compare' | 'detail'>('matrix')
+  const [view, setView] = useState<'matrix' | 'metrics' | 'compare' | 'traj' | 'detail'>('matrix')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   /** Run ids ticked for bulk export (matrix cell checkbox). */
@@ -595,6 +598,7 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
               ['matrix', t('playground.live.resultMatrix'), runs?.length ?? 0],
               ['metrics', t('playground.live.resultMetrics'), null],
               ['compare', t('playground.live.resultCompare'), null],
+              ['traj', t('playground.live.resultTraj'), null],
               ['detail', t('playground.live.resultDetail'), null],
             ] as const).map(([id, label, count]) => (
               <button
@@ -664,6 +668,12 @@ export default function LivePanel({ tasks }: { tasks: EvalTask[] }) {
         {view === 'compare' && (
           <div className="pg-result-body">
             <ComparePanel runs={runs ?? []} />
+          </div>
+        )}
+
+        {view === 'traj' && (
+          <div className="pg-result-body">
+            <TrajectoryPilot />
           </div>
         )}
 
@@ -1207,6 +1217,9 @@ function RunDetailView({
   const t = useT()
   const [detail, setDetail] = useState<RunDetail | null>(null)
   const [trajErr, setTrajErr] = useState<string | null>(null)
+  // P2: process verdict for this live run. A missing contract is not an error —
+  // the tab still replays the stream and the scorer's result is untouched.
+  const trajVerdict = useTrajectoryVerdict(runId)
   const [tab, setTab] = useState<'trajectory' | 'answer' | 'security'>('trajectory')
   const [deleting, setDeleting] = useState(false)
   const [delErr, setDelErr] = useState<string | null>(null)
@@ -1322,7 +1335,25 @@ function RunDetailView({
         (detail.events.length === 0 ? (
           <div className="loading">{t('playground.live.emptyTrajectory')}</div>
         ) : (
-          <Trajectory detail={detail} />
+          <div style={{ display: 'grid', gap: 8 }}>
+            {trajVerdict.data && <TrajectoryVerdictBand data={trajVerdict.data} />}
+            {!trajVerdict.loading && !trajVerdict.data && (
+              <div className="panel pg-traj-nocon">
+                <b>{t('playground.live.trajNoVerdict')}</b>
+                <p className="faint">{t('playground.live.trajNoVerdictHint')}</p>
+              </div>
+            )}
+            {/* The judge reading does not depend on a contract, so it is shown
+                for every run: it is the column the trajectory band is read
+                beside, not a property of the pilot. */}
+            <JudgeRow
+              judgeSuccess={detail.success}
+              judgeScore={detail.score}
+              cell={trajVerdict.data?.verdict.cell ?? null}
+            />
+            {trajVerdict.data && <TrajectoryTags runId={runId} />}
+            <Trajectory detail={detail} />
+          </div>
         ))}
 
       {tab === 'answer' && (
@@ -1553,7 +1584,7 @@ function AnswerView({
       <div style={{ display: 'grid', gap: 4 }}>
         <b style={{ color: 'var(--text)', fontSize: 12 }}>{t('playground.live.finalAnswer')}</b>
         <div className="panel" style={{ whiteSpace: 'pre-wrap', fontSize: 12, maxHeight: 420, overflow: 'auto' }}>
-          {detail.answer || '(empty)'}
+          {detail.answer || t('playground.live.answerEmpty')}
         </div>
       </div>
 

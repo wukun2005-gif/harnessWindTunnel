@@ -175,7 +175,7 @@
         "resume": "off",
         "optimizer": "off"
       },
-      "file": ""
+      "file": "r1-naive.jsonl"
     }
   ],
   "metrics": {

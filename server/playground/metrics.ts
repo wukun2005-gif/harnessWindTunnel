@@ -51,7 +51,7 @@ export function computeLiveMetrics(): LiveMetrics {
   // One name per configuration, resolved from the fingerprint — never read off
   // whichever run happens to sit at one end of the list.
   const nameConfig = makeConfigNamer(getPlaygroundDb())
-  const totalRuns = listRuns({ limit: 500 }).length
+  const totalRuns = listRuns({ limit: 5000 }).length
 
   const byFingerprint = new Map<string, ScoredRunRow[]>()
   for (const r of rows) {

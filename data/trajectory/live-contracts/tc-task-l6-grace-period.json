@@ -1,0 +1,232 @@
+{
+  "contractId": "tc-task-l6-grace-period",
+  "target": {
+    "kind": "task",
+    "id": "L6"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "P2 full-coverage review · 683-run replay audit",
+  "checkpoints": [
+    {
+      "id": "cp-grounded",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call",
+          "model.request",
+          "verifier.verdict"
+        ],
+        "anyOf": [
+          {
+            "eventTypes": [
+              "tool.call"
+            ],
+            "match": {
+              "tool": "patent_law_search"
+            }
+          },
+          {
+            "eventTypes": [
+              "tool.call"
+            ],
+            "match": {
+              "tool": "patent_law_get_article"
+            }
+          },
+          {
+            "eventTypes": [
+              "tool.call"
+            ],
+            "match": {
+              "tool": "patent_law_verify_citation"
+            }
+          },
+          {
+            "eventTypes": [
+              "model.request"
+            ],
+            "match": {
+              "estTokens>=": "5000"
+            }
+          },
+          {
+            "eventTypes": [
+              "verifier.verdict"
+            ],
+            "match": {
+              "verdict": "pass"
+            }
+          }
+        ]
+      },
+      "appliesWhen": {
+        "eventTypes": [
+          "model.request",
+          "verifier.verdict"
+        ],
+        "anyOf": [
+          {
+            "eventTypes": [
+              "model.request"
+            ],
+            "match": {
+              "blocks~=": "patent_law"
+            }
+          },
+          {
+            "eventTypes": [
+              "verifier.verdict"
+            ]
+          }
+        ]
+      },
+      "description": "The statutory basis for “the novelty grace period under Article 24” was grounded: the statute database was consulted, a large preloaded corpus carried the sources, or the mounted citation auditor passed the answer. Rejected audits and unverified answers stay ungrounded; a harness with neither tool nor auditor reads unknown."
+    },
+    {
+      "id": "cp-search",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "patent_law_search"
+        }
+      },
+      "description": "Search the local statute database"
+    },
+    {
+      "id": "cp-get-article",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "patent_law_get_article"
+        }
+      },
+      "description": "Fetch the cited article text"
+    },
+    {
+      "id": "cp-verify-citation",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "patent_law_verify_citation"
+        }
+      },
+      "description": "Check a citation against the statute database"
+    },
+    {
+      "id": "cp-web",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "web_search"
+        }
+      },
+      "description": "Search the web for supplementary material"
+    },
+    {
+      "id": "cp-answer",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.response"
+        ],
+        "match": {
+          "stopReason!=": "tool_calls"
+        }
+      },
+      "description": "Deliver “the novelty grace period under Article 24” as a final answer"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-direct",
+      "nodes": [
+        "cp-grounded",
+        "cp-answer"
+      ],
+      "edges": []
+    },
+    {
+      "id": "p-search-first",
+      "nodes": [
+        "cp-grounded",
+        "cp-search",
+        "cp-answer"
+      ],
+      "edges": [
+        [
+          "cp-search",
+          "cp-answer"
+        ]
+      ]
+    },
+    {
+      "id": "p-verify-first",
+      "nodes": [
+        "cp-grounded",
+        "cp-verify-citation",
+        "cp-answer"
+      ],
+      "edges": [
+        [
+          "cp-verify-citation",
+          "cp-answer"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [
+    {
+      "id": "xf-unaudited-submit",
+      "label": "Legal answer submitted without a passing citation audit",
+      "severity": "hard",
+      "observable": {
+        "eventTypes": [
+          "run.finished"
+        ]
+      },
+      "appliesWhen": {
+        "eventTypes": [
+          "verifier.verdict"
+        ]
+      },
+      "requires": {
+        "observable": {
+          "eventTypes": [
+            "verifier.verdict"
+          ],
+          "match": {
+            "verdict": "pass"
+          }
+        },
+        "label": "a passing citation audit"
+      },
+      "description": "A statutory answer must not ship after its citation audit rejected it. A harness with no auditor never reaches this rule — that reads unknown, not unaudited."
+    }
+  ],
+  "completion": [
+    {
+      "id": "answer-delivered",
+      "terminal": {
+        "success": true
+      },
+      "requiredCheckpointsComplete": true,
+      "description": "“the novelty grace period under Article 24” delivered with a grounded, audited statutory basis"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "live"
+}

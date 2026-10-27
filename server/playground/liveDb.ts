@@ -666,7 +666,11 @@ export function listRuns(filter: RunFilter = {}): RunSummary[] {
   if (filter.from) { where.push('r.created_at >= ?'); vals.push(filter.from) }
   if (filter.to) { where.push('r.created_at <= ?'); vals.push(filter.to) }
   const clause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
-  const limit = Math.max(1, Math.min(500, filter.limit ?? 200))
+  // Callers ask for a limit, not a page: clamping below the requested limit
+  // silently truncates whole screens (the results header read "500 runs" while
+  // the store held 683). 5000 is a guard against unbounded scans, not a cap on
+  // the corpus.
+  const limit = Math.max(1, Math.min(5000, filter.limit ?? 200))
   const rows = getDb()
     .prepare(`SELECT ${SELECT_COLUMNS} FROM pg_runs r ${clause} ORDER BY r.created_at DESC, r.run_id DESC LIMIT ${limit}`)
     .all(...vals) as unknown as RawRunRow[]

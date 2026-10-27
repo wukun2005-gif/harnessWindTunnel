@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../../api'
+import { useT } from '../../i18n'
 import type { EvalTask } from '../../../shared/playground'
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
  * they represent.
  */
 export function RescoreImport({ runId, tasks, onRescored }: Props) {
+  const t = useT()
   const [taskId, setTaskId] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -35,21 +37,21 @@ export function RescoreImport({ runId, tasks, onRescored }: Props) {
 
   return (
     <div className="panel" style={{ display: 'grid', gap: 6, background: 'var(--bg-panel2)' }}>
-      <b style={{ color: 'var(--text)', fontSize: 12 }}>Imported trajectory: link an eval task and re-score</b>
+      <b style={{ color: 'var(--text)', fontSize: 12 }}>{t('playground.rescore.title')}</b>
       <span className="faint" style={{ fontSize: 11 }}>
-        Imported trajectories stay out of the statistics by default. Pick the eval task it belongs to; once scored locally it joins the success rate and the matrices.
+        {t('playground.rescore.note')}
       </span>
       <label className="pg-field">
-        <span>Eval task</span>
+        <span>{t('playground.rescore.task')}</span>
         <select value={taskId} onChange={(e) => setTaskId(e.target.value)}>
-          <option value="">Choose a task…</option>
+          <option value="">{t('playground.rescore.choose')}</option>
           {tasks.map((t) => (
             <option key={t.id} value={t.id}>[{t.id}] {t.title}</option>
           ))}
         </select>
       </label>
       <button className="primary" disabled={busy || !taskId} onClick={() => void run()}>
-        {busy ? 'Scoring…' : 'Link and re-score'}
+        {busy ? t('playground.rescore.busy') : t('playground.rescore.action')}
       </button>
       {err && <span style={{ color: 'var(--red)', fontSize: 11 }}>{err}</span>}
     </div>

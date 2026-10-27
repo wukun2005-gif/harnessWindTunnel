@@ -5,6 +5,10 @@
 // "why", by putting the four readings (deterministic, ROUGE, Jev, LLM) side by
 // side for the same question. Comparing two configs off a single `score` is what
 // made the C1/G1 false negative look like a harness difference.
+//
+// Under the readings, the Harness-switch block names which of the 20 switches —
+// and which Playground-only mounts — actually differ from the baseline column,
+// so a score gap can be traced to a configuration instead of guessed.
 import { fingerprint } from '../../../shared/config'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { api } from '../../api'
@@ -12,6 +16,7 @@ import { useT } from '../../i18n'
 import type { PgPreset, RunDetail, RunSummary } from '../../../shared/playground'
 import { allSettled, buildRows } from './resultOrder'
 import { pickUiJudgeReading, uiJudgeReadingLine } from './channelText'
+import { buildScorecardConfig, diffOnlyGroups, type ScorecardCfgColumn } from './scorecardConfig'
 
 /** Same cadence as the run list, so the two never disagree about what is in flight. */
 const POLL_MS = 1500
@@ -41,6 +46,8 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
   const t = useT()
   const [details, setDetails] = useState<Map<string, RunDetail>>(new Map())
   const [open, setOpen] = useState(loadOpen)
+  /** The switch block opens on the differences; "show all" is opt-in. */
+  const [showAllCfg, setShowAllCfg] = useState(false)
 
   const toggle = (): void => {
     setOpen((v) => {
@@ -82,11 +89,18 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
     let live = true
     let timer: ReturnType<typeof setTimeout> | null = null
     const tick = (): void => {
-      void Promise.all(ids.split(',').map((id) => api.pgRun(id).catch(() => null))).then((ds) => {
+      const wanted = ids.split(',')
+      void Promise.all(wanted.map((id) => api.pgRun(id).catch(() => null))).then((ds) => {
         if (!live) return
         const found = ds.filter((d): d is RunDetail => d != null)
-        setDetails(new Map(found.map((d) => [d.runId, d])))
-        if (!allSettled(found)) timer = setTimeout(tick, POLL_MS)
+        // Keep details already read: one transient failure must not erase a
+        // column's configuration and leave the switch diff stuck on "reading".
+        setDetails((prev) => {
+          const next = new Map(prev)
+          for (const d of found) next.set(d.runId, d)
+          return next
+        })
+        if (found.length < wanted.length || !allSettled(found)) timer = setTimeout(tick, POLL_MS)
       })
     }
     tick()
@@ -96,6 +110,21 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
     }
   }, [ids])
 
+  // The switch diff needs every column's full detail: a missing detail is
+  // "unknown", not "same as the baseline", so the block waits instead of
+  // rendering a table of false matches.
+  const cfg = useMemo(() => {
+    if (order.length < 2) return null
+    const columns: ScorecardCfgColumn[] = []
+    for (const col of order) {
+      const id = map.get(col.key)?.run.runId
+      const detail = id ? details.get(id) : null
+      if (!detail) return null
+      columns.push({ label: col.label, detail })
+    }
+    return buildScorecardConfig(columns)
+  }, [order, map, details])
+
   if (order.length === 0) return null
 
   const summaryOf = (key: string): RunSummary | null => map.get(key)?.run ?? null
@@ -104,7 +133,7 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
     return id ? details.get(id) ?? null : null
   }
 
-  const lines: Array<{ label: string; of: (key: string) => string }> = [
+  const lines: Array<{ label: string; hint?: string; of: (key: string) => string }> = [
     {
       label: t('playground.live.judgeVerdict'),
       of: (k) => {
@@ -122,7 +151,11 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
       },
     },
     {
-      label: t('playground.report.failureTags'),
+      // Short label: the long report heading widened the label column until the
+      // value columns collapsed to a few characters. The full heading stays in
+      // the hover title.
+      label: t('playground.live.failureTagsShort'),
+      hint: t('playground.report.failureTags'),
       of: (k) => summaryOf(k)?.failureTags.join(' ') || DASH,
     },
     {
@@ -188,10 +221,12 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
               const s = summaryOf(col.key)!
               const c = map.get(col.key)!.count
               return (
-                <span key={col.key} title={col.title ?? undefined} style={{ textAlign: 'right', fontSize: 11, whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                  <b style={{ color: 'var(--text)' }}>{col.label}</b>
-                  <span className="faint">{shortTime(s.createdAt)}</span>
-                  <span className="faint" style={{ fontFamily: 'var(--mono)', fontSize: 10 }}>{s.model}</span>
+                <span key={col.key} title={col.title ?? undefined} style={{ minWidth: 0, textAlign: 'right', fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                  <b style={{ color: 'var(--text)', whiteSpace: 'nowrap' }}>{col.label}</b>
+                  <span className="faint" style={{ whiteSpace: 'nowrap' }}>{shortTime(s.createdAt)}</span>
+                  {/* The model string is longer than one column; wrapping keeps it
+                      inside its own column instead of overlapping the neighbours. */}
+                  <span className="faint" style={{ fontFamily: 'var(--mono)', fontSize: 10, textAlign: 'right', overflowWrap: 'anywhere', lineHeight: 1.25 }}>{s.model}</span>
                   {c > 1 && <span className="faint" title={t('playground.live.latestOf', { count: c })}> ×{c}</span>}
                 </span>
               )
@@ -199,7 +234,7 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
 
             {lines.map((ln) => (
               <Fragment key={ln.label}>
-                <span className="faint" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                <span className="faint" title={ln.hint} style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
                   {ln.label}
                 </span>
                 {order.map((col) => (
@@ -209,6 +244,97 @@ export function Scorecard({ runs, presets }: { runs: RunSummary[]; presets: PgPr
                 ))}
               </Fragment>
             ))}
+
+            {order.length >= 2 && (
+              <>
+                <div className="pg-scdiff-head" style={{ gridColumn: '1 / -1' }}>
+                  <b className="pg-scdiff-title">{t('playground.live.cfgDiff')}</b>
+                  {cfg && (
+                    <span className="pg-scdiff-ref">
+                      {t('playground.live.cfgDiffRef', { ref: cfg.refLabel })}
+                    </span>
+                  )}
+                  {cfg && (
+                    <span className="pg-scdiff-count">
+                      {t('playground.live.cfgDiffSummary', {
+                        diff: cfg.diffCount,
+                        same: cfg.totalCount - cfg.diffCount,
+                      })}
+                    </span>
+                  )}
+                  {cfg && cfg.diffCount > 0 && (
+                    <button className="pg-scdiff-toggle" onClick={() => setShowAllCfg((v) => !v)}>
+                      {showAllCfg
+                        ? t('playground.live.cfgDiffShowDiff', { diff: cfg.diffCount })
+                        : t('playground.live.cfgDiffShowAll', { total: cfg.totalCount })}
+                    </button>
+                  )}
+                </div>
+
+                {cfg ? (
+                  <>
+                    <div className="pg-scdiff-hint" style={{ gridColumn: '1 / -1' }}>
+                      <i className="pg-scdiff-swatch diff" />
+                      {t('playground.live.cfgDiffLegendDiff')}
+                      <i className="pg-scdiff-swatch" style={{ marginLeft: 10 }} />
+                      {t('playground.live.cfgDiffLegendSame')}
+                    </div>
+                    {(showAllCfg || cfg.diffCount === 0 ? cfg.groups : diffOnlyGroups(cfg)).map((group) => {
+                      const full = cfg.groups.find((g) => g.id === group.id)
+                      return (
+                        <Fragment key={group.id}>
+                          <div className="pg-scdiff-group" style={{ gridColumn: '1 / -1' }}>
+                            {t(`playground.live.cfgGroup.${group.id}`)}
+                            {full && (
+                              <span className="pg-scdiff-gcount">
+                                {full.rows.filter((r) => r.anyDiff).length}/{full.rows.length}
+                              </span>
+                            )}
+                          </div>
+                          {group.rows.map((row) => {
+                            const label =
+                              row.kind === 'field'
+                                ? t(`playground.live.cfg.${row.id}`)
+                                : row.kind === 'mount'
+                                  ? t('playground.live.cfgRow.mountPatents')
+                                  : t('playground.live.cfgRow.customGuide')
+                            return (
+                              <Fragment key={row.id}>
+                                <span className={`pg-scdiff-label${row.anyDiff ? ' changed' : ''}`}>{label}</span>
+                                {row.cells.map((cell, i) => (
+                                  <span
+                                    key={order[i].key}
+                                    className={`pg-scdiff-val${i === 0 ? ' ref' : ''}${cell.diff ? ' diff' : ''}${row.kind === 'guide' ? ' guide' : ''}`}
+                                    title={
+                                      i === 0
+                                        ? t('playground.live.cfgCellRef', { label, value: cell.full || DASH })
+                                        : cell.diff
+                                          ? t('playground.live.cfgCellDiff', {
+                                              label,
+                                              value: cell.full || DASH,
+                                              ref: cfg.refLabel,
+                                              refValue: row.cells[0].full || DASH,
+                                            })
+                                          : t('playground.live.cfgCellSame', { label, value: cell.full || DASH })
+                                    }
+                                  >
+                                    {cell.text || DASH}
+                                  </span>
+                                ))}
+                              </Fragment>
+                            )
+                          })}
+                        </Fragment>
+                      )
+                    })}
+                  </>
+                ) : (
+                  <span className="pg-scdiff-loading" style={{ gridColumn: '1 / -1' }}>
+                    {t('playground.live.cfgDiffLoading')}
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </>
       )}

@@ -1,0 +1,126 @@
+{
+  "contractId": "tc-legal-clean-control",
+  "target": {
+    "kind": "dossier",
+    "id": "clean-control"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "F7 trajectory review board",
+  "checkpoints": [
+    {
+      "id": "cp-materials-read",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "casefile.read"
+        }
+      },
+      "description": "Read the rule and opinion materials from the case file"
+    },
+    {
+      "id": "cp-authority-verified",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "authority.search"
+        }
+      },
+      "description": "Verify each proposition against the authority registry"
+    },
+    {
+      "id": "cp-memo-write",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "memo.write"
+        }
+      },
+      "description": "Draft the memo with verified authorities"
+    },
+    {
+      "id": "cp-final-reread",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "casefile.read",
+          "argsSummary~=": "memo-ai-verification"
+        }
+      },
+      "description": "Re-read the finished memo against the authorities"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-verify-then-write",
+      "nodes": [
+        "cp-materials-read",
+        "cp-authority-verified",
+        "cp-memo-write",
+        "cp-final-reread"
+      ],
+      "edges": [
+        [
+          "cp-materials-read",
+          "cp-authority-verified"
+        ],
+        [
+          "cp-authority-verified",
+          "cp-memo-write"
+        ],
+        [
+          "cp-memo-write",
+          "cp-final-reread"
+        ]
+      ]
+    },
+    {
+      "id": "p-write-then-reread",
+      "nodes": [
+        "cp-materials-read",
+        "cp-authority-verified",
+        "cp-memo-write",
+        "cp-final-reread"
+      ],
+      "edges": [
+        [
+          "cp-materials-read",
+          "cp-memo-write"
+        ],
+        [
+          "cp-materials-read",
+          "cp-authority-verified"
+        ],
+        [
+          "cp-memo-write",
+          "cp-final-reread"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [],
+  "completion": [
+    {
+      "id": "memo-zero-flags",
+      "terminal": {
+        "success": true
+      },
+      "description": "Clean memo: every assertion carries a verifiable authority"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "fixture"
+}

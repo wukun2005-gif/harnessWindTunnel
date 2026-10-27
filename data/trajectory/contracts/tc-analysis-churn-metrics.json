@@ -1,0 +1,189 @@
+{
+  "contractId": "tc-analysis-churn-metrics",
+  "target": {
+    "kind": "scenario",
+    "id": "analysis-churn-metrics"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "F7 trajectory review board",
+  "checkpoints": [
+    {
+      "id": "cp-schema",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "db.schema"
+        }
+      },
+      "description": "Inspect the subscriptions schema first"
+    },
+    {
+      "id": "cp-sample",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "db.query",
+          "argsSummary~=": "monthly"
+        }
+      },
+      "description": "Sample three months of data"
+    },
+    {
+      "id": "cp-definition-check",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "sensor.lint",
+          "tool.call"
+        ],
+        "anyOf": [
+          {
+            "eventTypes": [
+              "sensor.lint"
+            ],
+            "match": {
+              "lint": "definition-check",
+              "verdict": "pass"
+            }
+          },
+          {
+            "eventTypes": [
+              "tool.call"
+            ],
+            "match": {
+              "tool": "db.query",
+              "argsSummary~=": "group by status"
+            }
+          }
+        ]
+      },
+      "description": "Resolve the churn definition (paused vs churned) before concluding"
+    },
+    {
+      "id": "cp-recompute",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "compute",
+          "argsSummary~=": "canceled/(active"
+        }
+      },
+      "description": "Recompute churn with the resolved denominator"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-lint-gated",
+      "nodes": [
+        "cp-schema",
+        "cp-sample",
+        "cp-definition-check",
+        "cp-recompute"
+      ],
+      "edges": [
+        [
+          "cp-schema",
+          "cp-sample"
+        ],
+        [
+          "cp-sample",
+          "cp-definition-check"
+        ],
+        [
+          "cp-definition-check",
+          "cp-recompute"
+        ]
+      ]
+    },
+    {
+      "id": "p-explore-then-check",
+      "nodes": [
+        "cp-schema",
+        "cp-sample",
+        "cp-definition-check",
+        "cp-recompute"
+      ],
+      "edges": [
+        [
+          "cp-schema",
+          "cp-sample"
+        ],
+        [
+          "cp-schema",
+          "cp-definition-check"
+        ],
+        [
+          "cp-sample",
+          "cp-recompute"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [
+    {
+      "id": "xf-ambiguous-definition",
+      "label": "Computed on an unresolved definition",
+      "severity": "soft",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "compute"
+        }
+      },
+      "description": "Running the final computation while paused-vs-churned is still unresolved",
+      "requires": {
+        "observable": {
+          "eventTypes": [
+            "sensor.lint",
+            "tool.call"
+          ],
+          "anyOf": [
+            {
+              "eventTypes": [
+                "sensor.lint"
+              ],
+              "match": {
+                "lint": "definition-check",
+                "verdict": "pass"
+              }
+            },
+            {
+              "eventTypes": [
+                "tool.call"
+              ],
+              "match": {
+                "tool": "db.query",
+                "argsSummary~=": "group by status"
+              }
+            }
+          ]
+        },
+        "label": "definition resolved"
+      }
+    }
+  ],
+  "completion": [
+    {
+      "id": "churn-recomputable",
+      "terminal": {
+        "success": true
+      },
+      "description": "Churn rate published with a definition footnote, recomputable from source data"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "fixture"
+}

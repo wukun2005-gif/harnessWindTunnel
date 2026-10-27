@@ -1,0 +1,107 @@
+{
+  "contractId": "tc-task-g2-dispute-focus",
+  "target": {
+    "kind": "task",
+    "id": "G2"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "P2 full-coverage review · 683-run replay audit",
+  "checkpoints": [
+    {
+      "id": "cp-context",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.request",
+          "tool.call"
+        ],
+        "anyOf": [
+          {
+            "eventTypes": [
+              "model.request"
+            ],
+            "match": {
+              "estTokens>=": "1500"
+            }
+          },
+          {
+            "eventTypes": [
+              "tool.call"
+            ],
+            "match": {
+              "tool": "fs_read",
+              "argsSummary~=": "意见陈述"
+            }
+          }
+        ]
+      },
+      "description": "The source material for “the issues in dispute” reached the run before the answer: read from the dossier with fs_read, or already carried in the request context. Both are legitimate walks; neither is required in particular."
+    },
+    {
+      "id": "cp-read",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs_read",
+          "argsSummary~=": "意见陈述"
+        }
+      },
+      "description": "Open the dossier document matching “意见陈述”"
+    },
+    {
+      "id": "cp-answer",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.response"
+        ],
+        "match": {
+          "stopReason!=": "tool_calls"
+        }
+      },
+      "description": "Deliver “the issues in dispute” as a final answer rather than another tool turn"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-preloaded-context",
+      "nodes": [
+        "cp-context",
+        "cp-answer"
+      ],
+      "edges": []
+    },
+    {
+      "id": "p-read-dossier",
+      "nodes": [
+        "cp-context",
+        "cp-read",
+        "cp-answer"
+      ],
+      "edges": [
+        [
+          "cp-read",
+          "cp-answer"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [],
+  "completion": [
+    {
+      "id": "answer-delivered",
+      "terminal": {
+        "success": true
+      },
+      "requiredCheckpointsComplete": true,
+      "description": "“the issues in dispute” delivered on top of evidence that was either read or preloaded"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "live"
+}

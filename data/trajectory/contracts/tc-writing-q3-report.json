@@ -1,0 +1,213 @@
+{
+  "contractId": "tc-writing-q3-report",
+  "target": {
+    "kind": "scenario",
+    "id": "writing-q3-report"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "F7 trajectory review board",
+  "checkpoints": [
+    {
+      "id": "cp-list-sources",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.list",
+          "argsSummary^=": "docs/q3/"
+        }
+      },
+      "description": "List the 24 Q3 source documents before any drafting"
+    },
+    {
+      "id": "cp-read-sales",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.read",
+          "argsSummary~=": "sales"
+        }
+      },
+      "description": "Read the sales weekly bundle"
+    },
+    {
+      "id": "cp-read-finance",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.read",
+          "argsSummary~=": "finance"
+        }
+      },
+      "description": "Read the finance sheet"
+    },
+    {
+      "id": "cp-draft-sections",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.write",
+          "argsSummary~=": "section-1-2"
+        }
+      },
+      "description": "Draft the report body sections with citations"
+    },
+    {
+      "id": "cp-verify-figures",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.response"
+        ],
+        "match": {
+          "thought~=": "verify figures"
+        }
+      },
+      "description": "After drafting, verify figures and citations section by section"
+    },
+    {
+      "id": "cp-read-interviews",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.read",
+          "argsSummary~=": "interviews"
+        }
+      },
+      "description": "Read the customer interviews"
+    },
+    {
+      "id": "cp-outline",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.write",
+          "argsSummary^=": "report/outline"
+        }
+      },
+      "description": "Write an outline before drafting"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-verify-last",
+      "nodes": [
+        "cp-list-sources",
+        "cp-read-sales",
+        "cp-read-finance",
+        "cp-draft-sections",
+        "cp-verify-figures"
+      ],
+      "edges": [
+        [
+          "cp-list-sources",
+          "cp-read-sales"
+        ],
+        [
+          "cp-list-sources",
+          "cp-read-finance"
+        ],
+        [
+          "cp-read-sales",
+          "cp-draft-sections"
+        ],
+        [
+          "cp-read-finance",
+          "cp-draft-sections"
+        ],
+        [
+          "cp-draft-sections",
+          "cp-verify-figures"
+        ]
+      ]
+    },
+    {
+      "id": "p-verify-alongside",
+      "nodes": [
+        "cp-list-sources",
+        "cp-read-sales",
+        "cp-read-finance",
+        "cp-draft-sections",
+        "cp-verify-figures"
+      ],
+      "edges": [
+        [
+          "cp-list-sources",
+          "cp-read-finance"
+        ],
+        [
+          "cp-list-sources",
+          "cp-read-sales"
+        ],
+        [
+          "cp-read-finance",
+          "cp-draft-sections"
+        ],
+        [
+          "cp-draft-sections",
+          "cp-verify-figures"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [
+    {
+      "id": "aa-read-scope",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.read"
+        }
+      },
+      "description": "Reads stay inside docs/q3/"
+    }
+  ],
+  "forbiddenActions": [
+    {
+      "id": "xf-unverified-figure",
+      "label": "Report figure with no source file",
+      "severity": "hard",
+      "observable": {
+        "eventTypes": [
+          "tool.result"
+        ],
+        "match": {
+          "tool": "fs.write",
+          "summary~=": "unverified figure"
+        }
+      },
+      "description": "A figure carried into the final report without a verifiable source file"
+    }
+  ],
+  "completion": [
+    {
+      "id": "report-passes-review",
+      "terminal": {
+        "success": true
+      },
+      "description": "Report exists, sections complete, every figure traceable to a source"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "fixture"
+}

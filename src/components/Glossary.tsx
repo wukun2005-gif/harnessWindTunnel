@@ -3,7 +3,7 @@ import { useT } from '../i18n'
 
 const GROUPS = [
   { key: 'core', terms: ['harness', 'model', 'task', 'run', 'variant', 'ablation'] },
-  { key: 'metrics', terms: ['asr', 'utility', 'friction', 'pareto', 'tokens'] },
+  { key: 'metrics', terms: ['asr', 'utility', 'friction', 'pareto', 'tokens', 'csr', 'pvr'] },
   { key: 'evolution', terms: ['evidence', 'falsification', 'gate', 'rollback', 'heldout'] },
   { key: 'eval', terms: ['decision', 'splits', 'trap', 'fixture', 'jev', 'controls', 'killchain'] },
 ] as const

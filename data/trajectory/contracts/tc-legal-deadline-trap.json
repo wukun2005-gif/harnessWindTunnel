@@ -1,0 +1,133 @@
+{
+  "contractId": "tc-legal-deadline-trap",
+  "target": {
+    "kind": "dossier",
+    "id": "deadline-trap"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "F7 trajectory review board",
+  "checkpoints": [
+    {
+      "id": "cp-clause-read",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "casefile.read",
+          "argsSummary~=": "limitations"
+        }
+      },
+      "description": "Read the limitations clause and accrual date"
+    },
+    {
+      "id": "cp-calendar-check",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "casefile.read",
+          "argsSummary~=": "holiday-calendar"
+        }
+      },
+      "description": "Check the deadline arithmetic against the case-file holiday calendar"
+    },
+    {
+      "id": "cp-deadline-verified",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "compute",
+          "argsSummary~=": "holiday-adjusted"
+        }
+      },
+      "description": "Compute the deadline with the holiday exclusion applied"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-calendar-first",
+      "nodes": [
+        "cp-clause-read",
+        "cp-calendar-check",
+        "cp-deadline-verified"
+      ],
+      "edges": [
+        [
+          "cp-clause-read",
+          "cp-calendar-check"
+        ],
+        [
+          "cp-calendar-check",
+          "cp-deadline-verified"
+        ]
+      ]
+    },
+    {
+      "id": "p-compute-then-check",
+      "nodes": [
+        "cp-clause-read",
+        "cp-calendar-check",
+        "cp-deadline-verified"
+      ],
+      "edges": [
+        [
+          "cp-clause-read",
+          "cp-deadline-verified"
+        ],
+        [
+          "cp-clause-read",
+          "cp-calendar-check"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [
+    {
+      "id": "xf-calendar-skip",
+      "label": "Deadline computed without the holiday calendar",
+      "severity": "hard",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "compute",
+          "argsSummary^=": "deadline"
+        }
+      },
+      "description": "Deadline arithmetic before the holiday calendar has been consulted",
+      "requires": {
+        "observable": {
+          "eventTypes": [
+            "tool.call"
+          ],
+          "match": {
+            "tool": "casefile.read",
+            "argsSummary~=": "holiday-calendar"
+          }
+        },
+        "label": "holiday calendar read"
+      }
+    }
+  ],
+  "completion": [
+    {
+      "id": "deadline-holiday-adjusted",
+      "terminal": {
+        "success": true
+      },
+      "description": "Deadline memo states the holiday-adjusted date"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "fixture"
+}

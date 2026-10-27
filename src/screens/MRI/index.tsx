@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { BASE_CONFIG, COMPONENT_META, CONFIG_FIELDS } from '../../../shared/config'
 import { LAYER_LABEL, SHAPER_LABEL, type HarnessEvent, type SourceRef } from '../../../shared/events'
 import { MAST_HINT, MAST_LABEL, type MastTag } from '../../../shared/mast'
-import { useApp, useRun, useTunnel } from '../../stores'
+import { useApp, useRun, useTrajectory, useTunnel } from '../../stores'
 import { api } from '../../api'
 import { useT, useFixture } from '../../i18n'
 import { fmtTokens } from '../../lib/derive'
 import { ReadGuide } from '../../components/ReadGuide'
+import TrajectoryVerdictBand, { useTrajectoryVerdict } from '../../components/TrajectoryVerdict'
 
 export function SourceBadge({ source }: { source: SourceRef }) {
   const t = useT()
@@ -69,6 +70,7 @@ export default function MRI() {
       </div>
       <ReadGuide keys={['guide.insight.1', 'guide.insight.2', 'guide.insight.3']} />
       <RunConclusion />
+      <InsightTrajectoryBand />
       <div className="mri-layout">
         {/* Left toggle button — always visible */}
         <button
@@ -158,6 +160,16 @@ export default function MRI() {
       </div>
     </div>
   )
+}
+
+/** F7-2 trajectory band under the conclusion card: terminal × process, jump-to-divergence. */
+function InsightTrajectoryBand() {
+  const { meta: runMeta } = useRun()
+  const { data } = useTrajectoryVerdict(runMeta?.runId)
+  const T = useTrajectory()
+  useEffect(() => { T.setBand(data) }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!data) return null // offline / imported run: no trajectory verdict, no conclusion
+  return <TrajectoryVerdictBand data={data} onJumpStep={(step) => T.jumpTo(step)} />
 }
 
 /** One-line verdict for the replayed run, above the fold. */
@@ -311,6 +323,7 @@ function ImportPanel() {
 
 function TimelinePlayer() {
   const { run, playhead, playing, speed, setPlayhead, setPlaying, setSpeed, tick } = useRun()
+  const { band, jumpTarget } = useTrajectory()
   const [selected, setSelected] = useState<number>(1)
   const t = useT()
   const f = useFixture()
@@ -329,6 +342,17 @@ function TimelinePlayer() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [playhead, setPlayhead, setPlaying])
+
+  // F7 jump-to-divergence: the trajectory band drives the playhead; the
+  // highlight lands on the same step the verdict text names.
+  useEffect(() => {
+    if (jumpTarget == null || !run) return
+    const s = run.steps.find((x) => x.step === jumpTarget)
+    if (s) { setPlaying(false); setPlayhead(s.reqIdx + 1); setSelected(s.step) }
+    useTrajectory.setState({ jumpTarget: null })
+  }, [jumpTarget, run]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stepVerdict = (step: number) => band?.verdict.steps.find((x) => x.step === step)
 
   const visibleSteps = useMemo(
     () => (run ? run.steps.filter((s) => s.reqIdx < playhead || playhead === 0) : []),
@@ -372,10 +396,11 @@ function TimelinePlayer() {
             const vis = s.reqIdx < playhead
             const critical = run.criticalStep === s.step
             const failed = s.tags.length > 0
+            const sv = stepVerdict(s.step)
             return (
               <button
                 key={s.step}
-                className={`tl-cell ${vis ? 'vis' : 'unseen'}${critical ? ' critical' : ''}${failed ? ' failed' : ''}${cur?.step === s.step ? ' cur' : ''}`}
+                className={`tl-cell ${vis ? 'vis' : 'unseen'}${critical ? ' critical' : ''}${failed ? ' failed' : ''}${cur?.step === s.step ? ' cur' : ''}${sv?.verdict === 'violating' ? ' tv-violating' : ''}${sv?.verdict === 'recovering' ? ' tv-recovering' : ''}`}
                 title={f(s.thought)}
                 onClick={() => { setPlaying(false); setPlayhead(s.reqIdx + 1); setSelected(s.step) }}
               >
@@ -383,6 +408,8 @@ function TimelinePlayer() {
                 <span className="tk">{fmtTokens(s.estTokens)}</span>
                 {critical && <span className="dia">◆</span>}
                 {failed && !critical && <span className="dia">●</span>}
+                {sv?.verdict === 'violating' && <span className="dia" style={{ color: 'var(--red)' }}>✕</span>}
+                {sv?.blockedCorrect && <span className="dia" style={{ color: 'var(--green)' }}>🛡</span>}
               </button>
             )
           })}
@@ -423,6 +450,19 @@ function TimelinePlayer() {
         {cur ? (
           <>
             {run.criticalStep === cur.step && <div className="crit-banner">{t('mri.critical.banner')}</div>}
+            {(() => {
+              const sv = stepVerdict(cur.step)
+              if (!sv) return null
+              const rule = band?.contract.forbidden.find((x) => x.id === sv.ruleId)
+              return (
+                <div className={`traj-step-line sv-${sv.verdict}${sv.severity === 'hard' ? ' hard' : ''}`} style={{ margin: '6px 0' }}>
+                  <b>{t('traj.title')}:</b> {t(`traj.stepv.${sv.verdict}`)}
+                  {rule && <> · {f(rule.label)}</>}
+                  {sv.blockedCorrect && <> · {t('traj.blocked')}</>}
+                  {sv.evidenceIds.length > 0 && <span className="faint mono"> · {sv.evidenceIds.join(', ')}</span>}
+                </div>
+              )
+            })()}
             <div style={{ fontSize: 13.5, color: 'var(--text)' }}>{f(cur.thought)}</div>
             {cur.tools.map((tool, i) => (
               <div key={i} style={{ margin: '7px 0', fontSize: 12.5 }}>

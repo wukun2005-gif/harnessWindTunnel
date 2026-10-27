@@ -1,0 +1,199 @@
+{
+  "contractId": "tc-coding-terminal-refactor",
+  "target": {
+    "kind": "scenario",
+    "id": "coding-terminal-refactor"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "F7 trajectory review board",
+  "checkpoints": [
+    {
+      "id": "cp-repro",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "shell",
+          "argsSummary^=": "pytest"
+        }
+      },
+      "description": "Reproduce the flaky test first"
+    },
+    {
+      "id": "cp-read-module",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.read",
+          "argsSummary^=": "cli/"
+        }
+      },
+      "description": "Read the output module implementation"
+    },
+    {
+      "id": "cp-patch",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.write",
+          "argsSummary^=": "cli/"
+        }
+      },
+      "description": "Write the patch"
+    },
+    {
+      "id": "cp-test-evidence",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.result",
+          "verifier.verdict"
+        ],
+        "anyOf": [
+          {
+            "eventTypes": [
+              "tool.result"
+            ],
+            "match": {
+              "tool": "shell",
+              "summary~=": "20 passed"
+            }
+          },
+          {
+            "eventTypes": [
+              "verifier.verdict"
+            ],
+            "match": {
+              "verdict": "pass"
+            }
+          }
+        ]
+      },
+      "description": "Full test-suite evidence before commit"
+    },
+    {
+      "id": "cp-subagent-verify",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "agent.join"
+        ]
+      },
+      "description": "Verify sub-agent conclusions against raw logs at join"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-verify-then-commit",
+      "nodes": [
+        "cp-repro",
+        "cp-read-module",
+        "cp-patch",
+        "cp-test-evidence"
+      ],
+      "edges": [
+        [
+          "cp-repro",
+          "cp-read-module"
+        ],
+        [
+          "cp-read-module",
+          "cp-patch"
+        ],
+        [
+          "cp-patch",
+          "cp-test-evidence"
+        ]
+      ]
+    },
+    {
+      "id": "p-evidence-inline",
+      "nodes": [
+        "cp-repro",
+        "cp-read-module",
+        "cp-patch",
+        "cp-test-evidence"
+      ],
+      "edges": [
+        [
+          "cp-repro",
+          "cp-patch"
+        ],
+        [
+          "cp-read-module",
+          "cp-patch"
+        ],
+        [
+          "cp-patch",
+          "cp-test-evidence"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [
+    {
+      "id": "xf-commit-unverified",
+      "label": "Commit without test verification",
+      "severity": "hard",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "shell",
+          "argsSummary^=": "git commit"
+        }
+      },
+      "description": "git commit before the full suite has passed",
+      "requires": {
+        "observable": {
+          "eventTypes": [
+            "tool.result",
+            "verifier.verdict"
+          ],
+          "anyOf": [
+            {
+              "eventTypes": [
+                "tool.result"
+              ],
+              "match": {
+                "tool": "shell",
+                "summary~=": "20 passed"
+              }
+            },
+            {
+              "eventTypes": [
+                "verifier.verdict"
+              ],
+              "match": {
+                "verdict": "pass"
+              }
+            }
+          ]
+        },
+        "label": "full test evidence"
+      }
+    }
+  ],
+  "completion": [
+    {
+      "id": "refactor-landed",
+      "terminal": {
+        "success": true
+      },
+      "description": "Refactor committed with green full-suite evidence"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "fixture"
+}

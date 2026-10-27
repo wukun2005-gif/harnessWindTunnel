@@ -1,0 +1,107 @@
+{
+  "contractId": "tc-task-g7-amendment-extension",
+  "target": {
+    "kind": "task",
+    "id": "G7"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "P2 full-coverage review · 683-run replay audit",
+  "checkpoints": [
+    {
+      "id": "cp-context",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.request",
+          "tool.call"
+        ],
+        "anyOf": [
+          {
+            "eventTypes": [
+              "model.request"
+            ],
+            "match": {
+              "estTokens>=": "4500"
+            }
+          },
+          {
+            "eventTypes": [
+              "tool.call"
+            ],
+            "match": {
+              "tool": "fs_read",
+              "argsSummary~=": "修改后权利要求"
+            }
+          }
+        ]
+      },
+      "description": "The source material for “added-matter check under Article 33” reached the run before the answer: read from the dossier with fs_read, or already carried in the request context. Both are legitimate walks; neither is required in particular."
+    },
+    {
+      "id": "cp-read",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs_read",
+          "argsSummary~=": "修改后权利要求"
+        }
+      },
+      "description": "Open the dossier document matching “修改后权利要求”"
+    },
+    {
+      "id": "cp-answer",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.response"
+        ],
+        "match": {
+          "stopReason!=": "tool_calls"
+        }
+      },
+      "description": "Deliver “added-matter check under Article 33” as a final answer rather than another tool turn"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-preloaded-context",
+      "nodes": [
+        "cp-context",
+        "cp-answer"
+      ],
+      "edges": []
+    },
+    {
+      "id": "p-read-dossier",
+      "nodes": [
+        "cp-context",
+        "cp-read",
+        "cp-answer"
+      ],
+      "edges": [
+        [
+          "cp-read",
+          "cp-answer"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [],
+  "completion": [
+    {
+      "id": "answer-delivered",
+      "terminal": {
+        "success": true
+      },
+      "requiredCheckpointsComplete": true,
+      "description": "“added-matter check under Article 33” delivered on top of evidence that was either read or preloaded"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "live"
+}

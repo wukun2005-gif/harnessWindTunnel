@@ -59,7 +59,7 @@ test('tag set holds 10 uniquely-anchored steps with non-empty gold label sets', 
   assert.equal(getTagTask('zzz'), undefined)
 })
 
-test('ground-truth completeness: per-branch gold union equals fixture failureModes keys', () => {
+test('ground-truth completeness: tag-set branches\' gold union equals fixture failureModes keys', () => {
   const tasks = loadTagSet()
   const goldByBranch = new Map<string, Set<string>>()
   for (const t of tasks) {
@@ -67,6 +67,11 @@ test('ground-truth completeness: per-branch gold union equals fixture failureMod
     if (!goldByBranch.has(key)) goldByBranch.set(key, new Set())
     for (const g of t.goldTags) goldByBranch.get(key)!.add(g)
   }
+
+  // F7 guard-only traces are not part of the P1-C tag set (they exist so the
+  // evolution guardrail has a sampled branch). They are exempt from the gold
+  // union check but must still annotate the same failure mode the run reports.
+  const GUARD_ONLY = new Set(['coding-terminal-refactor/r1-naive.jsonl'])
 
   const scenarioRoot = join(process.cwd(), 'data', 'scenarios')
   let branchesChecked = 0
@@ -82,11 +87,16 @@ test('ground-truth completeness: per-branch gold union equals fixture failureMod
       const entries = readFileSync(join(dir, f), 'utf8')
         .split('\n')
         .filter((l) => l.trim())
-        .map((l) => JSON.parse(l) as { type?: string; failureModes?: Record<string, number> })
+        .map((l) => JSON.parse(l) as { type?: string; mast?: string; failureModes?: Record<string, number> })
       const finished = entries.filter((e) => e.type === 'run.finished' && e.failureModes)
       if (finished.length === 0) continue
       const fixtureTags = new Set<string>()
       for (const e of finished) for (const k of Object.keys(e.failureModes!)) fixtureTags.add(k)
+      if (GUARD_ONLY.has(`${sid}/${f}`)) {
+        const tagged = new Set(entries.filter((e) => e.type === 'failure.tag').map((e) => e.mast))
+        for (const k of fixtureTags) assert.ok(tagged.has(k), `${sid}/${f}: failure.tag must cover ${k}`)
+        continue
+      }
       const gold = goldByBranch.get(`${sid}/${f}`) ?? new Set<string>()
       assert.deepEqual(
         [...gold].sort(),

@@ -1,5 +1,6 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { api } from '../../api'
+import { useT } from '../../i18n'
 
 interface Props {
   onImported: () => void
@@ -21,6 +22,7 @@ const ACCEPT = '.json,.jsonl,.txt'
  * dsh JSON) and plain text, auto-detected by content.
  */
 export function ImportBar({ onImported }: Props) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [paste, setPaste] = useState('')
@@ -69,7 +71,7 @@ export function ImportBar({ onImported }: Props) {
   return (
     <div className="pg-import">
       <button className="pg-import-btn" onClick={() => { setOpen((v) => !v); setResult(null) }}>
-        ⤓ Import trajectory
+        {t('playground.import.button')}
       </button>
 
       {open && (
@@ -80,8 +82,8 @@ export function ImportBar({ onImported }: Props) {
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
           >
-            <div className="pg-drop-title">Drop a trajectory file, or click to choose</div>
-            <div className="pg-drop-sub">.json / .jsonl / .txt — the format is detected automatically</div>
+            <div className="pg-drop-title">{t('playground.import.dropTitle')}</div>
+            <div className="pg-drop-sub">{t('playground.import.dropSub')}</div>
             <input
               ref={fileRef}
               type="file"
@@ -91,17 +93,17 @@ export function ImportBar({ onImported }: Props) {
               onChange={(e) => { void handleFiles(e.target.files ?? []); e.target.value = '' }}
             />
             <button className="pg-pick-btn" onClick={() => fileRef.current?.click()} disabled={busy}>
-              {busy ? 'Importing…' : 'Choose file'}
+              {busy ? t('playground.import.busy') : t('playground.import.choose')}
             </button>
           </div>
 
           <div className="pg-paste">
-            <div className="pg-paste-label">Or paste the text directly</div>
+            <div className="pg-paste-label">{t('playground.import.pasteLabel')}</div>
             <textarea
               className="pg-paste-area"
               value={paste}
               onChange={(e) => setPaste(e.target.value)}
-              placeholder="hwt JSON envelope / JSONL (one JSON per line) / dsh JSON / plain text"
+              placeholder={t('playground.import.pastePlaceholder')}
               rows={5}
             />
             <button
@@ -109,7 +111,7 @@ export function ImportBar({ onImported }: Props) {
               disabled={busy || !paste.trim()}
               onClick={() => { void sendText(paste); setPaste('') }}
             >
-              Import pasted text
+              {t('playground.import.pasteAction')}
             </button>
           </div>
 
@@ -117,13 +119,13 @@ export function ImportBar({ onImported }: Props) {
             <div className={`pg-import-result ${result.ok && result.imported.length > 0 ? 'ok' : 'bad'}`}>
               {result.ok && result.imported.length > 0 ? (
                 <>
-                  Imported {result.imported.length} run(s)
-                  {result.formats?.length ? ` · formats ${result.formats.join(' / ')}` : ''}
-                  {result.skipped ? ` · skipped ${result.skipped} line(s)` : ''}
-                  <div className="pg-import-hint">Imported trajectories stay out of the statistics by default; link them to an eval task in the detail view and re-score to include them.</div>
+                  {t('playground.import.ok', { n: result.imported.length })}
+                  {result.formats?.length ? t('playground.import.formats', { formats: result.formats.join(' / ') }) : ''}
+                  {result.skipped ? t('playground.import.skipped', { n: result.skipped }) : ''}
+                  <div className="pg-import-hint">{t('playground.import.hint')}</div>
                 </>
               ) : (
-                <>Import failed: {result.error ?? 'unknown error'}</>
+                <>{t('playground.import.failed', { error: result.error ?? t('playground.import.unknown') })}</>
               )}
             </div>
           )}

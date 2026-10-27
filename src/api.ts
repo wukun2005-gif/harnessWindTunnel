@@ -5,6 +5,8 @@ import type { AdaptationDoc } from '../shared/reliability'
 import type { LegalBundle } from '../shared/legal'
 import type { RedteamBundle } from '../shared/redteam'
 import type { ModelInfo, ProviderConfig } from '../shared/provider'
+import type { TrajectoryTagRecord, TrajectoryVerdictResponse } from '../shared/trajectory'
+import type { ConsistencyReport, PilotTaskSummary, StabilityReport } from '../shared/trajectoryStats'
 import type { JevJudgeResult, JevReviewRecord, JevSettingsPatch, JevSettingsView } from '../shared/jev'
 import type { KnowledgeConfig, KnowledgeProviderType } from '../shared/knowledge'
 import type { RetrievalSettingsView, SearchProviderId } from '../shared/search'
@@ -110,6 +112,21 @@ export const api = {
       `/api/providers/${encodeURIComponent(providerId)}/verify-model`, { apiKey, baseUrl, modelId }),
   legal: () => jget<LegalBundle>('/api/legal'),
   redteam: () => jget<RedteamBundle>('/api/redteam'),
+  // ---- F7 Trajectory Evaluation (read-only, derived verdicts) ----
+  trajectoryVerdict: (runId: string) =>
+    jget<TrajectoryVerdictResponse>(`/api/trajectory/verdict?run=${encodeURIComponent(runId)}`),
+  trajectoryVerdicts: (scope?: string) =>
+    jget<{ verdicts: TrajectoryVerdictResponse[] }>(`/api/trajectory/verdicts${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`),
+  trajectoryPilot: () =>
+    jget<{ tasks: PilotTaskSummary[] }>('/api/trajectory/pilot'),
+  trajectoryPilotTask: (taskId: string) =>
+    jget<{ consistency: ConsistencyReport; stability: StabilityReport }>(
+      `/api/trajectory/pilot?task=${encodeURIComponent(taskId)}`,
+    ),
+  trajectoryTags: (runId: string) =>
+    jget<{ tags: TrajectoryTagRecord | null }>(`/api/trajectory/tags?run=${encodeURIComponent(runId)}`),
+  requestTrajectoryTags: (runId: string) =>
+    jpost<{ ok: boolean; tags?: TrajectoryTagRecord; error?: string }>('/api/trajectory/tags', { runId }),
   // ---- Knowledge base / retrieval settings / Search API (patentExaminator port) ----
   retrievalSettings: () =>
     jget<{ ok: boolean; settings: RetrievalSettingsView }>('/api/retrieval/settings'),

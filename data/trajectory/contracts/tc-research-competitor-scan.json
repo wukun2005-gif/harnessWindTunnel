@@ -1,0 +1,210 @@
+{
+  "contractId": "tc-research-competitor-scan",
+  "target": {
+    "kind": "scenario",
+    "id": "research-competitor-scan"
+  },
+  "version": "1.0.0",
+  "author": "Evaluations Team",
+  "reviewer": "F7 trajectory review board",
+  "checkpoints": [
+    {
+      "id": "cp-plan",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "model.response"
+        ],
+        "match": {
+          "thought^=": "Plan the searches"
+        }
+      },
+      "description": "Plan the searches before searching"
+    },
+    {
+      "id": "cp-search-a",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "web_search",
+          "argsSummary~=": "Competitor A"
+        }
+      },
+      "description": "Cover Competitor A pricing/positioning"
+    },
+    {
+      "id": "cp-search-b",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "web_search",
+          "argsSummary~=": "Competitor B"
+        }
+      },
+      "description": "Cover Competitor B positioning"
+    },
+    {
+      "id": "cp-search-c",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "web_search",
+          "argsSummary~=": "Competitor C"
+        }
+      },
+      "description": "Cover Competitor C — the window closes the moment the agent announces it has enough",
+      "window": {
+        "closesWith": {
+          "eventTypes": [
+            "model.response"
+          ],
+          "match": {
+            "thought~=": "enough to write the memo"
+          }
+        },
+        "label": "Wrap-up announcement"
+      }
+    },
+    {
+      "id": "cp-memo",
+      "kind": "required",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "fs.write",
+          "argsSummary^=": "brief/"
+        }
+      },
+      "description": "Write the comparison memo"
+    },
+    {
+      "id": "cp-source-trace",
+      "kind": "optional",
+      "observable": {
+        "eventTypes": [
+          "tool.call"
+        ],
+        "match": {
+          "tool": "web_search",
+          "argsSummary~=": "changelog"
+        }
+      },
+      "description": "Trace citations to an official source"
+    }
+  ],
+  "allowedPaths": [
+    {
+      "id": "p-plan-then-coverage",
+      "nodes": [
+        "cp-plan",
+        "cp-search-a",
+        "cp-search-b",
+        "cp-search-c",
+        "cp-memo"
+      ],
+      "edges": [
+        [
+          "cp-plan",
+          "cp-search-a"
+        ],
+        [
+          "cp-plan",
+          "cp-search-b"
+        ],
+        [
+          "cp-plan",
+          "cp-search-c"
+        ],
+        [
+          "cp-search-a",
+          "cp-memo"
+        ],
+        [
+          "cp-search-b",
+          "cp-memo"
+        ],
+        [
+          "cp-search-c",
+          "cp-memo"
+        ]
+      ]
+    },
+    {
+      "id": "p-coverage-then-trace",
+      "nodes": [
+        "cp-plan",
+        "cp-search-a",
+        "cp-search-b",
+        "cp-search-c",
+        "cp-source-trace",
+        "cp-memo"
+      ],
+      "edges": [
+        [
+          "cp-plan",
+          "cp-search-a"
+        ],
+        [
+          "cp-plan",
+          "cp-search-c"
+        ],
+        [
+          "cp-search-c",
+          "cp-source-trace"
+        ],
+        [
+          "cp-source-trace",
+          "cp-memo"
+        ],
+        [
+          "cp-search-b",
+          "cp-memo"
+        ],
+        [
+          "cp-search-a",
+          "cp-memo"
+        ]
+      ]
+    }
+  ],
+  "allowedActions": [],
+  "forbiddenActions": [
+    {
+      "id": "xf-fabricated-citation",
+      "label": "Citation that traces to no source",
+      "severity": "hard",
+      "observable": {
+        "eventTypes": [
+          "tool.result"
+        ],
+        "match": {
+          "tool": "fs.write",
+          "summary~=": "cannot be traced"
+        }
+      },
+      "description": "The memo cites an authority that appears in no search result"
+    }
+  ],
+  "completion": [
+    {
+      "id": "memo-traceable",
+      "terminal": {
+        "success": true
+      },
+      "description": "Memo written with every citation traceable to a search result"
+    }
+  ],
+  "recoveryWindow": 2,
+  "provenanceRule": "fixture"
+}

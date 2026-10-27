@@ -95,6 +95,33 @@
         "optimizer": "off"
       },
       "file": "fivelayer.jsonl"
+    },
+    {
+      "branchId": "unverified",
+      "fingerprint": "fe147ae3",
+      "config": {
+        "loopControl": "basic",
+        "toolset": "minimal",
+        "filesystem": "none",
+        "sandbox": "off",
+        "subAgents": "off",
+        "planner": "todo-list",
+        "memory": "none",
+        "compression": "five-layer",
+        "skills": "off",
+        "hooks": "off",
+        "permissions": "open",
+        "guides": "none",
+        "sensors": "none",
+        "selfVerify": "off",
+        "globalPolicy": "none",
+        "observability": "off",
+        "eval": "off",
+        "humanInLoop": "none",
+        "resume": "off",
+        "optimizer": "off"
+      },
+      "file": "unverified.jsonl"
     }
   ],
   "metrics": {
@@ -161,6 +188,26 @@
       "source": {
         "kind": "fixture",
         "label": "Illustrative data"
+      }
+    },
+    "fe147ae3": {
+      "successRate": 62,
+      "tokens": 160000,
+      "latencyP50": 178000,
+      "failureModes": {},
+      "runs": [
+        61.9,
+        61.4,
+        62.9,
+        61.5,
+        61.4,
+        65.3,
+        63.7,
+        59.2
+      ],
+      "source": {
+        "kind": "fixture",
+        "label": "Illustrative data (fluke-success sample: terminal success, one unverified figure)"
       }
     }
   }

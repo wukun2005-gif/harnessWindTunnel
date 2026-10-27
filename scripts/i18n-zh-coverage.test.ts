@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { fixture } from '../src/i18n'
+import { fixture, t } from '../src/i18n'
 import { deriveRun } from '../src/lib/derive'
 import { COMPONENT_META } from '../shared/config'
 import { PRESETS } from '../shared/presets'
@@ -39,6 +39,11 @@ test('all rendered fixture prose has Chinese translations', () => {
   // Replay-derived strings: thoughts, tool summaries, marker labels/details, previews.
   for (const metaPath of files(resolve('data/scenarios')).filter((p) => p.endsWith('meta.json'))) {
     const meta = JSON.parse(readFileSync(metaPath, 'utf8'))
+    // Scenario family and task headers render through t(), not fixture().
+    for (const key of [`scenario.${meta.scenarioId}.family`, `scenario.${meta.scenarioId}.task`]) {
+      const zh = t(key, 'zh')
+      assert.ok(zh !== key && han.test(zh), `Missing Chinese key: ${key}`)
+    }
     for (const b of meta.branches.filter((x: { file?: string }) => x.file)) {
       const events = readFileSync(resolve(metaPath, '..', 'branches', b.file), 'utf8').trim().split('\n').map((line) => JSON.parse(line)) as HarnessEvent[]
       const run = deriveRun(events)
@@ -48,6 +53,25 @@ test('all rendered fixture prose has Chinese translations', () => {
         for (const m of [...s.markers, ...s.tags]) { check(m.label); check(m.detail) }
         for (const blk of s.blocks) if (blk.preview) check(blk.preview)
       }
+    }
+  }
+
+  // Trajectory contracts (fixture + P2 live pilot): checkpoint prose, windows,
+  // allowed / forbidden action prose and completion rules are all user-visible
+  // in the band, the Legal column and the Security stage trail.
+  for (const dir of ['contracts', 'live-contracts']) {
+    for (const file of readdirSync(resolve('data/trajectory', dir)).filter((x) => x.endsWith('.json'))) {
+      const c = JSON.parse(readFileSync(resolve('data/trajectory', dir, file), 'utf8'))
+      for (const cp of c.checkpoints) {
+        check(cp.description)
+        if (cp.window?.label) check(cp.window.label)
+      }
+      for (const a of c.allowedActions ?? []) check(a.description)
+      for (const fa of c.forbiddenActions ?? []) {
+        check(fa.label); check(fa.description)
+        if (fa.requires?.label) check(fa.requires.label)
+      }
+      for (const rule of c.completion ?? []) check(rule.description)
     }
   }
 

@@ -3,6 +3,8 @@ import { api } from '../../api'
 import { useI18n, useT, useFixture } from '../../i18n'
 import { SourceBadge } from '../MRI'
 import { ReadGuide } from '../../components/ReadGuide'
+import { CellBadge, TrajectorySourceBadge, useTrajectoryVerdict } from '../../components/TrajectoryVerdict'
+import type { TrajectoryVerdictResponse } from '../../../shared/trajectory'
 import {
   ABA_DUTIES,
   CN_FILING_NOTE,
@@ -55,7 +57,12 @@ export default function Legal() {
     return () => { live = false }
   }, [])
 
-  if (!bundle) {
+  // F7: each dossier replays as a pre-recorded legal trace with its own contract.
+  // The hook must run before the early return so the hook order stays stable.
+  const dossier = bundle?.dossiers.find((d) => d.id === dossierId) ?? bundle?.dossiers[0]
+  const { data: traj } = useTrajectoryVerdict(dossier ? `legal#${dossier.id}` : null)
+
+  if (!bundle || !dossier) {
     return (
       <div className="page">
         <div className="screen-head"><span className="no">{t('legal.eyebrow')}</span><h1>{t('legal.title')}</h1></div>
@@ -64,7 +71,6 @@ export default function Legal() {
     )
   }
 
-  const dossier = bundle.dossiers.find((d) => d.id === dossierId) ?? bundle.dossiers[0]
   const toggle = (c: LegalControl) => setControls((s) => ({ ...s, [c]: !s[c] }))
   const setAll = (mode: 'bare' | 'gated' | 'enforced') => setControls(() => Object.fromEntries(LEGAL_CONTROLS.map((c) => {
     const enforced = LEGAL_CONTROL_ENFORCEMENT[c] === 'enforced'
@@ -110,6 +116,7 @@ export default function Legal() {
             residual={residual.length}
             enforcedOn={enforcedOn}
             guidesOn={guidesOn}
+            traj={traj}
           />
           <Staircase bundle={bundle} dossierRefs={dossier.refs} route={route} />
         </div>
@@ -193,7 +200,7 @@ const ASSERT_COLOR: Record<string, string> = {
 }
 
 /** F5-2 case review: dossier → atomic assertions → ABA report. */
-function CaseReview({ dossier, dossiers, select, catchersFor, caught, residual, enforcedOn, guidesOn }: {
+function CaseReview({ dossier, dossiers, select, catchersFor, caught, residual, enforcedOn, guidesOn, traj }: {
   dossier: Dossier
   dossiers: Dossier[]
   select: (id: string) => void
@@ -202,11 +209,25 @@ function CaseReview({ dossier, dossiers, select, catchersFor, caught, residual, 
   residual: number
   enforcedOn: number
   guidesOn: number
+  traj: TrajectoryVerdictResponse | null
 }) {
   const t = useT()
   const f = useFixture()
+  const [openEvidence, setOpenEvidence] = useState<string | null>(null)
   const flagged = dossier.assertions.filter((a) => a.label !== 'supported')
   const rules = [...new Set(dossier.assertions.flatMap((a) => a.aba ?? []))].sort()
+  // A trace assertion carries the same claim text as the dossier row, so the
+  // process verdict can be attached to the assertion the user is reading.
+  const violationByText = new Map(
+    (traj?.verdict.evidence ?? [])
+      .filter((e) => e.kind === 'violation')
+      .map((e) => [e.text, e]),
+  )
+  const required = traj?.verdict.checkpoints.filter((c) => c.kind === 'required') ?? []
+  const passed = required.filter((c) => c.completed).length
+  const blocked = traj?.verdict.steps.filter((s) => s.blockedCorrect).length ?? 0
+  const cleanControl = !!traj && !traj.verdict.hardViolation && traj.verdict.softViolations === 0
+  const ruleFor = (ref: string) => traj?.contract.forbidden.find((x) => x.id === ref)
   return (
     <div className="panel" data-demo="case">
       <h3>{t('legal.review.title')} <span className="tag">{t('legal.review.tag')}</span></h3>
@@ -219,10 +240,34 @@ function CaseReview({ dossier, dossiers, select, catchersFor, caught, residual, 
       </div>
       <p className="muted" style={{ fontSize: 13, marginBottom: 6 }}>{f(dossier.memo)}</p>
       <div className="faint" style={{ marginBottom: 10 }}>{t('legal.review.mode', { enforced: enforcedOn, guides: guidesOn })}</div>
+
+      {/* F7-4 legal landing: per-dossier trajectory summary + per-assertion process state. */}
+      <div className="legal-traj-head" data-demo="legal-traj">
+        <div className="row" style={{ marginBottom: 4 }}>
+          <b>{t('legal.traj.title')}</b>
+          <CellBadge cell={traj?.verdict.cell ?? null} />
+          {traj && <TrajectorySourceBadge source={traj.verdict.source} />}
+          <span className="mono" style={{ fontSize: 10.5 }}>{traj ? `${traj.contract.contractId} · v${traj.contract.version}` : ''}</span>
+        </div>
+        {traj ? (
+          <div className="row">
+            <span>{t('traj.csr.label')}: <b>{traj.verdict.csr === null ? t('traj.unknown') : `${passed}/${required.length}`}</b></span>
+            <span>{t('traj.div.label')}: <b>{traj.verdict.firstDivergence === null ? t('traj.div.none') : t('traj.div.value', { step: traj.verdict.firstDivergence })}</b></span>
+            <span>{t('legal.traj.counts', { hard: traj.verdict.hardViolation ? 1 : 0, soft: traj.verdict.softViolations, blocked })}</span>
+          </div>
+        ) : (
+          <div className="faint">{t('legal.traj.noTrace')}</div>
+        )}
+        {cleanControl && <div className="legal-traj-clean">✓ {t('legal.traj.clean')}</div>}
+      </div>
+
       {dossier.assertions.map((a) => {
         const hit = catchersFor(a)
-        const blocked = hit.enforced.length > 0
-        const guideOnly = !blocked && hit.guides.length > 0
+        const blockedAssert = hit.enforced.length > 0
+        const guideOnly = !blockedAssert && hit.guides.length > 0
+        const vio = violationByText.get(a.text)
+        const rule = vio ? ruleFor(vio.ref) : undefined
+        const evidenceOpen = openEvidence === a.id
         return (
           <div key={a.id} style={{ borderLeft: `3px solid ${ASSERT_COLOR[a.label]}`, padding: '6px 10px', margin: '6px 0', background: 'var(--bg-panel2)', borderRadius: '0 8px 8px 0' }}>
             <div style={{ fontSize: 13 }}>{f(a.text)}</div>
@@ -231,13 +276,28 @@ function CaseReview({ dossier, dossiers, select, catchersFor, caught, residual, 
               <span className="faint"> · {f(a.note)}</span>
             </div>
             {a.label !== 'supported' && (
-              <div style={{ fontSize: 11.5, marginTop: 3, color: blocked ? 'var(--green)' : guideOnly ? 'var(--amber)' : 'var(--red)' }}>
-                {blocked
+              <div style={{ fontSize: 11.5, marginTop: 3, color: blockedAssert ? 'var(--green)' : guideOnly ? 'var(--amber)' : 'var(--red)' }}>
+                {blockedAssert
                   ? `🛡 ${t('legal.review.caught', { controls: hit.enforced.map((c) => t(`legal.control.${c}`)).join(', ') })}`
                   : guideOnly
                     ? `◐ ${t('legal.review.guideOnly', { controls: hit.guides.map((c) => t(`legal.control.${c}`)).join(', ') })}`
                     : `○ ${t('legal.review.uncaught')}`}
               </div>
+            )}
+            {traj && (
+              vio ? (
+                <button
+                  className={`legal-traj-line ${vio.kind === 'violation' ? (rule?.severity ?? 'soft') : 'none'}`}
+                  style={{ display: 'block', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                  onClick={() => setOpenEvidence(evidenceOpen ? null : a.id)}
+                >
+                  {rule?.severity === 'hard' ? '✕ ' + t('legal.traj.hard', { step: vio.step }) : '△ ' + t('legal.traj.soft', { step: vio.step })}
+                  {rule && <> · {f(rule.label)}</>}
+                  {evidenceOpen && <span className="faint mono"> · {t('legal.traj.evidence')}: {vio.eventId}</span>}
+                </button>
+              ) : (
+                <div className="legal-traj-line clean">✓ {t('legal.traj.cleanAssert')}</div>
+              )
             )}
           </div>
         )

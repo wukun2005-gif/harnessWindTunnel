@@ -17,6 +17,9 @@ import { handlePlaygroundRoute } from './playground/routes'
 import { verifyJevTarget } from './playground/jevClient'
 import { recoverQueuedRuns } from './playground/runner'
 import { recoverStuckCards } from './playground/evolve'
+import { loadContracts, verdictFor, verdictsFor, pilotSummary, consistencyFor, stabilityFor } from './trajectoryStore'
+import { getTrajectoryTags, tagTrajectory } from './playground/trajectoryTags'
+import { getRunDetail } from './playground/liveDb'
 import { isDecisionProvider } from '../shared/provider'
 import { JEV_MODEL_IDS, JEV_OPENCODE_MODEL_IDS, JEV_PROVIDER_ID_OPENCODE, JEV_PROVIDER_ID_OPENROUTER } from '../shared/jev'
 
@@ -227,6 +230,57 @@ const server = createServer((req, res) => {
       } catch {
         return json(res, 404, { error: 'no redteam bundle' })
       }
+    }
+
+    // ---- F7 Trajectory Evaluation (read-only; verdicts derived from contract + events) ----
+    if (p === '/api/trajectory/contracts') {
+      return json(res, 200, { contracts: loadContracts().map((c) => ({ contractId: c.contractId, target: c.target, version: c.version, author: c.author, reviewer: c.reviewer, pathCount: c.allowedPaths.length })) })
+    }
+    if (p === '/api/trajectory/verdict') {
+      const run = q.get('run')
+      if (!run) return json(res, 400, { error: 'run required' })
+      const v = verdictFor(run, q.get('version') ?? undefined)
+      if (!v) return json(res, 404, { error: `no verdict for ${run}` })
+      return json(res, 200, v)
+    }
+    if (p === '/api/trajectory/verdicts') {
+      return json(res, 200, { verdicts: verdictsFor(q.get('scope') ?? undefined) })
+    }
+    if (p === '/api/trajectory/pilot') {
+      const task = q.get('task')
+      if (!task) return json(res, 200, { tasks: pilotSummary() })
+      const consistency = consistencyFor(task)
+      const stability = stabilityFor(task)
+      if (!consistency || !stability) return json(res, 404, { error: `no pilot contract for ${task}` })
+      return json(res, 200, { consistency, stability })
+    }
+    // Failure tags are model-generated, non-gold evidence (P2 step 8). They are
+    // stored beside the run, never inside the event stream, and never read by
+    // the evaluator.
+    if (p === '/api/trajectory/tags' && req.method === 'GET') {
+      const run = q.get('run')
+      if (!run) return json(res, 400, { error: 'run required' })
+      return json(res, 200, { tags: getTrajectoryTags(run) })
+    }
+    if (p === '/api/trajectory/tags' && req.method === 'POST') {
+      void readBody(req).then(async (raw) => {
+        const { runId } = bodyJson<{ runId?: string }>(raw)
+        if (!runId) return json(res, 400, { ok: false, error: 'runId required' })
+        const envelope = verdictFor(runId)
+        const detail = getRunDetail(runId)
+        if (!envelope || !detail) return json(res, 404, { ok: false, error: `no pilot verdict for ${runId}` })
+        const out = await tagTrajectory({
+          runId,
+          taskId: detail.taskId,
+          taskTitle: detail.taskTitle,
+          domain: detail.domain,
+          answer: detail.answer,
+          events: detail.events,
+          verdict: envelope.verdict,
+        })
+        return out.ok ? json(res, 200, { ok: true, tags: out.record }) : json(res, 502, { ok: false, error: out.error })
+      })
+      return
     }
 
     const provMatch = p.match(/^\/api\/providers\/([^/]+)\/(models|verify-model)$/)
