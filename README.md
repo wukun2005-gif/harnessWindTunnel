@@ -1,5 +1,9 @@
 # HarnessWindTunnel
 
+> **Demo 视频（4 分钟）**：[▶ 一键演示实录 · Bilibili](https://www.bilibili.com/video/BV1n3nE6gEyW/)
+>
+> **产品需求文档 PRD**：[在线阅读 HTML（网页版）](https://wukun2005-gif.github.io/harnessWindTunnel/HarnessWindTunnel-PRD-v1.1.html) · [仓库源文件](HarnessWindTunnel-PRD-v1.1.html)
+
 给 AI Agent 的 harness 做风洞实验：固定模型与任务，对 20 个 harness 模块做受控消融与反事实对比，经人的批准做可回滚演化。
 
 **Agent = 模型 + harness。** 模型能力已经趋同，任务能不能可靠做完，取决于模型之外的 harness——循环、工具、记忆、上下文压缩、校验器、权限门。现有工具要么只回放单次轨迹，要么是黑盒自动改 harness 的研究代码。这里是一台**风洞**：用受控实验证清每个模块的边际作用，再把失败炼成一条经过验证、人批准、可回滚的配置改动。
@@ -70,7 +74,7 @@ src/stores/    # 回放、对照、演化三份状态
 server/        # 数据服务（:4000）：回放＋读数接口
 scripts/       # 数据生成、论文对数、文案测试
 data/          # 生成的数据（场景×分支＋演化曲线），勿手改
-HarnessWindTunnel-PRD-v1.1.html   # 产品需求文档
+HarnessWindTunnel-PRD-v1.1.html   # 产品需求文档（网页版见顶部链接）
 harness-research-v0.5.html        # 背后的调研报告
 ```
 
